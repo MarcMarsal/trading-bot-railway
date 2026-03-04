@@ -416,3 +416,5 @@ cron.schedule("2 * * * *", async () => {
 });
 
 console.log("Bot OKX MS/ES en marxa a Railway...");
+
+setInterval(() => {}, 1000 * 60 * 60);
