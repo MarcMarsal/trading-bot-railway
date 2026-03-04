@@ -110,9 +110,9 @@ function detectPattern(velas) {
   if (velas.length < 4) return { msNow: false, esNow: false };
 
   const n = velas.length;
-  const v1 = velas[n - 4];
-  const v2 = velas[n - 3];
-  const v3 = velas[n - 2];
+  const v1 = velas[n - 3];
+  const v2 = velas[n - 2];
+  const v3 = velas[n - 1];
 
   const msNow =
     isStrongBear(v1.open, v1.high, v1.low, v1.close) &&
@@ -449,4 +449,5 @@ console.log("Servidor keep-alive actiu");
 // INIT DB
 // -------------------------------------------------------------
 initDB();
+
 
