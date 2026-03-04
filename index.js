@@ -419,3 +419,13 @@ console.log("BOT VERSION 2 — Railway OK");
 
 
 setInterval(() => {}, 1000 * 60 * 60);
+
+import http from "http";
+
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end("Bot OKX MS/ES en marxa");
+}).listen(process.env.PORT || 3000);
+
+console.log("Servidor keep-alive actiu");
+
