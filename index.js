@@ -3,8 +3,45 @@
 // -------------------------------------------------------------
 import axios from "axios";
 import cron from "node-cron";
-import sqlite3 from "sqlite3";
-import { open } from "sqlite";
+import { Client } from "pg";
+import http from "http";
+
+// -------------------------------------------------------------
+// POSTGRESQL
+// -------------------------------------------------------------
+const client = new Client({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+async function initDB() {
+  await client.connect();
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS candles (
+      symbol TEXT,
+      timeframe TEXT,
+      open REAL,
+      high REAL,
+      low REAL,
+      close REAL,
+      volume REAL,
+      timestamp BIGINT
+    );
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS signals (
+      symbol TEXT,
+      timeframe TEXT,
+      tipo TEXT,
+      entry REAL,
+      timestamp BIGINT
+    );
+  `);
+
+  console.log("PostgreSQL OK — Taules creades");
+}
 
 // -------------------------------------------------------------
 // CONFIGURACIÓ
@@ -21,38 +58,6 @@ const SYMBOLS = [
 ];
 
 const API_URL = "https://www.okx.com/api/v5/market/candles";
-
-// Base de dades
-let db;
-(async () => {
-  db = await open({
-    filename: "database.db",
-    driver: sqlite3.Database
-  });
-
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS candles (
-      symbol TEXT,
-      timeframe TEXT,
-      open REAL,
-      high REAL,
-      low REAL,
-      close REAL,
-      volume REAL,
-      timestamp INTEGER
-    )
-  `);
-
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS signals (
-      symbol TEXT,
-      timeframe TEXT,
-      tipo TEXT,
-      entry REAL,
-      timestamp INTEGER
-    )
-  `);
-})();
 
 // -------------------------------------------------------------
 // FUNCIONS BASE (1:1 TradingView)
@@ -182,7 +187,7 @@ function structureOK(msNow, esNow, velas) {
 // -------------------------------------------------------------
 function inWindow(openTime) {
   const now = Date.now();
-  const periodMinutes = 10080; // 1 setmana
+  const periodMinutes = 10080;
   const startTime = now - periodMinutes * 60000;
   return openTime >= startTime;
 }
@@ -209,7 +214,7 @@ function classifySignal(velas) {
 }
 
 // -------------------------------------------------------------
-// INDICADORS: VOLUM I VOLATILITAT
+// INDICADORS
 // -------------------------------------------------------------
 function calcVolumeScore(velas) {
   if (velas.length < 10) return 0;
@@ -264,19 +269,21 @@ function calcTargets(tipoBase, entry, roi = 0.01) {
 }
 
 // -------------------------------------------------------------
-// ANTI-DUPLICATS
+// ANTI-DUPLICATS (POSTGRES)
 // -------------------------------------------------------------
 async function alreadySent(symbol, timeframe, tipo, entry) {
-  const row = await db.get(
-    `SELECT * FROM signals WHERE symbol=? AND timeframe=? AND tipo=? AND ABS(entry - ?) < 0.0000001`,
+  const res = await client.query(
+    `SELECT * FROM signals 
+     WHERE symbol=$1 AND timeframe=$2 AND tipo=$3 AND ABS(entry - $4) < 0.0000001`,
     [symbol, timeframe, tipo, entry]
   );
-  return !!row;
+  return res.rows.length > 0;
 }
 
 async function saveSignal(symbol, timeframe, tipo, entry, timestamp) {
-  await db.run(
-    `INSERT INTO signals (symbol, timeframe, tipo, entry, timestamp) VALUES (?, ?, ?, ?, ?)`,
+  await client.query(
+    `INSERT INTO signals (symbol, timeframe, tipo, entry, timestamp)
+     VALUES ($1,$2,$3,$4,$5)`,
     [symbol, timeframe, tipo, entry, timestamp]
   );
 }
@@ -303,19 +310,16 @@ async function fetchCandles(symbol, interval) {
 }
 
 // -------------------------------------------------------------
-// SAVE CANDLES
+// SAVE CANDLES (POSTGRES)
 // -------------------------------------------------------------
 async function saveCandles(symbol, timeframe, candles) {
-  const stmt = await db.prepare(`
-    INSERT INTO candles (symbol, timeframe, open, high, low, close, volume, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
   for (const c of candles) {
-    await stmt.run(symbol, timeframe, c.open, c.high, c.low, c.close, c.volume, c.timestamp);
+    await client.query(
+      `INSERT INTO candles (symbol, timeframe, open, high, low, close, volume, timestamp)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [symbol, timeframe, c.open, c.high, c.low, c.close, c.volume, c.timestamp]
+    );
   }
-
-  await stmt.finalize();
 }
 
 // -------------------------------------------------------------
@@ -417,10 +421,10 @@ cron.schedule("2 * * * *", async () => {
 
 console.log("BOT VERSION 2 — Railway OK");
 
-
+// -------------------------------------------------------------
+// KEEP-ALIVE
+// -------------------------------------------------------------
 setInterval(() => {}, 1000 * 60 * 60);
-
-import http from "http";
 
 http.createServer((req, res) => {
   res.writeHead(200);
@@ -429,3 +433,7 @@ http.createServer((req, res) => {
 
 console.log("Servidor keep-alive actiu");
 
+// -------------------------------------------------------------
+// INIT DB
+// -------------------------------------------------------------
+initDB();
