@@ -17,30 +17,34 @@ const client = new Client({
 async function initDB() {
   await client.connect();
 
+  // Taula CANDLES amb PK múltiple
   await client.query(`
     CREATE TABLE IF NOT EXISTS candles (
-      symbol TEXT,
-      timeframe TEXT,
-      open REAL,
-      high REAL,
-      low REAL,
-      close REAL,
-      volume REAL,
-      timestamp BIGINT
+      symbol TEXT NOT NULL,
+      timeframe TEXT NOT NULL,
+      open REAL NOT NULL,
+      high REAL NOT NULL,
+      low REAL NOT NULL,
+      close REAL NOT NULL,
+      volume REAL NOT NULL,
+      timestamp BIGINT NOT NULL,
+      PRIMARY KEY (symbol, timeframe, timestamp)
     );
   `);
 
+  // Taula SIGNALS amb PK per evitar duplicats
   await client.query(`
     CREATE TABLE IF NOT EXISTS signals (
-      symbol TEXT,
-      timeframe TEXT,
-      tipo TEXT,
-      entry REAL,
-      timestamp BIGINT
+      symbol TEXT NOT NULL,
+      timeframe TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      entry REAL NOT NULL,
+      timestamp BIGINT NOT NULL,
+      PRIMARY KEY (symbol, timeframe, tipo, timestamp)
     );
   `);
 
-  console.log("PostgreSQL OK — Taules creades");
+  console.log("PostgreSQL OK — Taules creades amb PK");
 }
 
 // -------------------------------------------------------------
@@ -273,7 +277,7 @@ function calcTargets(tipoBase, entry, roi = 0.01) {
 // -------------------------------------------------------------
 async function alreadySent(symbol, timeframe, tipo, entry) {
   const res = await client.query(
-    `SELECT * FROM signals 
+    `SELECT 1 FROM signals 
      WHERE symbol=$1 AND timeframe=$2 AND tipo=$3 AND ABS(entry - $4) < 0.0000001`,
     [symbol, timeframe, tipo, entry]
   );
@@ -283,7 +287,8 @@ async function alreadySent(symbol, timeframe, tipo, entry) {
 async function saveSignal(symbol, timeframe, tipo, entry, timestamp) {
   await client.query(
     `INSERT INTO signals (symbol, timeframe, tipo, entry, timestamp)
-     VALUES ($1,$2,$3,$4,$5)`,
+     VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (symbol, timeframe, tipo, timestamp) DO NOTHING`,
     [symbol, timeframe, tipo, entry, timestamp]
   );
 }
@@ -310,13 +315,20 @@ async function fetchCandles(symbol, interval) {
 }
 
 // -------------------------------------------------------------
-// SAVE CANDLES (POSTGRES)
+// SAVE CANDLES (POSTGRES) — UPSERT
 // -------------------------------------------------------------
 async function saveCandles(symbol, timeframe, candles) {
   for (const c of candles) {
     await client.query(
       `INSERT INTO candles (symbol, timeframe, open, high, low, close, volume, timestamp)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT (symbol, timeframe, timestamp)
+       DO UPDATE SET
+         open = EXCLUDED.open,
+         high = EXCLUDED.high,
+         low = EXCLUDED.low,
+         close = EXCLUDED.close,
+         volume = EXCLUDED.volume`,
       [symbol, timeframe, c.open, c.high, c.low, c.close, c.volume, c.timestamp]
     );
   }
@@ -419,7 +431,7 @@ cron.schedule("2 * * * *", async () => {
   }
 });
 
-console.log("BOT VERSION 2 — Railway OK");
+console.log("BOT VERSION 3 — Railway OK, UPSERT actiu");
 
 // -------------------------------------------------------------
 // KEEP-ALIVE
