@@ -415,6 +415,7 @@ cron.schedule("2 * * * *", async () => {
   }
 });
 
-console.log("Bot OKX MS/ES en marxa a Railway...");
+console.log("BOT VERSION 2 — Railway OK");
+
 
 setInterval(() => {}, 1000 * 60 * 60);
