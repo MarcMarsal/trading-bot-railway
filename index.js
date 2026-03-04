@@ -66,7 +66,7 @@ const API_URL = "https://www.okx.com/api/v5/market/candles";
 // -------------------------------------------------------------
 // FUNCIONS BASE (1:1 TradingView)
 // -------------------------------------------------------------
-const strongBodyPct = 0.6;
+const strongBodyPct = 0.5;
 const minStrongRange = 0.0;
 const maxBodyPctIndecision = 0.3;
 const minRangeIndecision = 0.0;
@@ -449,3 +449,4 @@ console.log("Servidor keep-alive actiu");
 // INIT DB
 // -------------------------------------------------------------
 initDB();
+
