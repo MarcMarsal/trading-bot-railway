@@ -321,7 +321,7 @@ async function fetchCandles(symbol, interval) {
   if (!data || data.length === 0) return [];
 
   return data.reverse().map(k => ({
-    timestamp: parseInt(k[0]) * 1000, // OKX envia segons → convertir a ms
+    timestamp: parseInt(k[0]), // OKX envia segons → convertir a ms
     open: parseFloat(k[1]),
     high: parseFloat(k[2]),
     low: parseFloat(k[3]),
