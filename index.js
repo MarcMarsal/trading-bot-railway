@@ -64,64 +64,87 @@ const SYMBOLS = [
 const API_URL = "https://www.okx.com/api/v5/market/candles";
 
 // -------------------------------------------------------------
-// FUNCIONS BASE
+// FUNCIONS BASE (igual que TradingView)
 // -------------------------------------------------------------
-const strongBodyPct = 0.5;
+const strongBodyPct = 0.5; // igual que TradingView
 const minStrongRange = 0.0;
 const maxBodyPctIndecision = 0.3;
 const minRangeIndecision = 0.0;
 
-function body(o, c) { return Math.abs(c - o); }
-function range(h, l) { return h - l; }
+function body(o, c) {
+  return Math.abs(c - o);
+}
+
+function range(h, l) {
+  return h - l;
+}
 
 function bodyPct(o, h, l, c) {
   const r = range(h, l);
   return r === 0 ? 0 : body(o, c) / r;
 }
 
-function isBull(o, c) { return c > o; }
-function isBear(o, c) { return c < o; }
+function isBull(o, c) {
+  return c > o;
+}
+
+function isBear(o, c) {
+  return c < o;
+}
 
 function isStrongBull(o, h, l, c) {
   const bp = bodyPct(o, h, l, c);
   const rng = range(h, l);
   const rngPct = (rng / c) * 100;
-  return bp >= strongBodyPct && (minStrongRange <= 0 || rngPct >= minStrongRange) && isBull(o, c);
+  return (
+    bp >= strongBodyPct &&
+    (minStrongRange <= 0 || rngPct >= minStrongRange) &&
+    isBull(o, c)
+  );
 }
 
 function isStrongBear(o, h, l, c) {
   const bp = bodyPct(o, h, l, c);
   const rng = range(h, l);
   const rngPct = (rng / c) * 100;
-  return bp >= strongBodyPct && (minStrongRange <= 0 || rngPct >= minStrongRange) && isBear(o, c);
+  return (
+    bp >= strongBodyPct &&
+    (minStrongRange <= 0 || rngPct >= minStrongRange) &&
+    isBear(o, c)
+  );
 }
 
 function isIndecision(o, h, l, c) {
   const bp = bodyPct(o, h, l, c);
   const rng = range(h, l);
   const rngPct = (rng / c) * 100;
-  return bp <= maxBodyPctIndecision && (minRangeIndecision <= 0 || rngPct >= minRangeIndecision);
+  return (
+    bp <= maxBodyPctIndecision &&
+    (minRangeIndecision <= 0 || rngPct >= minRangeIndecision)
+  );
 }
 
 // -------------------------------------------------------------
-// DETECTPATTERN (versió TradingView)
+// DETECTPATTERN (versió TradingView real)
 // -------------------------------------------------------------
 function detectPattern(velas) {
   if (velas.length < 4) return { msNow: false, esNow: false };
 
   const n = velas.length;
+
+  // v1 = vela tancada anterior
+  // v2 = última vela tancada
+  // v3 = vela actual (igual que TV: c3 = close[1])
   const v1 = velas[n - 3];
   const v2 = velas[n - 2];
   const v3 = velas[n - 1];
 
-  const bull = (v) => v.close >= v.open;
-  const bear = (v) => v.close <= v.open;
-
-  const indecision = (v) => {
+  // strongBull / strongBear / indecision EXACTES com TradingView
+  const strongBull = (v) => {
     const body = Math.abs(v.close - v.open);
     const range = v.high - v.low;
-    if (range === 0) return true;
-    return (body / range) <= 0.5;
+    if (range === 0) return false;
+    return (body / range) >= 0.5 && v.close > v.open;
   };
 
   const strongBear = (v) => {
@@ -131,15 +154,23 @@ function detectPattern(velas) {
     return (body / range) >= 0.5 && v.close < v.open;
   };
 
-  const strongBull = (v) => {
+  const indecision = (v) => {
     const body = Math.abs(v.close - v.open);
     const range = v.high - v.low;
-    if (range === 0) return false;
-    return (body / range) >= 0.5 && v.close > v.open;
+    if (range === 0) return true;
+    return (body / range) <= 0.3; // igual que maxBodyPctIndecision a TV
   };
 
-  const esNow = bull(v1) && indecision(v2) && strongBear(v3);
-  const msNow = bear(v1) && indecision(v2) && strongBull(v3);
+  // MS / ES EXACTAMENT com TradingView
+  const msNow =
+    strongBear(v1) &&
+    indecision(v2) &&
+    strongBull(v3);
+
+  const esNow =
+    strongBull(v1) &&
+    indecision(v2) &&
+    strongBear(v3);
 
   return { msNow, esNow, v1, v2, v3 };
 }
@@ -160,7 +191,7 @@ function validTrend(msNow, esNow, v1, v2, v3) {
 // PIVOTS + STRUCTUREOK
 // -------------------------------------------------------------
 function findPivotLow(velas) {
-  const idx = velas.length - 3;
+  const idx = velas.length - 3; // v1, igual que TV
   if (idx < 2 || idx + 2 >= velas.length) return null;
 
   const center = velas[idx].low;
@@ -176,7 +207,7 @@ function findPivotLow(velas) {
 }
 
 function findPivotHigh(velas) {
-  const idx = velas.length - 3;
+  const idx = velas.length - 3; // v1, igual que TV
   if (idx < 2 || idx + 2 >= velas.length) return null;
 
   const center = velas[idx].high;
@@ -208,7 +239,7 @@ function structureOK(msNow, esNow, velas) {
 // -------------------------------------------------------------
 function inWindow(openTime) {
   const now = Date.now();
-  const periodMinutes = 10080;
+  const periodMinutes = 10080; // 1 setmana, igual que TV
   const startTime = now - periodMinutes * 60000;
   return openTime >= startTime;
 }
@@ -222,12 +253,15 @@ function classifySignal(velas) {
   const { msNow, esNow, v1, v2, v3 } = detectPattern(velas);
   if (!msNow && !esNow) return null;
 
+  // Igual que TradingView: la vela de senyal és v2 (close[1])
   if (!inWindow(v2.timestamp)) return null;
 
   const vt = validTrend(msNow, esNow, v1, v2, v3);
   const st = structureOK(msNow, esNow, velas);
 
   const tipoBase = msNow ? "MS" : "ES";
+
+  // Igual que TradingView: V si compleix context, X si no
   const tipoVX = (vt && st) ? "V" : "X";
 
   return { tipoBase, tipoVX, v2 };
@@ -378,7 +412,6 @@ async function saveCandles(symbol, timeframe, candles) {
     );
   }
 }
-
 // -------------------------------------------------------------
 // TELEGRAM
 // -------------------------------------------------------------
