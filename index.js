@@ -427,11 +427,15 @@ async function sendTelegram(message) {
   };
 
   try {
-    await axios.post(url, payload);
+    const res = await axios.post(url, payload);
+    if (res.status === 200) return true;
+    return false;
   } catch (e) {
     console.error("Error enviant Telegram:", e.message);
+    return false;
   }
 }
+
 
 // -------------------------------------------------------------
 // FORMAT HORA ESPANYOLA
@@ -496,8 +500,15 @@ cron.schedule("* * * * *", async () => {
       `Volum Score: <b>${volScore}</b>\n` +
       `Volatilitat Score: <b>${volatScore}</b>`;
 
-    await sendTelegram(msg);
-    await saveSignal(symbol, "5m", tipoFull, entry, v2.timestamp);
+    const sent = await sendTelegram(msg);
+
+    if (sent) {
+      await saveSignal(symbol, "5m", tipoFull, entry, v2.timestamp);
+      console.log(symbol, "→ SENYAL ENVIAT:", tipoFull);
+    } else {
+      console.log(symbol, "→ ERROR TELEGRAM, REINTENTARÀ AL PROPER CRON");
+    }
+
 
     console.log(symbol, "→ SENYAL ENVIAT:", tipoFull);
   }
