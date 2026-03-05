@@ -108,22 +108,25 @@ function detectPattern(velas) {
   if (velas.length < 4) return { msNow: false, esNow: false };
 
   const n = velas.length;
+
   const v1 = velas[n - 3]; // o[3]
   const v2 = velas[n - 2]; // o[2]
   const v3 = velas[n - 1]; // o[1]
 
-  const msNow =
-    isStrongBear(v1.open, v1.high, v1.low, v1.close) &&
-    isIndecision(v2.open, v2.high, v2.low, v2.close) &&
-    isStrongBull(v3.open, v3.high, v3.low, v3.close);
+  const bull1 = v1.close > v1.open;
+  const bear1 = v1.close < v1.open;
 
-  const esNow =
-    isStrongBull(v1.open, v1.high, v1.low, v1.close) &&
-    isIndecision(v2.open, v2.high, v2.low, v2.close) &&
-    isStrongBear(v3.open, v3.high, v3.low, v3.close);
+  const indecision2 = isIndecision(v2.open, v2.high, v2.low, v2.close);
+
+  const strongBull3 = isStrongBull(v3.open, v3.high, v3.low, v3.close);
+  const strongBear3 = isStrongBear(v3.open, v3.high, v3.low, v3.close);
+
+  const msNow = bear1 && indecision2 && strongBull3;
+  const esNow = bull1 && indecision2 && strongBear3;
 
   return { msNow, esNow, v1, v2, v3 };
 }
+
 
 // -------------------------------------------------------------
 // VALIDTREND (igual que TV, però només per marcar V/X)
