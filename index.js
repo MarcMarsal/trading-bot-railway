@@ -264,7 +264,9 @@ function classifySignal(velas) {
   const tipoBase = msNow ? "MS" : "ES";
 
   // Igual que TradingView: V si compleix context, X si no
-  const tipoVX = (vt && st) ? "V" : "X";
+  //const tipoVX = (vt && st) ? "V" : "X";
+  const tipoVX = "V";
+
 
   return { tipoBase, tipoVX, v2 };
 }
