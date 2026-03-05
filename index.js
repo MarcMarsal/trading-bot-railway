@@ -135,9 +135,10 @@ function detectPattern(velas) {
   // v1 = vela tancada anterior
   // v2 = última vela tancada
   // v3 = vela actual (igual que TV: c3 = close[1])
-  const v1 = velas[n - 3];
-  const v2 = velas[n - 2];
-  const v3 = velas[n - 1];
+  const v1 = velas[n - 4];
+  const v2 = velas[n - 3];
+  const v3 = velas[n - 2];
+
 
   // strongBull / strongBear / indecision EXACTES com TradingView
   const strongBull = (v) => {
@@ -254,7 +255,8 @@ function classifySignal(velas) {
   if (!msNow && !esNow) return null;
 
   // Igual que TradingView: la vela de senyal és v2 (close[1])
-  if (!inWindow(v2.timestamp)) return null;
+  if (!inWindow(v3.timestamp)) return null;
+
 
   const vt = validTrend(msNow, esNow, v1, v2, v3);
   const st = structureOK(msNow, esNow, velas);
@@ -460,6 +462,8 @@ cron.schedule("* * * * *", async () => {
     if (!signal) continue;
 
     const { tipoBase, tipoVX, v2 } = signal;
+    if (tipoVX === "X") continue;
+
 
     const entry = v2.close;
     const { tp, sl } = calcTargets(tipoBase, entry);
