@@ -313,7 +313,7 @@ async function saveSignal(symbol, timeframe, tipo, entry, timestamp) {
 // FETCH CANDLES OKX
 // -------------------------------------------------------------
 async function fetchCandles(symbol, interval) {
-  const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=100`;
+  const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=5`;
 
   const res = await axios.get(url);
   const data = res.data.data;
@@ -321,7 +321,7 @@ async function fetchCandles(symbol, interval) {
   if (!data || data.length === 0) return [];
 
   return data.reverse().map(k => ({
-    timestamp: parseInt(k[0]), // OKX envia segons → convertir a ms
+    timestamp: parseInt(k[0]),
     open: parseFloat(k[1]),
     high: parseFloat(k[2]),
     low: parseFloat(k[3]),
@@ -414,9 +414,9 @@ function formatSpainTime(ts) {
 }
 
 // -------------------------------------------------------------
-// CRON 5 MINUTS
+// CRON 1 MINUT (ABANS ERA 5 MINUTS)
 // -------------------------------------------------------------
-cron.schedule("*/5 * * * *", async () => {
+cron.schedule("* * * * *", async () => {
   for (const symbol of SYMBOLS) {
     const candles = await fetchCandles(symbol, "5m");
     if (candles.length === 0) continue;
@@ -460,39 +460,4 @@ cron.schedule("*/5 * * * *", async () => {
       `Volatilitat Score: <b>${volatScore}</b>`;
 
     await sendTelegram(msg);
-    await saveSignal(symbol, "5m", tipoFull, entry, v3.timestamp);
-
-    console.log(symbol, "→ SENYAL ENVIAT:", tipoFull);
-  }
-});
-
-// -------------------------------------------------------------
-// CRON 1H
-// -------------------------------------------------------------
-cron.schedule("2 * * * *", async () => {
-  for (const symbol of SYMBOLS) {
-    const candles = await fetchCandles(symbol, "1H");
-    if (candles.length === 0) continue;
-
-    await saveCandles(symbol, "1H", candles);
-  }
-});
-
-console.log("BOT VERSION 3 — Railway OK, UPSERT actiu");
-
-// -------------------------------------------------------------
-// KEEP-ALIVE
-// -------------------------------------------------------------
-setInterval(() => {}, 1000 * 60 * 60);
-
-http.createServer((req, res) => {
-  res.writeHead(200);
-  res.end("Bot OKX MS/ES en marxa");
-}).listen(process.env.PORT || 3000);
-
-console.log("Servidor keep-alive actiu");
-
-// -------------------------------------------------------------
-// INIT DB
-// -------------------------------------------------------------
-initDB();
+    await saveSignal(symbol, "5m", tipoFull, entry, v3
