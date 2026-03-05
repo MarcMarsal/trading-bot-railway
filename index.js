@@ -456,63 +456,83 @@ function formatSpainTime(ts) {
 // CRON 1 MINUT
 // -------------------------------------------------------------
 cron.schedule("* * * * *", async () => {
-  for (const symbol of SYMBOLS) {
-    const candles = await fetchCandles(symbol, "5m");
-    if (candles.length === 0) continue;
+  try {
+    for (const symbol of SYMBOLS) {
+      try {
+        const candles = await fetchCandles(symbol, "5m");
+        if (candles.length === 0) {
+          console.log(symbol, "→ sense veles");
+          continue;
+        }
 
-    await saveCandles(symbol, "5m", candles);
+        await saveCandles(symbol, "5m", candles);
 
-    const signal = classifySignal(candles);
-    if (!signal) continue;
+        const signal = classifySignal(candles);
+        if (!signal) {
+          console.log(symbol, "→ cap senyal");
+          continue;
+        }
 
-    const { tipoBase, tipoVX, v2 } = signal;
-    if (tipoVX === "X") continue;
+        const { tipoBase, tipoVX, v2 } = signal;
 
+        // Filtrar X si cal
+        if (tipoVX === "X") {
+          console.log(symbol, "→ senyal X descartada");
+          continue;
+        }
 
-    const entry = v2.close;
-    const { tp, sl } = calcTargets(tipoBase, entry);
+        const entry = v2.close;
+        const { tp, sl } = calcTargets(tipoBase, entry);
 
-    const body2 = Math.abs(v2.close - v2.open);
-    const entrySuggested =
-      tipoBase === "MS"
-        ? v2.close - body2 * 0.30
-        : v2.close + body2 * 0.30;
+        const body2 = Math.abs(v2.close - v2.open);
+        const entrySuggested =
+          tipoBase === "MS"
+            ? v2.close - body2 * 0.30
+            : v2.close + body2 * 0.30;
 
-    const { tp: tpSug, sl: slSug } = calcTargets(tipoBase, entrySuggested);
+        const { tp: tpSug, sl: slSug } = calcTargets(tipoBase, entrySuggested);
 
-    const volScore = calcVolumeScore(candles);
-    const volatScore = calcVolatilityScore(candles);
+        const volScore = calcVolumeScore(candles);
+        const volatScore = calcVolatilityScore(candles);
 
-    const tipoFull = `${tipoBase}_${tipoVX}`;
+        const tipoFull = `${tipoBase}_${tipoVX}`;
 
-    if (await alreadySent(symbol, "5m", tipoFull, entry)) continue;
+        if (await alreadySent(symbol, "5m", tipoFull, entry)) {
+          console.log(symbol, "→ ja enviat");
+          continue;
+        }
 
-    const hora = formatSpainTime(v2.timestamp);
+        const hora = formatSpainTime(v2.timestamp);
 
-    const msg =
-      `<b>${symbol} 5m</b>\n` +
-      `Senyal: <b>${tipoBase} ${tipoVX}</b>\n` +
-      `Hora: ${hora}\n\n` +
-      `Entrada: <b>${entry}</b>\n` +
-      `Entrada suggerida: <b>${entrySuggested.toFixed(6)}</b>\n` +
-      `TP: <b>${tp}</b> | SL: <b>${sl}</b>\n` +
-      `TP suggerit: <b>${tpSug}</b> | SL suggerit: <b>${slSug}</b>\n\n` +
-      `Volum Score: <b>${volScore}</b>\n` +
-      `Volatilitat Score: <b>${volatScore}</b>`;
+        const msg =
+          `<b>${symbol} 5m</b>\n` +
+          `Senyal: <b>${tipoBase} ${tipoVX}</b>\n` +
+          `Hora: ${hora}\n\n` +
+          `Entrada: <b>${entry}</b>\n` +
+          `Entrada suggerida: <b>${entrySuggested.toFixed(6)}</b>\n` +
+          `TP: <b>${tp}</b> | SL: <b>${sl}</b>\n` +
+          `TP suggerit: <b>${tpSug}</b> | SL suggerit: <b>${slSug}</b>\n\n` +
+          `Volum Score: <b>${volScore}</b>\n` +
+          `Volatilitat Score: <b>${volatScore}</b>`;
 
-    const sent = await sendTelegram(msg);
+        const sent = await sendTelegram(msg);
 
-    if (sent) {
-      await saveSignal(symbol, "5m", tipoFull, entry, v2.timestamp);
-      console.log(symbol, "→ SENYAL ENVIAT:", tipoFull);
-    } else {
-      console.log(symbol, "→ ERROR TELEGRAM, REINTENTARÀ AL PROPER CRON");
+        if (sent) {
+          await saveSignal(symbol, "5m", tipoFull, entry, v2.timestamp);
+          console.log(symbol, "→ SENYAL ENVIAT:", tipoFull);
+        } else {
+          console.log(symbol, "→ ERROR TELEGRAM, REINTENTARÀ");
+        }
+
+      } catch (err) {
+        console.error(symbol, "→ ERROR INTERIOR:", err.message);
+      }
     }
-
-
-    console.log(symbol, "→ SENYAL ENVIAT:", tipoFull);
+  } catch (err) {
+    console.error("ERROR GLOBAL AL CRON:", err.message);
   }
 });
+
 
 // -------------------------------------------------------------
 // CRON 1H
