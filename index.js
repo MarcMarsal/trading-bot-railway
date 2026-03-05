@@ -27,6 +27,8 @@ async function initDB() {
       close REAL NOT NULL,
       volume REAL NOT NULL,
       timestamp BIGINT NOT NULL,
+      timestamp_es BIGINT,
+      date_es TEXT,
       PRIMARY KEY (symbol, timeframe, timestamp)
     );
   `);
@@ -62,9 +64,9 @@ const SYMBOLS = [
 const API_URL = "https://www.okx.com/api/v5/market/candles";
 
 // -------------------------------------------------------------
-// FUNCIONS BASE (1:1 lògica TV)
+// FUNCIONS BASE
 // -------------------------------------------------------------
-const strongBodyPct = 0.5;          // ara mateix vols 0.5
+const strongBodyPct = 0.5;
 const minStrongRange = 0.0;
 const maxBodyPctIndecision = 0.3;
 const minRangeIndecision = 0.0;
@@ -102,31 +104,26 @@ function isIndecision(o, h, l, c) {
 }
 
 // -------------------------------------------------------------
-// DETECTPATTERN (mateixes 3 veles que TV)
+// DETECTPATTERN (versió TradingView)
 // -------------------------------------------------------------
 function detectPattern(velas) {
   if (velas.length < 4) return { msNow: false, esNow: false };
 
   const n = velas.length;
-
-  // TV: v1 = fa 3 veles, v2 = fa 2, v3 = última
   const v1 = velas[n - 3];
   const v2 = velas[n - 2];
   const v3 = velas[n - 1];
 
-  // TV: bull/bear tolerant
   const bull = (v) => v.close >= v.open;
   const bear = (v) => v.close <= v.open;
 
-  // TV: indecisió tolerant
   const indecision = (v) => {
     const body = Math.abs(v.close - v.open);
     const range = v.high - v.low;
-    if (range === 0) return true; 
+    if (range === 0) return true;
     return (body / range) <= 0.5;
   };
 
-  // TV: strong bear/bull tolerant
   const strongBear = (v) => {
     const body = Math.abs(v.close - v.open);
     const range = v.high - v.low;
@@ -141,23 +138,14 @@ function detectPattern(velas) {
     return (body / range) >= 0.5 && v.close > v.open;
   };
 
-  // TV: patrons
-  const esNow =
-    bull(v1) &&
-    indecision(v2) &&
-    strongBear(v3);
-
-  const msNow =
-    bear(v1) &&
-    indecision(v2) &&
-    strongBull(v3);
+  const esNow = bull(v1) && indecision(v2) && strongBear(v3);
+  const msNow = bear(v1) && indecision(v2) && strongBull(v3);
 
   return { msNow, esNow, v1, v2, v3 };
 }
 
-
 // -------------------------------------------------------------
-// VALIDTREND (igual que TV, però només per marcar V/X)
+// VALIDTREND
 // -------------------------------------------------------------
 function validTrend(msNow, esNow, v1, v2, v3) {
   const mid1 = (v1.open + v1.close) / 2;
@@ -169,7 +157,7 @@ function validTrend(msNow, esNow, v1, v2, v3) {
 }
 
 // -------------------------------------------------------------
-// PIVOTS + STRUCTUREOK (igual que TV, però només per V/X)
+// PIVOTS + STRUCTUREOK
 // -------------------------------------------------------------
 function findPivotLow(velas) {
   const idx = velas.length - 3;
@@ -216,7 +204,7 @@ function structureOK(msNow, esNow, velas) {
 }
 
 // -------------------------------------------------------------
-// INWINDOW (mateix concepte que TV: 1 setmana)
+// INWINDOW
 // -------------------------------------------------------------
 function inWindow(openTime) {
   const now = Date.now();
@@ -226,7 +214,7 @@ function inWindow(openTime) {
 }
 
 // -------------------------------------------------------------
-// CLASSIFYSIGNAL — COM TV: patró + finestra; vt/st només marquen V/X
+// CLASSIFYSIGNAL
 // -------------------------------------------------------------
 function classifySignal(velas) {
   if (velas.length < 4) return null;
@@ -240,13 +228,13 @@ function classifySignal(velas) {
   const st = structureOK(msNow, esNow, velas);
 
   const tipoBase = msNow ? "MS" : "ES";
-  const tipoVX = (vt && st) ? "V" : "X"; // NO bloqueja, només etiqueta
+  const tipoVX = (vt && st) ? "V" : "X";
 
   return { tipoBase, tipoVX, v3 };
 }
 
 // -------------------------------------------------------------
-// INDICADORS (volum / volatilitat, només informatius)
+// INDICADORS
 // -------------------------------------------------------------
 function calcVolumeScore(velas) {
   if (velas.length < 10) return 0;
@@ -301,7 +289,7 @@ function calcTargets(tipoBase, entry, roi = 0.01) {
 }
 
 // -------------------------------------------------------------
-// ANTI-DUPLICATS (POSTGRES)
+// ANTI-DUPLICATS
 // -------------------------------------------------------------
 async function alreadySent(symbol, timeframe, tipo, entry) {
   const res = await client.query(
@@ -333,7 +321,7 @@ async function fetchCandles(symbol, interval) {
   if (!data || data.length === 0) return [];
 
   return data.reverse().map(k => ({
-    timestamp: parseInt(k[0]),
+    timestamp: parseInt(k[0]) * 1000, // OKX envia segons → convertir a ms
     open: parseFloat(k[1]),
     high: parseFloat(k[2]),
     low: parseFloat(k[3]),
@@ -343,21 +331,50 @@ async function fetchCandles(symbol, interval) {
 }
 
 // -------------------------------------------------------------
-// SAVE CANDLES (POSTGRES) — UPSERT
+// SAVE CANDLES (POSTGRES) — UPSERT + DATA ESPANYOLA
 // -------------------------------------------------------------
 async function saveCandles(symbol, timeframe, candles) {
   for (const c of candles) {
+
+    const ts = c.timestamp;
+
+    const tsEs = new Date(
+      new Date(ts).toLocaleString("en-US", { timeZone: "Europe/Madrid" })
+    ).getTime();
+
+    const dateEs = new Date(ts).toLocaleString("es-ES", {
+      timeZone: "Europe/Madrid",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).replace(",", "");
+
     await client.query(
-      `INSERT INTO candles (symbol, timeframe, open, high, low, close, volume, timestamp)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO candles (symbol, timeframe, open, high, low, close, volume, timestamp, timestamp_es, date_es)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        ON CONFLICT (symbol, timeframe, timestamp)
        DO UPDATE SET
          open = EXCLUDED.open,
          high = EXCLUDED.high,
          low = EXCLUDED.low,
          close = EXCLUDED.close,
-         volume = EXCLUDED.volume`,
-      [symbol, timeframe, c.open, c.high, c.low, c.close, c.volume, c.timestamp]
+         volume = EXCLUDED.volume,
+         timestamp_es = EXCLUDED.timestamp_es,
+         date_es = EXCLUDED.date_es`,
+      [
+        symbol,
+        timeframe,
+        c.open,
+        c.high,
+        c.low,
+        c.close,
+        c.volume,
+        ts,
+        tsEs,
+        dateEs
+      ]
     );
   }
 }
