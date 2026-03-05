@@ -222,7 +222,7 @@ function classifySignal(velas) {
   const { msNow, esNow, v1, v2, v3 } = detectPattern(velas);
   if (!msNow && !esNow) return null;
 
-  if (!inWindow(v3.timestamp)) return null;
+  if (!inWindow(v2.timestamp)) return null;
 
   const vt = validTrend(msNow, esNow, v1, v2, v3);
   const st = structureOK(msNow, esNow, velas);
@@ -230,7 +230,7 @@ function classifySignal(velas) {
   const tipoBase = msNow ? "MS" : "ES";
   const tipoVX = (vt && st) ? "V" : "X";
 
-  return { tipoBase, tipoVX, v3 };
+  return { tipoBase, tipoVX, v2 };
 }
 
 // -------------------------------------------------------------
@@ -414,7 +414,7 @@ function formatSpainTime(ts) {
 }
 
 // -------------------------------------------------------------
-// CRON 1 MINUT (ABANS ERA 5 MINUTS)
+// CRON 1 MINUT
 // -------------------------------------------------------------
 cron.schedule("* * * * *", async () => {
   for (const symbol of SYMBOLS) {
@@ -426,16 +426,16 @@ cron.schedule("* * * * *", async () => {
     const signal = classifySignal(candles);
     if (!signal) continue;
 
-    const { tipoBase, tipoVX, v3 } = signal;
+    const { tipoBase, tipoVX, v2 } = signal;
 
-    const entry = v3.close;
+    const entry = v2.close;
     const { tp, sl } = calcTargets(tipoBase, entry);
 
-    const body3 = Math.abs(v3.close - v3.open);
+    const body2 = Math.abs(v2.close - v2.open);
     const entrySuggested =
       tipoBase === "MS"
-        ? v3.close - body3 * 0.30
-        : v3.close + body3 * 0.30;
+        ? v2.close - body2 * 0.30
+        : v2.close + body2 * 0.30;
 
     const { tp: tpSug, sl: slSug } = calcTargets(tipoBase, entrySuggested);
 
@@ -446,7 +446,7 @@ cron.schedule("* * * * *", async () => {
 
     if (await alreadySent(symbol, "5m", tipoFull, entry)) continue;
 
-    const hora = formatSpainTime(v3.timestamp);
+    const hora = formatSpainTime(v2.timestamp);
 
     const msg =
       `<b>${symbol} 5m</b>\n` +
@@ -460,7 +460,7 @@ cron.schedule("* * * * *", async () => {
       `Volatilitat Score: <b>${volatScore}</b>`;
 
     await sendTelegram(msg);
-    await saveSignal(symbol, "5m", tipoFull, entry, v3.timestamp);
+    await saveSignal(symbol, "5m", tipoFull, entry, v2.timestamp);
 
     console.log(symbol, "→ SENYAL ENVIAT:", tipoFull);
   }
