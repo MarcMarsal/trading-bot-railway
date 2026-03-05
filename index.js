@@ -17,7 +17,6 @@ const client = new Client({
 async function initDB() {
   await client.connect();
 
-  // Taula CANDLES amb PK múltiple
   await client.query(`
     CREATE TABLE IF NOT EXISTS candles (
       symbol TEXT NOT NULL,
@@ -32,7 +31,6 @@ async function initDB() {
     );
   `);
 
-  // Taula SIGNALS amb PK per evitar duplicats
   await client.query(`
     CREATE TABLE IF NOT EXISTS signals (
       symbol TEXT NOT NULL,
@@ -64,9 +62,9 @@ const SYMBOLS = [
 const API_URL = "https://www.okx.com/api/v5/market/candles";
 
 // -------------------------------------------------------------
-// FUNCIONS BASE (1:1 TradingView)
+// FUNCIONS BASE (1:1 lògica TV)
 // -------------------------------------------------------------
-const strongBodyPct = 0.5;
+const strongBodyPct = 0.5;          // ara mateix vols 0.5
 const minStrongRange = 0.0;
 const maxBodyPctIndecision = 0.3;
 const minRangeIndecision = 0.0;
@@ -104,15 +102,15 @@ function isIndecision(o, h, l, c) {
 }
 
 // -------------------------------------------------------------
-// DETECTPATTERN
+// DETECTPATTERN (mateixes 3 veles que TV)
 // -------------------------------------------------------------
 function detectPattern(velas) {
   if (velas.length < 4) return { msNow: false, esNow: false };
 
   const n = velas.length;
-  const v1 = velas[n - 3];
-  const v2 = velas[n - 2];
-  const v3 = velas[n - 1];
+  const v1 = velas[n - 3]; // o[3]
+  const v2 = velas[n - 2]; // o[2]
+  const v3 = velas[n - 1]; // o[1]
 
   const msNow =
     isStrongBear(v1.open, v1.high, v1.low, v1.close) &&
@@ -128,7 +126,7 @@ function detectPattern(velas) {
 }
 
 // -------------------------------------------------------------
-// VALIDTREND
+// VALIDTREND (igual que TV, però només per marcar V/X)
 // -------------------------------------------------------------
 function validTrend(msNow, esNow, v1, v2, v3) {
   const mid1 = (v1.open + v1.close) / 2;
@@ -140,7 +138,7 @@ function validTrend(msNow, esNow, v1, v2, v3) {
 }
 
 // -------------------------------------------------------------
-// PIVOTS + STRUCTUREOK
+// PIVOTS + STRUCTUREOK (igual que TV, però només per V/X)
 // -------------------------------------------------------------
 function findPivotLow(velas) {
   const idx = velas.length - 3;
@@ -187,7 +185,7 @@ function structureOK(msNow, esNow, velas) {
 }
 
 // -------------------------------------------------------------
-// INWINDOW
+// INWINDOW (mateix concepte que TV: 1 setmana)
 // -------------------------------------------------------------
 function inWindow(openTime) {
   const now = Date.now();
@@ -197,7 +195,7 @@ function inWindow(openTime) {
 }
 
 // -------------------------------------------------------------
-// CLASSIFYSIGNAL
+// CLASSIFYSIGNAL — COM TV: patró + finestra; vt/st només marquen V/X
 // -------------------------------------------------------------
 function classifySignal(velas) {
   if (velas.length < 4) return null;
@@ -210,15 +208,14 @@ function classifySignal(velas) {
   const vt = validTrend(msNow, esNow, v1, v2, v3);
   const st = structureOK(msNow, esNow, velas);
 
-  if (!vt || !st) return null;
-
   const tipoBase = msNow ? "MS" : "ES";
+  const tipoVX = (vt && st) ? "V" : "X"; // NO bloqueja, només etiqueta
 
-  return { tipoBase, v3 };
+  return { tipoBase, tipoVX, v3 };
 }
 
 // -------------------------------------------------------------
-// INDICADORS
+// INDICADORS (volum / volatilitat, només informatius)
 // -------------------------------------------------------------
 function calcVolumeScore(velas) {
   if (velas.length < 10) return 0;
@@ -381,7 +378,7 @@ cron.schedule("*/5 * * * *", async () => {
     const signal = classifySignal(candles);
     if (!signal) continue;
 
-    const { tipoBase, v3 } = signal;
+    const { tipoBase, tipoVX, v3 } = signal;
 
     const entry = v3.close;
     const { tp, sl } = calcTargets(tipoBase, entry);
@@ -397,13 +394,15 @@ cron.schedule("*/5 * * * *", async () => {
     const volScore = calcVolumeScore(candles);
     const volatScore = calcVolatilityScore(candles);
 
-    if (await alreadySent(symbol, "5m", tipoBase, entry)) continue;
+    const tipoFull = `${tipoBase}_${tipoVX}`;
+
+    if (await alreadySent(symbol, "5m", tipoFull, entry)) continue;
 
     const hora = formatSpainTime(v3.timestamp);
 
     const msg =
       `<b>${symbol} 5m</b>\n` +
-      `Senyal: <b>${tipoBase}</b>\n` +
+      `Senyal: <b>${tipoBase} ${tipoVX}</b>\n` +
       `Hora: ${hora}\n\n` +
       `Entrada: <b>${entry}</b>\n` +
       `Entrada suggerida: <b>${entrySuggested.toFixed(6)}</b>\n` +
@@ -413,9 +412,9 @@ cron.schedule("*/5 * * * *", async () => {
       `Volatilitat Score: <b>${volatScore}</b>`;
 
     await sendTelegram(msg);
-    await saveSignal(symbol, "5m", tipoBase, entry, v3.timestamp);
+    await saveSignal(symbol, "5m", tipoFull, entry, v3.timestamp);
 
-    console.log(symbol, "→ SENYAL ENVIAT:", tipoBase);
+    console.log(symbol, "→ SENYAL ENVIAT:", tipoFull);
   }
 });
 
@@ -449,5 +448,3 @@ console.log("Servidor keep-alive actiu");
 // INIT DB
 // -------------------------------------------------------------
 initDB();
-
-
