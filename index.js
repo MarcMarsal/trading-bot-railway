@@ -351,7 +351,8 @@ async function saveSignal(symbol, timeframe, tipo, entry, timestamp) {
 // FETCH CANDLES OKX
 // -------------------------------------------------------------
 async function fetchCandles(symbol, interval) {
-  const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=2`;
+  const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=4`;
+
 
 
   const res = await axios.get(url);
