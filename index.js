@@ -142,9 +142,11 @@ function detectPattern(velas) {
   // v1 = vela tancada anterior
   // v2 = última vela tancada
   // v3 = vela actual (igual que TV: c3 = close[1])
-  const v3 = velas[1]; // última tancada
-  const v2 = velas[2]; // tancada anterior
-  const v1 = velas[3]; // tancada encara anterior
+  const n = velas.length;
+  const v1 = velas[n - 4];
+  const v2 = velas[n - 3];
+  const v3 = velas[n - 2];
+
 
 
   // strongBull / strongBear / indecision EXACTES com TradingView
