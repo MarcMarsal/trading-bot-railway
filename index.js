@@ -58,7 +58,14 @@ const SYMBOLS = [
   "AVAX-USDT",
   "APT-USDT",
   "INJ-USDT",
-  "SEI-USDT"
+  "SEI-USDT",
+  "ADA-USDT",
+  "LINK-USDT",
+  "BNB-USDT",
+  "ETH-USDT",
+  "NEAR-USDT",
+  "HBAR-USDT",
+  "RENDER-USDT"
 ];
 
 const API_URL = "https://www.okx.com/api/v5/market/candles";
