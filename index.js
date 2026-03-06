@@ -137,7 +137,7 @@ function isIndecision(o, h, l, c) {
 function detectPattern(velas) {
   if (velas.length < 4) return { msNow: false, esNow: false };
 
-  const n = velas.length;
+  //const n = velas.length;
 
   // v1 = vela tancada anterior
   // v2 = última vela tancada
