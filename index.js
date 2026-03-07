@@ -472,13 +472,13 @@ cron.schedule("* * * * *", async () => {
   try {
     for (const symbol of SYMBOLS) {
       try {
-        const candles = await fetchCandles(symbol, "5m");
+        const candles = await fetchCandles(symbol, "15m");
         if (candles.length === 0) {
           console.log(symbol, "→ sense veles");
           continue;
         }
 
-        await saveCandles(symbol, "5m", candles);
+        await saveCandles(symbol, "15m", candles);
 
         const signal = classifySignal(candles);
         if (!signal) {
@@ -510,7 +510,7 @@ cron.schedule("* * * * *", async () => {
 
         const tipoFull = `${tipoBase}_${tipoVX}`;
 
-        if (await alreadySent(symbol, "5m", tipoFull, entry)) {
+        if (await alreadySent(symbol, "15m", tipoFull, entry)) {
           console.log(symbol, "→ ja enviat");
           continue;
         }
@@ -518,7 +518,7 @@ cron.schedule("* * * * *", async () => {
         const hora = formatSpainTime(v2.timestamp);
 
         const msg =
-          `<b>${symbol} 5m</b>\n` +
+          `<b>${symbol} 15m</b>\n` +
           `Senyal: <b>${tipoBase} ${tipoVX}</b>\n` +
           `Hora: ${hora}\n\n` +
           `Entrada: <b>${entry}</b>\n` +
@@ -576,4 +576,5 @@ console.log("Servidor keep-alive actiu");
 // -------------------------------------------------------------
 // INIT DB
 // -------------------------------------------------------------
+
 initDB();
