@@ -531,7 +531,7 @@ cron.schedule("* * * * *", async () => {
         const sent = await sendTelegram(msg);
 
         if (sent) {
-          await saveSignal(symbol, "5m", tipoFull, entry, v2.timestamp);
+          await saveSignal(symbol, "15m", tipoFull, entry, v2.timestamp);
           console.log(symbol, "→ SENYAL ENVIAT:", tipoFull);
         } else {
           console.log(symbol, "→ ERROR TELEGRAM, REINTENTARÀ");
@@ -578,3 +578,4 @@ console.log("Servidor keep-alive actiu");
 // -------------------------------------------------------------
 
 initDB();
+
