@@ -65,7 +65,10 @@ const SYMBOLS = [
   "ETH-USDT",
   "NEAR-USDT",
   "HBAR-USDT",
-  "RENDER-USDT"
+  "RENDER-USDT",
+  "ASTER-USDT",
+  "BCH-USDT"
+
 ];
 
 const API_URL = "https://www.okx.com/api/v5/market/candles";
@@ -578,4 +581,5 @@ console.log("Servidor keep-alive actiu");
 // -------------------------------------------------------------
 
 initDB();
+
 
