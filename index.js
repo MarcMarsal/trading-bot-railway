@@ -520,16 +520,21 @@ cron.schedule("* * * * *", async () => {
 
         const hora = formatSpainTime(v2.timestamp);
 
+        //const msg =
+        //  `<b>${symbol} 15m</b>\n` +
+        //  `Senyal: <b>${tipoBase} ${tipoVX}</b>\n` +
+        //  `Hora: ${hora}\n\n` +
+        //  `Entrada: <b>${entry}</b>\n` +
+        //  `Entrada suggerida: <b>${entrySuggested.toFixed(6)}</b>\n` +
+        //  `TP: <b>${tp}</b> | SL: <b>${sl}</b>\n` +
+        //  `TP suggerit: <b>${tpSug}</b> | SL suggerit: <b>${slSug}</b>\n\n` +
+        //  `Volum Score: <b>${volScore}</b>\n` +
+        //  `Volatilitat Score: <b>${volatScore}</b>`;
+
+        const arrow = tipoBase === "MS" ? "↑" : "↓";
         const msg =
-          `<b>${symbol} 15m</b>\n` +
-          `Senyal: <b>${tipoBase} ${tipoVX}</b>\n` +
-          `Hora: ${hora}\n\n` +
-          `Entrada: <b>${entry}</b>\n` +
-          `Entrada suggerida: <b>${entrySuggested.toFixed(6)}</b>\n` +
-          `TP: <b>${tp}</b> | SL: <b>${sl}</b>\n` +
-          `TP suggerit: <b>${tpSug}</b> | SL suggerit: <b>${slSug}</b>\n\n` +
-          `Volum Score: <b>${volScore}</b>\n` +
-          `Volatilitat Score: <b>${volatScore}</b>`;
+          `<b>${symbol} ${arrow} 15m</b>\n` +
+          `${hora}`;
 
         const sent = await sendTelegram(msg);
 
@@ -581,5 +586,6 @@ console.log("Servidor keep-alive actiu");
 // -------------------------------------------------------------
 
 initDB();
+
 
 
