@@ -430,6 +430,50 @@ async function saveCandles(symbol, timeframe, candles) {
     );
   }
 }
+
+// -------------------------------------------------------------
+// DETECCIÓ I ENVIAMENT DE SENYALS PER 30m, 1H i 4H
+// -------------------------------------------------------------
+async function detectAndSend(symbol, timeframe) {
+  const q = await client.query(
+    `SELECT open, high, low, close, volume, timestamp
+     FROM candles
+     WHERE symbol = $1 AND timeframe = $2
+     ORDER BY timestamp DESC
+     LIMIT 4`,
+    [symbol, timeframe]
+  );
+
+  const velas = q.rows.reverse();
+  if (velas.length < 4) return;
+
+  const signal = classifySignal(velas);
+  if (!signal) return;
+
+  const { tipoBase, tipoVX, v2 } = signal;
+  if (tipoVX === "X") return;
+
+  const entry = v2.close;
+  const tipoFull = `${tipoBase}_${tipoVX}`;
+
+  if (await alreadySent(symbol, timeframe, tipoFull, entry)) return;
+
+  const hora = formatSpainTime(v2.timestamp);
+  const arrow = tipoBase === "MS" ? "↑" : "↓";
+
+  const msg =
+    `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+    `${hora}`;
+
+  const sent = await sendTelegram(msg);
+  if (sent) {
+    await saveSignal(symbol, timeframe, tipoFull, entry, v2.timestamp);
+    console.log(symbol, `→ SENYAL ${timeframe} ENVIAT:`, tipoFull);
+  }
+}
+
+
+
 // -------------------------------------------------------------
 // TELEGRAM
 // -------------------------------------------------------------
@@ -587,18 +631,44 @@ cron.schedule("* * * * *", async () => {
 
 
 // -------------------------------------------------------------
-// CRON 1H
+// CRON MULTI-TIMEFRAME (30m, 1H, 4H) — cada 10 minuts
 // -------------------------------------------------------------
-cron.schedule("2 * * * *", async () => {
-  for (const symbol of SYMBOLS) {
-    const candles = await fetchCandles(symbol, "1H");
-    if (candles.length === 0) continue;
+cron.schedule("*/10 * * * *", async () => {
+  const now = new Date();
+  const minute = now.getMinutes();
+  const hour = now.getHours();
 
-    await saveCandles(symbol, "1H", candles);
+  for (const symbol of SYMBOLS) {
+
+    // 30m → quan el minut és 0 o 30
+    if (minute === 0 || minute === 30) {
+      const c30 = await fetchCandles(symbol, "30m");
+      if (c30.length > 0) {
+        await saveCandles(symbol, "30m", c30);
+        await detectAndSend(symbol, "30m");
+      }
+    }
+
+    // 1H → quan el minut és 0
+    if (minute === 0) {
+      const c1h = await fetchCandles(symbol, "1H");
+      if (c1h.length > 0) {
+        await saveCandles(symbol, "1H", c1h);
+        await detectAndSend(symbol, "1H");
+      }
+    }
+
+    // 4H → quan el minut és 0 i l’hora és múltiple de 4
+    if (minute === 0 && hour % 4 === 0) {
+      const c4h = await fetchCandles(symbol, "4H");
+      if (c4h.length > 0) {
+        await saveCandles(symbol, "4H", c4h);
+        await detectAndSend(symbol, "4H");
+      }
+    }
   }
 });
 
-console.log("BOT VERSION 3 — Railway OK, UPSERT actiu");
 
 
 // -------------------------------------------------------------
@@ -610,38 +680,43 @@ initDB().then(() => {
 
   http.createServer(async (req, res) => {
 
-    if (req.url === "/panel") {
-      let rows = "";
+   if (req.url === "/panel") {
+  let rows = "";
+  const TIMEFRAMES = ["15m", "30m", "1H", "4H"];
 
-      for (const symbol of SYMBOLS) {
-        const q = await client.query(
-          `SELECT open, high, low, close, volume, timestamp
-           FROM candles
-           WHERE symbol = $1 AND timeframe = '15m'
-           ORDER BY timestamp DESC
-           LIMIT 3`,
-          [symbol]
-        );
+  for (const symbol of SYMBOLS) {
+    for (const tf of TIMEFRAMES) {
 
-        const candles = q.rows.reverse();
-        if (candles.length < 3) continue;
+      const q = await client.query(
+        `SELECT open, high, low, close, volume, timestamp
+         FROM candles
+         WHERE symbol = $1 AND timeframe = $2
+         ORDER BY timestamp DESC
+         LIMIT 3`,
+        [symbol, tf]
+      );
 
-        const ps = preSignal(candles);
+      const candles = q.rows.reverse();
+      if (candles.length < 3) continue;
 
-        rows += `
-          <tr>
-            <td><b>${symbol}</b></td>
-            <td>${ps.v1}</td>
-            <td>${ps.v2}</td>
-            <td>${ps.MS_possible ? "✔" : "❌"}</td>
-            <td>${ps.ES_possible ? "✔" : "❌"}</td>
-          </tr>
-        `;
-      }
+      const ps = preSignal(candles);
 
-      const lastUpdate = formatSpainTime(Date.now());
+      rows += `
+        <tr>
+          <td><b>${symbol}</b></td>
+          <td>${tf}</td>
+          <td>${ps.v1}</td>
+          <td>${ps.v2}</td>
+          <td>${ps.MS_possible ? "&#10004;" : "&#10008;"}</td>
+          <td>${ps.ES_possible ? "&#10004;" : "&#10008;"}</td>
+        </tr>
+      `;
+    }
+  }
 
-      const html = `
+  const lastUpdate = formatSpainTime(Date.now());
+
+  const html = `
   <html>
   <head>
     <meta http-equiv="refresh" content="300">
@@ -668,12 +743,13 @@ initDB().then(() => {
     </style>
   </head>
   <body>
-    <h2>Panell de detecció temprana (15m)</h2>
+    <h2>Panell de detecció (15m / 30m / 1H / 4H)</h2>
     <p><b>Última actualització:</b> ${lastUpdate}</p>
 
     <table>
       <tr>
         <th>Symbol</th>
+        <th>TF</th>
         <th>v1</th>
         <th>v2</th>
         <th>Possible MS</th>
@@ -683,21 +759,19 @@ initDB().then(() => {
     </table>
   </body>
   </html>
-`;
+  `;
 
-
-
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-
-      res.end(html);
-      return;
-    }
+  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  res.end(html);
+  return;
+}
 
     res.writeHead(200);
     res.end("Bot OKX MS/ES en marxa");
   }).listen(process.env.PORT || 3000);
 
 });
+
 
 
 
