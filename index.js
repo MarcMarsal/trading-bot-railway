@@ -602,94 +602,82 @@ console.log("BOT VERSION 3 — Railway OK, UPSERT actiu");
 
 
 // -------------------------------------------------------------
-// INIT DB
-// -------------------------------------------------------------
-
-//initDB();
-
-// -------------------------------------------------------------
-// KEEP-ALIVE
+// INIT DB I SERVIDOR HTTP
 // -------------------------------------------------------------
 
 initDB().then(() => {
+  console.log("DB OK — arrencant servidor HTTP");
+
   http.createServer(async (req, res) => {
 
+    if (req.url === "/panel") {
+      let rows = "";
 
+      for (const symbol of SYMBOLS) {
+        const q = await client.query(
+          `SELECT open, high, low, close, volume, timestamp
+           FROM candles
+           WHERE symbol = $1 AND timeframe = '15m'
+           ORDER BY timestamp DESC
+           LIMIT 3`,
+          [symbol]
+        );
 
-//http.createServer(async (req, res) => {
+        const candles = q.rows.reverse();
+        if (candles.length < 3) continue;
 
-  if (req.url === "/panel") {
-    let rows = "";
+        const ps = preSignal(candles);
 
-    for (const symbol of SYMBOLS) {
+        rows += `
+          <tr>
+            <td><b>${symbol}</b></td>
+            <td>${ps.v1}</td>
+            <td>${ps.v2}</td>
+            <td>${ps.MS_possible ? "✔" : "❌"}</td>
+            <td>${ps.ES_possible ? "✔" : "❌"}</td>
+          </tr>
+        `;
+      }
 
-      // ❗ Ara llegim les veles de PostgreSQL, NO d’OKX
-      const q = await client.query(
-        `SELECT open, high, low, close, volume, timestamp
-         FROM candles
-         WHERE symbol = $1 AND timeframe = '15m'
-         ORDER BY timestamp DESC
-         LIMIT 3`,
-        [symbol]
-      );
+      const lastUpdate = formatSpainTime(Date.now());
 
-      const candles = q.rows.reverse(); // ordre antic → nou
+      const html = `
+        <html>
+        <head>
+          <meta http-equiv="refresh" content="300">
+          <style>
+            body { font-family: Arial; padding: 20px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+            th { background: #eee; }
+          </style>
+        </head>
+        <body>
+          <h2>Panell de detecció temprana (15m)</h2>
+          <p><b>Última actualització:</b> ${lastUpdate}</p>
 
-      if (candles.length < 3) continue;
-
-      const ps = preSignal(candles);
-
-      rows += `
-        <tr>
-          <td><b>${symbol}</b></td>
-          <td>${ps.v1}</td>
-          <td>${ps.v2}</td>
-          <td>${ps.MS_possible ? "✔" : "❌"}</td>
-          <td>${ps.ES_possible ? "✔" : "❌"}</td>
-        </tr>
+          <table>
+            <tr>
+              <th>Symbol</th>
+              <th>v1</th>
+              <th>v2</th>
+              <th>Possible MS</th>
+              <th>Possible ES</th>
+            </tr>
+            ${rows}
+          </table>
+        </body>
+        </html>
       `;
+
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(html);
+      return;
     }
 
-    const lastUpdate = formatSpainTime(Date.now());
-
-    const html = `
-      <html>
-      <head>
-        <meta http-equiv="refresh" content="300">
-        <style>
-          body { font-family: Arial; padding: 20px; }
-          table { border-collapse: collapse; width: 100%; }
-          th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-          th { background: #eee; }
-        </style>
-      </head>
-      <body>
-        <h2>Panell de detecció temprana (15m)</h2>
-        <p><b>Última actualització:</b> ${lastUpdate}</p>
-
-        <table>
-          <tr>
-            <th>Symbol</th>
-            <th>v1</th>
-            <th>v2</th>
-            <th>Possible MS</th>
-            <th>Possible ES</th>
-          </tr>
-          ${rows}
-        </table>
-      </body>
-      </html>
-    `;
-
-    res.writeHead(200, { "Content-Type": "text/html" });
-    res.end(html);
-    return;
-  }
-
-  res.writeHead(200);
-  res.end("Bot OKX MS/ES en marxa");
-}).listen(process.env.PORT || 3000);
-
+    res.writeHead(200);
+    res.end("Bot OKX MS/ES en marxa");
+  }).listen(process.env.PORT || 3000);
 
 });
 
