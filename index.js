@@ -654,18 +654,24 @@ cron.schedule("* * * * *", async () => {
       const candles = await fetchCandles(symbol, timeframe);
       if (!candles || candles.length === 0) continue;
 
-      // 2) Filtrar només veles tancades
-      const closed = candles.filter(c => c.timestamp_close <= now);
+      // 2) Eliminar la PRIMERA vela (OKX = vela en formació)
+      const cleaned = candles.slice(1);
+
+      // 3) Filtrar només veles tancades
+      const closed = cleaned.filter(c => 
+        c.timestamp_close && c.timestamp_close <= now
+      );
       if (closed.length === 0) continue;
 
-      // 3) Guardar només veles tancades
+      // 4) Guardar només veles tancades
       await saveCandles(symbol, timeframe, closed);
 
-      // 4) Detectar i enviar senyal si toca
+      // 5) Detectar i enviar senyal si toca
       await detectAndSend(symbol, timeframe);
     }
   }
 });
+
 
 
 // -------------------------------------------------------------
@@ -809,6 +815,7 @@ initDB().then(() => {
   }).listen(process.env.PORT || 3000);
 
 });
+
 
 
 
