@@ -680,13 +680,23 @@ initDB().then(() => {
 
   http.createServer(async (req, res) => {
 
-   if (req.url === "/panel") {
-  let rows = "";
-  const TIMEFRAMES = ["15m", "30m", "1H", "4H"];
+  if (req.url === "/panel") {
 
-  for (const symbol of SYMBOLS) {
-    for (const tf of TIMEFRAMES) {
+  const TIMEFRAMES = [
+    { tf: "15m", color: "#00ff00" },   // verd
+    { tf: "30m", color: "#00ffff" },   // cian
+    { tf: "1H",  color: "#ffff00" },   // groc
+    { tf: "4H",  color: "#ffa500" }    // taronja
+  ];
 
+  let htmlBlocks = "";
+  const lastUpdate = formatSpainTime(Date.now());
+
+  for (const { tf, color } of TIMEFRAMES) {
+
+    let rows = "";
+
+    for (const symbol of SYMBOLS) {
       const q = await client.query(
         `SELECT open, high, low, close, volume, timestamp
          FROM candles
@@ -702,19 +712,31 @@ initDB().then(() => {
       const ps = preSignal(candles);
 
       rows += `
-        <tr>
+        <tr style="color:${color}">
           <td><b>${symbol}</b></td>
-          <td>${tf}</td>
           <td>${ps.v1}</td>
           <td>${ps.v2}</td>
-          <td>${ps.MS_possible ? "&#10004;" : "&#10008;"}</td>
-          <td>${ps.ES_possible ? "&#10004;" : "&#10008;"}</td>
+          <td>${ps.MS_possible ? "✔" : "✘"}</td>
+          <td>${ps.ES_possible ? "✔" : "✘"}</td>
         </tr>
       `;
     }
-  }
 
-  const lastUpdate = formatSpainTime(Date.now());
+    htmlBlocks += `
+      <h2 style="color:${color}">Timeframe ${tf}</h2>
+      <table>
+        <tr>
+          <th>Symbol</th>
+          <th>v1</th>
+          <th>v2</th>
+          <th>Possible MS</th>
+          <th>Possible ES</th>
+        </tr>
+        ${rows}
+      </table>
+      <br><br>
+    `;
+  }
 
   const html = `
   <html>
@@ -743,20 +765,11 @@ initDB().then(() => {
     </style>
   </head>
   <body>
-    <h2>Panell de detecció (15m / 30m / 1H / 4H)</h2>
+    <h1>Panell de detecció MS/ES</h1>
     <p><b>Última actualització:</b> ${lastUpdate}</p>
 
-    <table>
-      <tr>
-        <th>Symbol</th>
-        <th>TF</th>
-        <th>v1</th>
-        <th>v2</th>
-        <th>Possible MS</th>
-        <th>Possible ES</th>
-      </tr>
-      ${rows}
-    </table>
+    ${htmlBlocks}
+
   </body>
   </html>
   `;
@@ -766,11 +779,13 @@ initDB().then(() => {
   return;
 }
 
+
     res.writeHead(200);
     res.end("Bot OKX MS/ES en marxa");
   }).listen(process.env.PORT || 3000);
 
 });
+
 
 
 
