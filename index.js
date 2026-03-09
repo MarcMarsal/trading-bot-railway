@@ -716,8 +716,14 @@ initDB().then(() => {
           <td><b>${symbol}</b></td>
           <td>${ps.v1}</td>
           <td>${ps.v2}</td>
-          <td>${ps.MS_possible ? "✔" : "✘"}</td>
-          <td>${ps.ES_possible ? "✔" : "✘"}</td>
+          <td style="color:${ps.MS_possible ? '#00ff00' : '#ff0000'}">
+            ${ps.MS_possible ? "✔" : "✘"}
+          </td>
+
+          <td style="color:${ps.ES_possible ? '#00ff00' : '#ff0000'}">
+            ${ps.ES_possible ? "✔" : "✘"}
+          </td>
+
         </tr>
       `;
     }
@@ -785,6 +791,7 @@ initDB().then(() => {
   }).listen(process.env.PORT || 3000);
 
 });
+
 
 
 
