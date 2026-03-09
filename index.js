@@ -555,7 +555,7 @@ function preSignal(velas) {
 
 
 // -------------------------------------------------------------
-// CRON 1 MINUT
+// CRON 1 MINUT — 15m
 // -------------------------------------------------------------
 cron.schedule("* * * * *", async () => {
   try {
@@ -577,26 +577,13 @@ cron.schedule("* * * * *", async () => {
 
         const { tipoBase, tipoVX, v2 } = signal;
 
-        // Filtrar X si cal
+        // Filtrar X
         if (tipoVX === "X") {
           console.log(symbol, "→ senyal X descartada");
           continue;
         }
 
         const entry = v2.close;
-        const { tp, sl } = calcTargets(tipoBase, entry);
-
-        const body2 = Math.abs(v2.close - v2.open);
-        const entrySuggested =
-          tipoBase === "MS"
-            ? v2.close - body2 * 0.30
-            : v2.close + body2 * 0.30;
-
-        const { tp: tpSug, sl: slSug } = calcTargets(tipoBase, entrySuggested);
-
-        const volScore = calcVolumeScore(candles);
-        const volatScore = calcVolatilityScore(candles);
-
         const tipoFull = `${tipoBase}_${tipoVX}`;
 
         if (await alreadySent(symbol, "15m", tipoFull, entry)) {
@@ -605,19 +592,8 @@ cron.schedule("* * * * *", async () => {
         }
 
         const hora = formatSpainTime(v2.timestamp);
-
-        //const msg =
-        //  `<b>${symbol} 15m</b>\n` +
-        //  `Senyal: <b>${tipoBase} ${tipoVX}</b>\n` +
-        //  `Hora: ${hora}\n\n` +
-        //  `Entrada: <b>${entry}</b>\n` +
-        //  `Entrada suggerida: <b>${entrySuggested.toFixed(6)}</b>\n` +
-        //  `TP: <b>${tp}</b> | SL: <b>${sl}</b>\n` +
-        //  `TP suggerit: <b>${tpSug}</b> | SL suggerit: <b>${slSug}</b>\n\n` +
-        //  `Volum Score: <b>${volScore}</b>\n` +
-        //  `Volatilitat Score: <b>${volatScore}</b>`;
-
         const arrow = tipoBase === "MS" ? "↑" : "↓";
+
         const msg =
           `<b>${symbol} ${arrow} 15m</b>\n` +
           `${hora}`;
@@ -640,35 +616,70 @@ cron.schedule("* * * * *", async () => {
   }
 });
 
-
 // -------------------------------------------------------------
-// CRON UNIVERSAL — cada 1 minut (sense forats)
+// CRON UNIVERSAL — cada 1 minut (30m, 1H, 4H)
 // -------------------------------------------------------------
 cron.schedule("* * * * *", async () => {
-  const now = Date.now();
+  try {
+    for (const symbol of SYMBOLS) {
+      for (const timeframe of ["30m", "1H", "4H"]) {
+        try {
+          const candles = await fetchCandles(symbol, timeframe);
+          if (!candles || candles.length === 0) {
+            console.log(symbol, timeframe, "→ sense veles");
+            continue;
+          }
 
-  for (const symbol of SYMBOLS) {
-    for (const timeframe of ["30m", "1H", "4H"]) {
+          // Guardar totes les veles (igual que 15m)
+          await saveCandles(symbol, timeframe, candles);
 
-      // 1) Obtenir veles de l’API
-      const candles = await fetchCandles(symbol, timeframe);
-      if (!candles || candles.length === 0) continue;
+          // Classificar senyal (igual que 15m)
+          const signal = classifySignal(candles);
+          if (!signal) {
+            console.log(symbol, timeframe, "→ cap senyal");
+            continue;
+          }
 
-      // 2) Eliminar la PRIMERA vela (OKX = vela en formació)
-      const cleaned = candles.slice(1);
+          const { tipoBase, tipoVX, v2 } = signal;
 
-      // 3) Filtrar només veles tancades
-      const closed = cleaned.filter(c => 
-        c.timestamp_close && c.timestamp_close <= now
-      );
-      if (closed.length === 0) continue;
+          // Filtrar X
+          if (tipoVX === "X") {
+            console.log(symbol, timeframe, "→ senyal X descartada");
+            continue;
+          }
 
-      // 4) Guardar només veles tancades
-      await saveCandles(symbol, timeframe, closed);
+          const entry = v2.close;
+          const tipoFull = `${tipoBase}_${tipoVX}`;
 
-      // 5) Detectar i enviar senyal si toca
-      await detectAndSend(symbol, timeframe);
+          // Evitar duplicats
+          if (await alreadySent(symbol, timeframe, tipoFull, entry)) {
+            console.log(symbol, timeframe, "→ ja enviat");
+            continue;
+          }
+
+          const hora = formatSpainTime(v2.timestamp);
+          const arrow = tipoBase === "MS" ? "↑" : "↓";
+
+          const msg =
+            `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+            `${hora}`;
+
+          const sent = await sendTelegram(msg);
+
+          if (sent) {
+            await saveSignal(symbol, timeframe, tipoFull, entry, v2.timestamp);
+            console.log(symbol, timeframe, "→ SENYAL ENVIAT:", tipoFull);
+          } else {
+            console.log(symbol, timeframe, "→ ERROR TELEGRAM, REINTENTARÀ");
+          }
+
+        } catch (err) {
+          console.error(symbol, timeframe, "→ ERROR INTERIOR:", err.message);
+        }
+      }
     }
+  } catch (err) {
+    console.error("ERROR GLOBAL AL CRON UNIVERSAL:", err.message);
   }
 });
 
@@ -815,6 +826,7 @@ initDB().then(() => {
   }).listen(process.env.PORT || 3000);
 
 });
+
 
 
 
