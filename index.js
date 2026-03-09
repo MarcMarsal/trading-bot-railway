@@ -468,6 +468,37 @@ function formatSpainTime(ts) {
   }).replace(",", "");
 }
 
+function preSignal(velas) {
+  if (velas.length < 3) return null;
+
+  const v2 = velas[velas.length - 2]; // última tancada
+  const v1 = velas[velas.length - 3]; // penúltima tancada
+
+  const v1Type = isStrongBull(v1.open, v1.high, v1.low, v1.close)
+    ? "strongBull"
+    : isStrongBear(v1.open, v1.high, v1.low, v1.close)
+    ? "strongBear"
+    : isIndecision(v1.open, v1.high, v1.low, v1.close)
+    ? "indecision"
+    : "other";
+
+  const v2Type = isStrongBull(v2.open, v2.high, v2.low, v2.close)
+    ? "strongBull"
+    : isStrongBear(v2.open, v2.high, v2.low, v2.close)
+    ? "strongBear"
+    : isIndecision(v2.open, v2.high, v2.low, v2.close)
+    ? "indecision"
+    : "other";
+
+  return {
+    v1: v1Type,
+    v2: v2Type,
+    MS_possible: v1Type === "strongBear" && v2Type === "indecision",
+    ES_possible: v1Type === "strongBull" && v2Type === "indecision"
+  };
+}
+
+
 // -------------------------------------------------------------
 // CRON 1 MINUT
 // -------------------------------------------------------------
@@ -572,20 +603,77 @@ console.log("BOT VERSION 3 — Railway OK, UPSERT actiu");
 // -------------------------------------------------------------
 // KEEP-ALIVE
 // -------------------------------------------------------------
-setInterval(() => {}, 1000 * 60 * 60);
+//setInterval(() => {}, 1000 * 60 * 60);
 
-http.createServer((req, res) => {
+http.createServer(async (req, res) => {
+  if (req.url === "/panel") {
+    let rows = "";
+
+    for (const symbol of SYMBOLS) {
+      const candles = await fetchCandles(symbol, "15m");
+      if (candles.length < 3) continue;
+
+      const ps = preSignal(candles);
+
+      rows += `
+        <tr>
+          <td><b>${symbol}</b></td>
+          <td>${ps.v1}</td>
+          <td>${ps.v2}</td>
+          <td>${ps.MS_possible ? "✔" : "❌"}</td>
+          <td>${ps.ES_possible ? "✔" : "❌"}</td>
+        </tr>
+      `;
+    }
+
+    const lastUpdate = formatSpainTime(Date.now());
+
+    const html = `
+      <html>
+      <head>
+        <meta http-equiv="refresh" content="300">
+        <style>
+          body { font-family: Arial; padding: 20px; }
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+          th { background: #eee; }
+        </style>
+      </head>
+      <body>
+        <h2>Panell de detecció temprana (15m)</h2>
+        <p><b>Última actualització:</b> ${lastUpdate}</p>
+
+        <table>
+          <tr>
+            <th>Symbol</th>
+            <th>v1</th>
+            <th>v2</th>
+            <th>Possible MS</th>
+            <th>Possible ES</th>
+          </tr>
+          ${rows}
+        </table>
+      </body>
+      </html>
+    `;
+
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
+
+  // resposta per defecte
   res.writeHead(200);
   res.end("Bot OKX MS/ES en marxa");
 }).listen(process.env.PORT || 3000);
 
-console.log("Servidor keep-alive actiu");
 
 // -------------------------------------------------------------
 // INIT DB
 // -------------------------------------------------------------
 
 initDB();
+
 
 
 
