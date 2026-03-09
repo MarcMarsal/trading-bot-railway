@@ -431,15 +431,12 @@ async function saveCandles(symbol, timeframe, candles) {
   }
 }
 
-// -------------------------------------------------------------
-// DETECCIÓ I ENVIAMENT DE SENYALS PER 30m, 1H i 4H
-// -------------------------------------------------------------
 async function detectAndSend(symbol, timeframe) {
   const q = await client.query(
-    `SELECT open, high, low, close, volume, timestamp
+    `SELECT open, high, low, close, volume, timestamp_open, timestamp_close
      FROM candles
      WHERE symbol = $1 AND timeframe = $2
-     ORDER BY timestamp DESC
+     ORDER BY timestamp_close DESC
      LIMIT 4`,
     [symbol, timeframe]
   );
@@ -458,7 +455,7 @@ async function detectAndSend(symbol, timeframe) {
 
   if (await alreadySent(symbol, timeframe, tipoFull, entry)) return;
 
-  const hora = formatSpainTime(v2.timestamp);
+  const hora = formatSpainTime(v2.timestamp_close);
   const arrow = tipoBase === "MS" ? "↑" : "↓";
 
   const msg =
@@ -467,10 +464,11 @@ async function detectAndSend(symbol, timeframe) {
 
   const sent = await sendTelegram(msg);
   if (sent) {
-    await saveSignal(symbol, timeframe, tipoFull, entry, v2.timestamp);
+    await saveSignal(symbol, timeframe, tipoFull, entry, v2.timestamp_close);
     console.log(symbol, `→ SENYAL ${timeframe} ENVIAT:`, tipoFull);
   }
 }
+
 
 
 
@@ -812,6 +810,7 @@ initDB().then(() => {
   }).listen(process.env.PORT || 3000);
 
 });
+
 
 
 
