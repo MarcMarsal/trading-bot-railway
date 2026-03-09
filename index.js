@@ -431,6 +431,9 @@ async function saveCandles(symbol, timeframe, candles) {
   }
 }
 
+// -------------------------------------------------------------
+// DETECCIÓ I ENVIAMENT DE SENYALS
+// -------------------------------------------------------------
 async function detectAndSend(symbol, timeframe) {
   const q = await client.query(
     `SELECT open, high, low, close, volume, timestamp_open, timestamp_close
@@ -444,17 +447,27 @@ async function detectAndSend(symbol, timeframe) {
   const velas = q.rows.reverse();
   if (velas.length < 4) return;
 
+  const v1 = velas[1];
+  const v2 = velas[2];
+  const v3 = velas[3];
+
+  // 1) Només detectar si la vela v3 ha tancat realment
+  if (Date.now() < v3.timestamp_close) return;
+
+  // 2) Classificar senyal
   const signal = classifySignal(velas);
   if (!signal) return;
 
-  const { tipoBase, tipoVX, v2 } = signal;
+  const { tipoBase, tipoVX } = signal;
   if (tipoVX === "X") return;
 
   const entry = v2.close;
   const tipoFull = `${tipoBase}_${tipoVX}`;
 
+  // 3) Evitar duplicats
   if (await alreadySent(symbol, timeframe, tipoFull, entry)) return;
 
+  // 4) Hora correcta: timestamp_close de v2 (última vela tancada)
   const hora = formatSpainTime(v2.timestamp_close);
   const arrow = tipoBase === "MS" ? "↑" : "↓";
 
@@ -462,13 +475,13 @@ async function detectAndSend(symbol, timeframe) {
     `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
     `${hora}`;
 
+  // 5) Enviar alerta
   const sent = await sendTelegram(msg);
   if (sent) {
     await saveSignal(symbol, timeframe, tipoFull, entry, v2.timestamp_close);
     console.log(symbol, `→ SENYAL ${timeframe} ENVIAT:`, tipoFull);
   }
 }
-
 
 
 
@@ -629,44 +642,30 @@ cron.schedule("* * * * *", async () => {
 
 
 // -------------------------------------------------------------
-// CRON MULTI-TIMEFRAME (30m, 1H, 4H) — cada 10 minuts
+// CRON UNIVERSAL — cada 1 minut (sense forats)
 // -------------------------------------------------------------
-cron.schedule("*/10 * * * *", async () => {
-  const now = new Date();
-  const minute = now.getMinutes();
-  const hour = now.getHours();
+cron.schedule("* * * * *", async () => {
+  const now = Date.now();
 
   for (const symbol of SYMBOLS) {
+    for (const timeframe of ["30m", "1H", "4H"]) {
 
-    // 30m → quan el minut és 0 o 30
-    if (minute === 0 || minute === 30) {
-      const c30 = await fetchCandles(symbol, "30m");
-      if (c30.length > 0) {
-        await saveCandles(symbol, "30m", c30);
-        await detectAndSend(symbol, "30m");
-      }
-    }
+      // 1) Obtenir veles de l’API
+      const candles = await fetchCandles(symbol, timeframe);
+      if (!candles || candles.length === 0) continue;
 
-    // 1H → quan el minut és 0
-    if (minute === 0) {
-      const c1h = await fetchCandles(symbol, "1H");
-      if (c1h.length > 0) {
-        await saveCandles(symbol, "1H", c1h);
-        await detectAndSend(symbol, "1H");
-      }
-    }
+      // 2) Filtrar només veles tancades
+      const closed = candles.filter(c => c.timestamp_close <= now);
+      if (closed.length === 0) continue;
 
-    // 4H → quan el minut és 0 i l’hora és múltiple de 4
-    if (minute === 0 && hour % 4 === 0) {
-      const c4h = await fetchCandles(symbol, "4H");
-      if (c4h.length > 0) {
-        await saveCandles(symbol, "4H", c4h);
-        await detectAndSend(symbol, "4H");
-      }
+      // 3) Guardar només veles tancades
+      await saveCandles(symbol, timeframe, closed);
+
+      // 4) Detectar i enviar senyal si toca
+      await detectAndSend(symbol, timeframe);
     }
   }
 });
-
 
 
 // -------------------------------------------------------------
@@ -810,6 +809,7 @@ initDB().then(() => {
   }).listen(process.env.PORT || 3000);
 
 });
+
 
 
 
