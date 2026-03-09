@@ -603,14 +603,25 @@ console.log("BOT VERSION 3 — Railway OK, UPSERT actiu");
 // -------------------------------------------------------------
 // KEEP-ALIVE
 // -------------------------------------------------------------
-//setInterval(() => {}, 1000 * 60 * 60);
-
 http.createServer(async (req, res) => {
+
   if (req.url === "/panel") {
     let rows = "";
 
     for (const symbol of SYMBOLS) {
-      const candles = await fetchCandles(symbol, "15m");
+
+      // ❗ Ara llegim les veles de PostgreSQL, NO d’OKX
+      const q = await client.query(
+        `SELECT open, high, low, close, volume, timestamp
+         FROM candles
+         WHERE symbol = $1 AND timeframe = '15m'
+         ORDER BY timestamp DESC
+         LIMIT 3`,
+        [symbol]
+      );
+
+      const candles = q.rows.reverse(); // ordre antic → nou
+
       if (candles.length < 3) continue;
 
       const ps = preSignal(candles);
@@ -662,17 +673,16 @@ http.createServer(async (req, res) => {
     return;
   }
 
-  // resposta per defecte
   res.writeHead(200);
   res.end("Bot OKX MS/ES en marxa");
 }).listen(process.env.PORT || 3000);
-
 
 // -------------------------------------------------------------
 // INIT DB
 // -------------------------------------------------------------
 
 initDB();
+
 
 
 
