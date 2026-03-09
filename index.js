@@ -605,12 +605,18 @@ console.log("BOT VERSION 3 — Railway OK, UPSERT actiu");
 // INIT DB
 // -------------------------------------------------------------
 
-initDB();
+//initDB();
 
 // -------------------------------------------------------------
 // KEEP-ALIVE
 // -------------------------------------------------------------
-http.createServer(async (req, res) => {
+
+initDB().then(() => {
+  http.createServer(async (req, res) => {
+
+
+
+//http.createServer(async (req, res) => {
 
   if (req.url === "/panel") {
     let rows = "";
@@ -685,6 +691,7 @@ http.createServer(async (req, res) => {
 }).listen(process.env.PORT || 3000);
 
 
+});
 
 
 
