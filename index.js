@@ -642,35 +642,53 @@ initDB().then(() => {
       const lastUpdate = formatSpainTime(Date.now());
 
       const html = `
-        <html>
-        <head>
-          <meta http-equiv="refresh" content="300">
-          <style>
-            body { font-family: Arial; padding: 20px; }
-            table { border-collapse: collapse; width: 100%; }
-            th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-            th { background: #eee; }
-          </style>
-        </head>
-        <body>
-          <h2>Panell de detecció temprana (15m)</h2>
-          <p><b>Última actualització:</b> ${lastUpdate}</p>
+  <html>
+  <head>
+    <meta http-equiv="refresh" content="300">
+    <meta charset="UTF-8">
+    <style>
+      body {
+        background-color: #000;
+        color: #00ff00;
+        font-family: Consolas, monospace;
+        padding: 20px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th, td {
+        border: 1px solid #00ff00;
+        padding: 8px;
+        text-align: center;
+      }
+      th {
+        background-color: #003300;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Panell de detecció temprana (15m)</h2>
+    <p><b>Última actualització:</b> ${lastUpdate}</p>
 
-          <table>
-            <tr>
-              <th>Symbol</th>
-              <th>v1</th>
-              <th>v2</th>
-              <th>Possible MS</th>
-              <th>Possible ES</th>
-            </tr>
-            ${rows}
-          </table>
-        </body>
-        </html>
-      `;
+    <table>
+      <tr>
+        <th>Symbol</th>
+        <th>v1</th>
+        <th>v2</th>
+        <th>Possible MS</th>
+        <th>Possible ES</th>
+      </tr>
+      ${rows}
+    </table>
+  </body>
+  </html>
+`;
 
-      res.writeHead(200, { "Content-Type": "text/html" });
+
+
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+
       res.end(html);
       return;
     }
@@ -680,6 +698,7 @@ initDB().then(() => {
   }).listen(process.env.PORT || 3000);
 
 });
+
 
 
 
