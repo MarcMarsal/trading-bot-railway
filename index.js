@@ -696,7 +696,7 @@ initDB().then(() => {
 
     let rows = "";
 
-    for (const symbol of SYMBOLS) {
+    for (const symbol of SYMBOLS.sort()) {   // ORDENACIÓ ALFABÈTICA
       const q = await client.query(
         `SELECT open, high, low, close, volume, timestamp
          FROM candles
@@ -710,12 +710,14 @@ initDB().then(() => {
       if (candles.length < 3) continue;
 
       const ps = preSignal(candles);
+      const hasV = ps.MS_possible || ps.ES_possible;   // PER AL CHECKBOX
 
       rows += `
-        <tr style="color:${color}">
+        <tr style="color:${color}" data-has-v="${hasV}">
           <td><b>${symbol}</b></td>
           <td>${ps.v1}</td>
           <td>${ps.v2}</td>
+
           <td style="color:${ps.MS_possible ? '#00ff00' : '#ff0000'}">
             ${ps.MS_possible ? "✔" : "✘"}
           </td>
@@ -723,7 +725,6 @@ initDB().then(() => {
           <td style="color:${ps.ES_possible ? '#00ff00' : '#ff0000'}">
             ${ps.ES_possible ? "✔" : "✘"}
           </td>
-
         </tr>
       `;
     }
@@ -769,10 +770,29 @@ initDB().then(() => {
         background-color: #003300;
       }
     </style>
+
+    <script>
+      function toggleFilter() {
+        const checked = document.getElementById("filterV").checked;
+        const rows = document.querySelectorAll("tr[data-has-v]");
+        rows.forEach(row => {
+          const hasV = row.getAttribute("data-has-v") === "true";
+          row.style.display = checked && !hasV ? "none" : "";
+        });
+      }
+    </script>
+
   </head>
   <body>
+
     <h1>Panell de detecció MS/ES</h1>
     <p><b>Última actualització:</b> ${lastUpdate}</p>
+
+    <label style="color:#fff;">
+      <input type="checkbox" id="filterV" onchange="toggleFilter()">
+      Mostrar només parells amb ✔ (possible MS/ES)
+    </label>
+    <br><br>
 
     ${htmlBlocks}
 
@@ -786,11 +806,13 @@ initDB().then(() => {
 }
 
 
+
     res.writeHead(200);
     res.end("Bot OKX MS/ES en marxa");
   }).listen(process.env.PORT || 3000);
 
 });
+
 
 
 
