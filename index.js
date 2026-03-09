@@ -553,76 +553,13 @@ function preSignal(velas) {
   };
 }
 
-
 // -------------------------------------------------------------
-// CRON 1 MINUT — 15m
-// -------------------------------------------------------------
-cron.schedule("* * * * *", async () => {
-  try {
-    for (const symbol of SYMBOLS) {
-      try {
-        const candles = await fetchCandles(symbol, "15m");
-        if (candles.length === 0) {
-          console.log(symbol, "→ sense veles");
-          continue;
-        }
-
-        await saveCandles(symbol, "15m", candles);
-
-        const signal = classifySignal(candles);
-        if (!signal) {
-          console.log(symbol, "→ cap senyal");
-          continue;
-        }
-
-        const { tipoBase, tipoVX, v2 } = signal;
-
-        // Filtrar X
-        if (tipoVX === "X") {
-          console.log(symbol, "→ senyal X descartada");
-          continue;
-        }
-
-        const entry = v2.close;
-        const tipoFull = `${tipoBase}_${tipoVX}`;
-
-        if (await alreadySent(symbol, "15m", tipoFull, entry)) {
-          console.log(symbol, "→ ja enviat");
-          continue;
-        }
-
-        const hora = formatSpainTime(v2.timestamp);
-        const arrow = tipoBase === "MS" ? "↑" : "↓";
-
-        const msg =
-          `<b>${symbol} ${arrow} 15m</b>\n` +
-          `${hora}`;
-
-        const sent = await sendTelegram(msg);
-
-        if (sent) {
-          await saveSignal(symbol, "15m", tipoFull, entry, v2.timestamp);
-          console.log(symbol, "→ SENYAL ENVIAT:", tipoFull);
-        } else {
-          console.log(symbol, "→ ERROR TELEGRAM, REINTENTARÀ");
-        }
-
-      } catch (err) {
-        console.error(symbol, "→ ERROR INTERIOR:", err.message);
-      }
-    }
-  } catch (err) {
-    console.error("ERROR GLOBAL AL CRON:", err.message);
-  }
-});
-
-// -------------------------------------------------------------
-// CRON UNIVERSAL — cada 1 minut (30m, 1H, 4H)
+// CRON ÚNIC — cada 1 minut (15m, 30m, 1H, 4H)
 // -------------------------------------------------------------
 cron.schedule("* * * * *", async () => {
   try {
     for (const symbol of SYMBOLS) {
-      for (const timeframe of ["30m", "1H", "4H"]) {
+      for (const timeframe of ["15m", "30m", "1H", "4H"]) {
         try {
           const candles = await fetchCandles(symbol, timeframe);
           if (!candles || candles.length === 0) {
@@ -630,10 +567,8 @@ cron.schedule("* * * * *", async () => {
             continue;
           }
 
-          // Guardar totes les veles (igual que 15m)
           await saveCandles(symbol, timeframe, candles);
 
-          // Classificar senyal (igual que 15m)
           const signal = classifySignal(candles);
           if (!signal) {
             console.log(symbol, timeframe, "→ cap senyal");
@@ -642,7 +577,6 @@ cron.schedule("* * * * *", async () => {
 
           const { tipoBase, tipoVX, v2 } = signal;
 
-          // Filtrar X
           if (tipoVX === "X") {
             console.log(symbol, timeframe, "→ senyal X descartada");
             continue;
@@ -651,7 +585,6 @@ cron.schedule("* * * * *", async () => {
           const entry = v2.close;
           const tipoFull = `${tipoBase}_${tipoVX}`;
 
-          // Evitar duplicats
           if (await alreadySent(symbol, timeframe, tipoFull, entry)) {
             console.log(symbol, timeframe, "→ ja enviat");
             continue;
@@ -679,7 +612,7 @@ cron.schedule("* * * * *", async () => {
       }
     }
   } catch (err) {
-    console.error("ERROR GLOBAL AL CRON UNIVERSAL:", err.message);
+    console.error("ERROR GLOBAL AL CRON ÚNIC:", err.message);
   }
 });
 
@@ -826,6 +759,7 @@ initDB().then(() => {
   }).listen(process.env.PORT || 3000);
 
 });
+
 
 
 
