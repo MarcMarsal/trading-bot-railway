@@ -350,14 +350,15 @@ async function alreadySent(symbol, timeframe, tipo, entry) {
   return res.rows.length > 0;
 }
 
-async function saveSignal(symbol, timeframe, tipo, entry, timestamp) {
+async function saveSignal(symbol, timeframe, tipo, entry, timestamp, timestampEs) {
   await client.query(
-    `INSERT INTO signals (symbol, timeframe, tipo, entry, timestamp)
-     VALUES ($1,$2,$3,$4,$5)
+    `INSERT INTO signals (symbol, timeframe, tipo, entry, timestamp, timestamp_es)
+     VALUES ($1,$2,$3,$4,$5,$6)
      ON CONFLICT (symbol, timeframe, tipo, timestamp) DO NOTHING`,
-    [symbol, timeframe, tipo, entry, timestamp]
+    [symbol, timeframe, tipo, entry, timestamp, timestampEs]
   );
 }
+
 
 // -------------------------------------------------------------
 // FETCH CANDLES OKX
@@ -431,9 +432,6 @@ async function saveCandles(symbol, timeframe, candles) {
   }
 }
 
-// -------------------------------------------------------------
-// DETECCIÓ I ENVIAMENT DE SENYALS
-// -------------------------------------------------------------
 async function detectAndSend(symbol, timeframe) {
   const q = await client.query(
     `SELECT open, high, low, close, volume, timestamp_open, timestamp_close
@@ -451,36 +449,48 @@ async function detectAndSend(symbol, timeframe) {
   const v2 = velas[2];
   const v3 = velas[3];
 
-  // 1) Només detectar si la vela v3 ha tancat realment
+  // Assegurar que la 3a vela està tancada
   if (Date.now() < v3.timestamp_close) return;
 
-  // 2) Classificar senyal
   const signal = classifySignal(velas);
   if (!signal) return;
 
   const { tipoBase, tipoVX } = signal;
+
+  // Descarta X
   if (tipoVX === "X") return;
 
-  const entry = v2.close;
-  const tipoFull = `${tipoBase}_${tipoVX}`;
+  // Només MS o ES
+  const tipo = tipoBase;
 
-  // 3) Evitar duplicats
-  if (await alreadySent(symbol, timeframe, tipoFull, entry)) return;
+  // Càlcul entrada real
+  const body = Math.abs(v3.close - v3.open);
+  const retr = body * (RETRACEMENT_PERCENT / 100);
 
-  // 4) Hora correcta: timestamp_close de v2 (última vela tancada)
-  const hora = formatSpainTime(v2.timestamp_close);
-  const arrow = tipoBase === "MS" ? "↑" : "↓";
+  let entry;
+  if (tipo === "MS") {
+    entry = v3.close - retr; // LONG
+  } else {
+    entry = v3.close + retr; // SHORT
+  }
 
+  // Timestamp correcte = 3a vela
+  const timestamp = v3.timestamp_close;
+  const timestampEs = formatSpainTime(timestamp);
+
+  // Evitar duplicats
+  if (await alreadySent(symbol, timeframe, tipo, entry)) return;
+
+  const arrow = tipo === "MS" ? "↑" : "↓";
   const msg =
     `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-    `${hora}`;
+    `${timestampEs}`;
 
-  // 5) Enviar alerta
   const sent = await sendTelegram(msg);
+
   if (sent) {
-    //await saveSignal(symbol, timeframe, tipoFull, entry, v2.timestamp_close);
-    await saveSignal(symbol, timeframe, tipoFull, entry, v3.timestamp_close);
-    console.log(symbol, `→ SENYAL ${timeframe} ENVIAT:`, tipoFull);
+    await saveSignal(symbol, timeframe, tipo, entry, timestamp, timestampEs);
+    console.log(symbol, `→ SENYAL ${timeframe} ENVIAT:`, tipo);
   }
 }
 
@@ -554,58 +564,51 @@ function preSignal(velas) {
   };
 }
 
-// -------------------------------------------------------------
-// CRON ÚNIC — cada 1 minut (15m, 30m, 1H, 4H)
-// -------------------------------------------------------------
 cron.schedule("* * * * *", async () => {
   try {
     for (const symbol of SYMBOLS) {
       for (const timeframe of ["15m", "30m", "1H", "4H"]) {
         try {
           const candles = await fetchCandles(symbol, timeframe);
-          if (!candles || candles.length === 0) {
-            console.log(symbol, timeframe, "→ sense veles");
-            continue;
-          }
+          if (!candles || candles.length === 0) continue;
 
           await saveCandles(symbol, timeframe, candles);
 
           const signal = classifySignal(candles);
-          if (!signal) {
-            console.log(symbol, timeframe, "→ cap senyal");
-            continue;
+          if (!signal) continue;
+
+          const { tipoBase, tipoVX, v3 } = signal;
+
+          if (tipoVX === "X") continue;
+
+          const tipo = tipoBase; // MS o ES
+
+          // Entrada real
+          const body = Math.abs(v3.close - v3.open);
+          const retr = body * (RETRACEMENT_PERCENT / 100);
+
+          let entry;
+          if (tipo === "MS") {
+            entry = v3.close - retr;
+          } else {
+            entry = v3.close + retr;
           }
 
-          const { tipoBase, tipoVX, v2 } = signal;
+          const timestamp = v3.timestamp_close;
+          const timestampEs = formatSpainTime(timestamp);
 
-          if (tipoVX === "X") {
-            console.log(symbol, timeframe, "→ senyal X descartada");
-            continue;
-          }
+          if (await alreadySent(symbol, timeframe, tipo, entry)) continue;
 
-          const entry = v2.close;
-          const tipoFull = `${tipoBase}_${tipoVX}`;
-
-          if (await alreadySent(symbol, timeframe, tipoFull, entry)) {
-            console.log(symbol, timeframe, "→ ja enviat");
-            continue;
-          }
-
-          const hora = formatSpainTime(v2.timestamp);
-          const arrow = tipoBase === "MS" ? "↑" : "↓";
-
+          const arrow = tipo === "MS" ? "↑" : "↓";
           const msg =
             `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-            `${hora}`;
+            `${timestampEs}`;
 
           const sent = await sendTelegram(msg);
 
           if (sent) {
-            //await saveSignal(symbol, timeframe, tipoFull, entry, v2.timestamp);
-            await saveSignal(symbol, timeframe, tipoFull, entry, v3.timestamp);
-            console.log(symbol, timeframe, "→ SENYAL ENVIAT:", tipoFull);
-          } else {
-            console.log(symbol, timeframe, "→ ERROR TELEGRAM, REINTENTARÀ");
+            await saveSignal(symbol, timeframe, tipo, entry, timestamp, timestampEs);
+            console.log(symbol, timeframe, "→ SENYAL ENVIAT:", tipo);
           }
 
         } catch (err) {
