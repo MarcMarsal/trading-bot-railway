@@ -251,31 +251,28 @@ function inWindow(openTime) {
   return openTime >= startTime;
 }
 
-// -------------------------------------------------------------
-// CLASSIFYSIGNAL
-// -------------------------------------------------------------
 function classifySignal(velas) {
-  if (velas.length < 4) return null;
+  if (!velas || velas.length < 4) return null;
 
   const { msNow, esNow, v1, v2, v3 } = detectPattern(velas);
+
+  // 🔥 Validació crítica
+  if (!v1 || !v2 || !v3) return null;
+  if (!v3.close || !v3.open || !v3.timestamp) return null;
+
   if (!msNow && !esNow) return null;
 
-  // Igual que TradingView: la vela de senyal és v2 (close[1])
   if (!inWindow(v3.timestamp)) return null;
-
 
   const vt = validTrend(msNow, esNow, v1, v2, v3);
   const st = structureOK(msNow, esNow, velas);
 
   const tipoBase = msNow ? "MS" : "ES";
-
-  // Igual que TradingView: V si compleix context, X si no
-  //const tipoVX = (vt && st) ? "V" : "X";
   const tipoVX = "V";
-
 
   return { tipoBase, tipoVX, v2 };
 }
+
 
 // -------------------------------------------------------------
 // INDICADORS
