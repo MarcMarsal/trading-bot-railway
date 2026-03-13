@@ -134,25 +134,20 @@ function isIndecision(o, h, l, c) {
   );
 }
 
-// -------------------------------------------------------------
-// DETECTPATTERN (versió TradingView real)
-// -------------------------------------------------------------
 function detectPattern(velas) {
-  if (velas.length < 4) return { msNow: false, esNow: false };
+  if (!velas || velas.length < 4) {
+    return { msNow: false, esNow: false };
+  }
 
-  //const n = velas.length;
-
-  // v1 = vela tancada anterior
-  // v2 = última vela tancada
-  // v3 = vela actual (igual que TV: c3 = close[1])
   const n = velas.length;
   const v1 = velas[n - 4];
   const v2 = velas[n - 3];
   const v3 = velas[n - 2];
 
+  if (!v1 || !v2 || !v3) {
+    return { msNow: false, esNow: false };
+  }
 
-
-  // strongBull / strongBear / indecision EXACTES com TradingView
   const strongBull = (v) => {
     const body = Math.abs(v.close - v.open);
     const range = v.high - v.low;
@@ -171,10 +166,9 @@ function detectPattern(velas) {
     const body = Math.abs(v.close - v.open);
     const range = v.high - v.low;
     if (range === 0) return true;
-    return (body / range) <= 0.3; // igual que maxBodyPctIndecision a TV
+    return (body / range) <= 0.3;
   };
 
-  // MS / ES EXACTAMENT com TradingView
   const msNow =
     strongBear(v1) &&
     indecision(v2) &&
