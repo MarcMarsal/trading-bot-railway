@@ -583,17 +583,21 @@ cron.schedule("* * * * *", async () => {
           const signal = classifySignal(candles);
           if (!signal) continue;
 
-          // classifySignal retorna: { tipoBase, tipoVX, v2 }
-          //const { tipoBase, tipoVX, v2 } = signal;
-          const { tipoBase, tipoVX, v3 } = signal;
+          const { tipoBase, tipoVX, v2 } = signal;
+
+            // 🔥 Validació per evitar errors quan v2 no existeix
+          if (!v2 || v2.open == null || v2.close == null) {
+           console.log(symbol, timeframe, "→ ERROR: v2 incompleta");
+           continue;
+          }
 
           if (tipoVX === "X") continue;
 
-          const tipo = tipoBase; // MS o ES
+          const tipo = tipoBase;
 
-          // Entrada real sobre la vela de senyal (v2)
           const body = Math.abs(v2.close - v2.open);
           const retr = body * (RETRACEMENT_PERCENT / 100);
+
 
           let entry;
           if (tipo === "MS") {
