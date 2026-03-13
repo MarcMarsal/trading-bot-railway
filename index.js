@@ -71,6 +71,8 @@ const SYMBOLS = [
 
 ];
 
+const RETRACEMENT_PERCENT = 20;   // o el percentatge que vulguis
+
 const API_URL = "https://www.okx.com/api/v5/market/candles";
 
 // -------------------------------------------------------------
