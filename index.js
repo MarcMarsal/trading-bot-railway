@@ -434,6 +434,14 @@ async function detectAndSend(symbol, timeframe) {
   );
 
   const velas = q.rows.reverse();
+  // VALIDACIÓ CRÍTICA: totes les veles han de tenir dades completes
+for (const v of velas) {
+  if (!v || v.open == null || v.close == null || v.high == null || v.low == null || v.timestamp_close == null) {
+    console.log(symbol, timeframe, "→ ERROR: vela incompleta a la BD");
+    return;
+  }
+}
+
   if (velas.length < 4) return;
 
   // 🔥 Validació dura: evitar veles incompletes
