@@ -443,6 +443,12 @@ async function detectAndSend(symbol, timeframe) {
   const v2 = velas[2];
   const v3 = velas[3];
 
+  // 🔥 Solució: evitar errors quan falta alguna vela
+  if (!v1 || !v2 || !v3) {
+    console.log(symbol, timeframe, "→ ERROR: veles incompletes");
+    return;
+  }
+
   // Assegurar que la 3a vela està tancada
   if (Date.now() < v3.timestamp_close) return;
 
@@ -454,7 +460,6 @@ async function detectAndSend(symbol, timeframe) {
   // Descarta X
   if (tipoVX === "X") return;
 
-  // Només MS o ES
   const tipo = tipoBase;
 
   // Càlcul entrada real
@@ -463,16 +468,14 @@ async function detectAndSend(symbol, timeframe) {
 
   let entry;
   if (tipo === "MS") {
-    entry = v3.close - retr; // LONG
+    entry = v3.close - retr;
   } else {
-    entry = v3.close + retr; // SHORT
+    entry = v3.close + retr;
   }
 
-  // Timestamp correcte = 3a vela
   const timestamp = v3.timestamp_close;
   const timestampEs = formatSpainTime(timestamp);
 
-  // Evitar duplicats
   if (await alreadySent(symbol, timeframe, tipo, entry)) return;
 
   const arrow = tipo === "MS" ? "↑" : "↓";
@@ -487,7 +490,6 @@ async function detectAndSend(symbol, timeframe) {
     console.log(symbol, `→ SENYAL ${timeframe} ENVIAT:`, tipo);
   }
 }
-
 
 
 // -------------------------------------------------------------
