@@ -478,7 +478,8 @@ async function detectAndSend(symbol, timeframe) {
   // 5) Enviar alerta
   const sent = await sendTelegram(msg);
   if (sent) {
-    await saveSignal(symbol, timeframe, tipoFull, entry, v2.timestamp_close);
+    //await saveSignal(symbol, timeframe, tipoFull, entry, v2.timestamp_close);
+    await saveSignal(symbol, timeframe, tipoFull, entry, v3.timestamp_close);
     console.log(symbol, `→ SENYAL ${timeframe} ENVIAT:`, tipoFull);
   }
 }
@@ -600,7 +601,8 @@ cron.schedule("* * * * *", async () => {
           const sent = await sendTelegram(msg);
 
           if (sent) {
-            await saveSignal(symbol, timeframe, tipoFull, entry, v2.timestamp);
+            //await saveSignal(symbol, timeframe, tipoFull, entry, v2.timestamp);
+            await saveSignal(symbol, timeframe, tipoFull, entry, v3.timestamp);
             console.log(symbol, timeframe, "→ SENYAL ENVIAT:", tipoFull);
           } else {
             console.log(symbol, timeframe, "→ ERROR TELEGRAM, REINTENTARÀ");
