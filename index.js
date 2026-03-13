@@ -594,16 +594,9 @@ if (!v3 || v3.open == null || v3.close == null) {
 if (tipoVX === "X") continue;
 
 const tipo = tipoBase;
+const entry = v3.close;
 
-const body = Math.abs(v3.close - v3.open);
-const retr = body * (RETRACEMENT_PERCENT / 100);
 
-let entry;
-if (tipo === "MS") {
-  entry = v3.close - retr;
-} else {
-  entry = v3.close + retr;
-}
 
 const timestamp = v3.timestamp;
 const timestampEs = formatSpainTime(timestamp);
