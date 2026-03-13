@@ -581,24 +581,26 @@ cron.schedule("* * * * *", async () => {
           const signal = classifySignal(candles);
           if (!signal) continue;
 
-          const { tipoBase, tipoVX, v3 } = signal;
+          // classifySignal retorna: { tipoBase, tipoVX, v2 }
+          const { tipoBase, tipoVX, v2 } = signal;
 
           if (tipoVX === "X") continue;
 
           const tipo = tipoBase; // MS o ES
 
-          // Entrada real
-          const body = Math.abs(v3.close - v3.open);
+          // Entrada real sobre la vela de senyal (v2)
+          const body = Math.abs(v2.close - v2.open);
           const retr = body * (RETRACEMENT_PERCENT / 100);
 
           let entry;
           if (tipo === "MS") {
-            entry = v3.close - retr;
+            entry = v2.close - retr;
           } else {
-            entry = v3.close + retr;
+            entry = v2.close + retr;
           }
 
-          const timestamp = v3.timestamp_close;
+          // OKX només té "timestamp", no "timestamp_close"
+          const timestamp = v2.timestamp;
           const timestampEs = formatSpainTime(timestamp);
 
           if (await alreadySent(symbol, timeframe, tipo, entry)) continue;
@@ -624,6 +626,7 @@ cron.schedule("* * * * *", async () => {
     console.error("ERROR GLOBAL AL CRON ÚNIC:", err.message);
   }
 });
+
 
 
 
