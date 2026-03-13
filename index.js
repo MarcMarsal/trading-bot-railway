@@ -436,30 +436,33 @@ async function detectAndSend(symbol, timeframe) {
   const velas = q.rows.reverse();
   if (velas.length < 4) return;
 
+  // 🔥 Validació dura: evitar veles incompletes
+  for (const v of velas) {
+    if (!v || v.open == null || v.close == null || v.high == null || v.low == null || v.timestamp_close == null) {
+      console.log(symbol, timeframe, "→ ERROR: vela incompleta a la BD");
+      return;
+    }
+  }
+
   const v1 = velas[1];
   const v2 = velas[2];
   const v3 = velas[3];
 
-  // 🔥 Solució: evitar errors quan falta alguna vela
   if (!v1 || !v2 || !v3) {
     console.log(symbol, timeframe, "→ ERROR: veles incompletes");
     return;
   }
 
-  // Assegurar que la 3a vela està tancada
   if (Date.now() < v3.timestamp_close) return;
 
   const signal = classifySignal(velas);
   if (!signal) return;
 
   const { tipoBase, tipoVX } = signal;
-
-  // Descarta X
   if (tipoVX === "X") return;
 
   const tipo = tipoBase;
 
-  // Càlcul entrada real
   const body = Math.abs(v3.close - v3.open);
   const retr = body * (RETRACEMENT_PERCENT / 100);
 
