@@ -272,7 +272,7 @@ function classifySignal(velas) {
   const tipoBase = msNow ? "MS" : "ES";
   const tipoVX = "V";
 
-  return { tipoBase, tipoVX, v2 };
+  return { tipoBase, tipoVX, v2, v3};
 }
 
 
@@ -584,7 +584,8 @@ cron.schedule("* * * * *", async () => {
           if (!signal) continue;
 
           // classifySignal retorna: { tipoBase, tipoVX, v2 }
-          const { tipoBase, tipoVX, v2 } = signal;
+          //const { tipoBase, tipoVX, v2 } = signal;
+          const { tipoBase, tipoVX, v3 } = signal;
 
           if (tipoVX === "X") continue;
 
@@ -602,7 +603,8 @@ cron.schedule("* * * * *", async () => {
           }
 
           // OKX només té "timestamp", no "timestamp_close"
-          const timestamp = v2.timestamp;
+          //const timestamp = v2.timestamp;
+          const timestamp = v3.timestamp;
           const timestampEs = formatSpainTime(timestamp);
 
           if (await alreadySent(symbol, timeframe, tipo, entry)) continue;
