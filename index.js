@@ -304,40 +304,6 @@ function classifySignal(velas) {
 // -------------------------------------------------------------
 // INDICADORS
 // -------------------------------------------------------------
-function calcVolumeScore(velas) {
-  if (velas.length < 10) return 0;
-
-  const last = velas[velas.length - 1].volume;
-  const prev = velas.slice(-10, -1).map(v => v.volume);
-  const avg = prev.reduce((a, b) => a + b, 0) / prev.length;
-
-  if (avg === 0) return 0;
-
-  const ratio = last / avg;
-  if (ratio >= 2) return 2;
-  if (ratio >= 1.5) return 1.5;
-  if (ratio >= 1.2) return 1;
-  if (ratio >= 1.0) return 0.5;
-  return 0;
-}
-
-function calcVolatilityScore(velas) {
-  if (velas.length < 10) return 0;
-
-  const ranges = velas.slice(-10).map(v => v.high - v.low);
-  const avgRange = ranges.reduce((a, b) => a + b, 0) / ranges.length;
-
-  const lastRange = velas[velas.length - 1].high - velas[velas.length - 1].low;
-
-  if (avgRange === 0) return 0;
-
-  const ratio = lastRange / avgRange;
-  if (ratio >= 2) return 2;
-  if (ratio >= 1.5) return 1.5;
-  if (ratio >= 1.2) return 1;
-  if (ratio >= 1.0) return 0.5;
-  return 0;
-}
 
 // -------------------------------------------------------------
 // TP / SL
@@ -831,23 +797,44 @@ function patternScore(v1, v2, v3, velas, msNow, esNow) {
     else if (pct3 >= 0.35) score += 1;
   }
 
-  // 4) ValidTrend
+  // 4) Tendència
   if (validTrend(msNow, esNow, v1, v2, v3)) score += 1;
 
-  // 5) StructureOK
+  // 5) Estructura
   if (structureOK(msNow, esNow, velas)) score += 1;
 
-  // 6) Volum + Volatilitat
-  const volScore = calcVolumeScore(velas);
-  const volaScore = calcVolatilityScore(velas);
+  // 6) Volum + Volatilitat (només v1, v2, v3)
+  const volScore = volumeScore3(v1, v2, v3);
+  const volaScore = volatilityScore3(v1, v2, v3);
+
   if (volScore + volaScore >= 2) score += 2;
   else if (volScore + volaScore >= 1) score += 1;
 
-  return score; // 0 a 10
+  return score;
 }
 
 
 
+function volumeScore3(v1, v2, v3) {
+  const avgVol = (v1.volume + v2.volume + v3.volume) / 3;
+
+  // Pots ajustar aquests llindars més endavant
+  if (avgVol >= 1.5 * v2.volume) return 2; 
+  if (avgVol >= 1.0 * v2.volume) return 1;
+  return 0;
+}
+
+function volatilityScore3(v1, v2, v3) {
+  const r1 = v1.high - v1.low;
+  const r2 = v2.high - v2.low;
+  const r3 = v3.high - v3.low;
+  const avgRange = (r1 + r2 + r3) / 3;
+
+  // Llindars simples i mecànics
+  if (avgRange >= r2 * 1.5) return 2;
+  if (avgRange >= r2 * 1.0) return 1;
+  return 0;
+}
 
 
 
