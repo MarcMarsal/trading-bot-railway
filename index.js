@@ -253,6 +253,27 @@ function inWindow(openTime) {
   return openTime >= startTime;
 }
 
+//function classifySignal(velas) {
+//  if (!velas || velas.length < 4) return null;
+
+//  const { msNow, esNow, v1, v2, v3 } = detectPattern(velas);
+
+  // 🔥 Validació crítica
+  //if (!v1 || !v2 || !v3) return null;
+  //if (!v3.close || !v3.open || !v3.timestamp) return null;
+
+  //if (!msNow && !esNow) return null;
+
+  //if (!inWindow(v3.timestamp)) return null;
+
+  //const vt = validTrend(msNow, esNow, v1, v2, v3);
+  //const st = structureOK(msNow, esNow, velas);
+
+  //const tipoBase = msNow ? "MS" : "ES";
+  //const tipoVX = "V";
+
+  //return { tipoBase, tipoVX, v2, v3};
+//}
 function classifySignal(velas) {
   if (!velas || velas.length < 4) return null;
 
@@ -272,8 +293,12 @@ function classifySignal(velas) {
   const tipoBase = msNow ? "MS" : "ES";
   const tipoVX = "V";
 
-  return { tipoBase, tipoVX, v2, v3};
+  // ⭐ AFEGIM LA PUNTUACIÓ (sense tocar res més)
+  const score = patternScore(v1, v2, v3, velas, msNow, esNow);
+
+  return { tipoBase, tipoVX, v2, v3, score };
 }
+
 
 
 // -------------------------------------------------------------
@@ -583,7 +608,8 @@ cron.schedule("* * * * *", async () => {
           const signal = classifySignal(candles);
 if (!signal) continue;
 
-const { tipoBase, tipoVX, v2, v3 } = signal;
+//const { tipoBase, tipoVX, v2, v3 } = signal;
+const { tipoBase, tipoVX, v2, v3, score } = signal;
 
 // Validació crítica
 if (!v3 || v3.open == null || v3.close == null) {
@@ -605,9 +631,13 @@ const timestampEs = formatSpainTime(timestamp);
           if (await alreadySent(symbol, timeframe, tipo, entry)) continue;
 
           const arrow = tipo === "MS" ? "↑" : "↓";
-          const msg =
-            `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-            `${timestampEs}`;
+          //const msg =
+          //  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+          //  `${timestampEs}`;
+const msg =
+  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+  `Score: ${score}/10\n` +
+  `${timestampEs}`;
 
           const sent = await sendTelegram(msg);
 
@@ -771,6 +801,50 @@ initDB().then(() => {
 
 });
 
+function patternScore(v1, v2, v3, velas, msNow, esNow) {
+  let score = 0;
+
+  // 1) Força vela 1
+  const body1 = Math.abs(v1.close - v1.open);
+  const range1 = v1.high - v1.low;
+  if (range1 > 0) {
+    const pct1 = body1 / range1;
+    if (pct1 >= 0.5) score += 2;
+    else if (pct1 >= 0.35) score += 1;
+  }
+
+  // 2) Indecisió vela 2
+  const body2 = Math.abs(v2.close - v2.open);
+  const range2 = v2.high - v2.low;
+  if (range2 > 0) {
+    const pct2 = body2 / range2;
+    if (pct2 <= 0.20) score += 2;
+    else if (pct2 <= 0.30) score += 1;
+  }
+
+  // 3) Força vela 3
+  const body3 = Math.abs(v3.close - v3.open);
+  const range3 = v3.high - v3.low;
+  if (range3 > 0) {
+    const pct3 = body3 / range3;
+    if (pct3 >= 0.5) score += 2;
+    else if (pct3 >= 0.35) score += 1;
+  }
+
+  // 4) ValidTrend
+  if (validTrend(msNow, esNow, v1, v2, v3)) score += 1;
+
+  // 5) StructureOK
+  if (structureOK(msNow, esNow, velas)) score += 1;
+
+  // 6) Volum + Volatilitat
+  const volScore = calcVolumeScore(velas);
+  const volaScore = calcVolatilityScore(velas);
+  if (volScore + volaScore >= 2) score += 2;
+  else if (volScore + volaScore >= 1) score += 1;
+
+  return score; // 0 a 10
+}
 
 
 
