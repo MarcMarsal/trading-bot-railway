@@ -480,9 +480,14 @@ for (const v of velas) {
   if (await alreadySent(symbol, timeframe, tipo, entry)) return;
 
   const arrow = tipo === "MS" ? "↑" : "↓";
+  //const msg =
+  //  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+  //  `${timestampEs}`;
+  
   const msg =
-    `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-    `${timestampEs}`;
+  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+  `Entrada teòrica: ${entry.toFixed(4)}\n` +
+  `${timestampEs}`;
 
   const sent = await sendTelegram(msg);
 
