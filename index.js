@@ -591,7 +591,18 @@ if (!v3 || v3.open == null || v3.close == null) {
 if (tipoVX === "X") continue;
 
 const tipo = tipoBase;
-const entry = v3.close;
+// --- CÀLCUL DEL RETROCES ---
+const body = Math.abs(v3.close - v3.open);
+const retr = body * (RETRACEMENT_PERCENT / 100);
+
+let entry;
+if (tipo === "MS") {
+  entry = v3.close - retr;   // retrocés cap avall
+} else {
+  entry = v3.close + retr;   // retrocés cap amunt
+}
+// ----------------------------
+
 
 
 
