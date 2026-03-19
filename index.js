@@ -506,11 +506,17 @@ async function sendTelegram(message) {
 }
 
 
-// -------------------------------------------------------------
-// FORMAT HORA ESPANYOLA
-// -------------------------------------------------------------
 function formatSpainTime(ts) {
+  // Convertir a número
+  ts = Number(ts);
+
+  // Si ve en segons (10 dígits), convertir a mil·lisegons
+  if (ts < 2000000000) {
+    ts = ts * 1000;
+  }
+
   const date = new Date(ts);
+
   return date.toLocaleString("es-ES", {
     timeZone: "Europe/Madrid",
     year: "numeric",
@@ -520,6 +526,7 @@ function formatSpainTime(ts) {
     minute: "2-digit"
   }).replace(",", "");
 }
+
 
 function preSignal(velas) {
   if (velas.length < 3) return null;
