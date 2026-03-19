@@ -454,7 +454,14 @@ async function detectAndSend(symbol, timeframe) {
 
   const slText = "SL a sota de la segona o tercera vela";
 
-  const timestamp = v3.timestamp_close;
+  //const timestamp = v3.timestamp_close;
+  const timestamp = Number(v3.timestamp_close);
+
+  // Si ve en segons, convertir a mil·lisegons
+  if (timestamp < 2000000000) {  
+    timestamp = timestamp * 1000;
+  }
+
   const timestampEs = formatSpainTime(timestamp);
 
   if (await alreadySent(symbol, timeframe, tipo, timestamp)) return;
