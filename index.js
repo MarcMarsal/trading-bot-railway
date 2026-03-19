@@ -333,25 +333,35 @@ async function saveSignal(symbol, timeframe, tipo, entry, timestamp, timestampEs
 // -------------------------------------------------------------
 // FETCH CANDLES OKX
 // -------------------------------------------------------------
+function intervalToMs(interval) {
+  if (interval.endsWith("m")) return parseInt(interval) * 60 * 1000;
+  if (interval.endsWith("H")) return parseInt(interval) * 60 * 60 * 1000;
+  return 0;
+}
+
 async function fetchCandles(symbol, interval) {
   const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=4`;
-
-
-
   const res = await axios.get(url);
   const data = res.data.data;
 
   if (!data || data.length === 0) return [];
 
-  return data.reverse().map(k => ({
-    timestamp: parseInt(k[0]),
-    open: parseFloat(k[1]),
-    high: parseFloat(k[2]),
-    low: parseFloat(k[3]),
-    close: parseFloat(k[4]),
-    volume: parseFloat(k[5])
-  }));
+  const delta = intervalToMs(interval);
+
+  return data.reverse().map(k => {
+    const tsOpen = parseInt(k[0]);
+    return {
+      timestamp_open: tsOpen,
+      timestamp_close: tsOpen + delta,   // ⭐ AIXÒ ÉS EL QUE FALTAVA
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low: parseFloat(k[3]),
+      close: parseFloat(k[4]),
+      volume: parseFloat(k[5])
+    };
+  });
 }
+
 
 // -------------------------------------------------------------
 // SAVE CANDLES (POSTGRES) — UPSERT + DATA ESPANYOLA
