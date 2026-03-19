@@ -403,14 +403,16 @@ async function saveCandles(symbol, timeframe, candles) {
 }
 
 async function detectAndSend(symbol, timeframe) {
-  const q = await client.query(
-    `SELECT open, high, low, close, volume, timestamp_open, timestamp_close
-     FROM candles
-     WHERE symbol = $1 AND timeframe = $2
-     ORDER BY timestamp_close DESC
-     LIMIT 4`,
-    [symbol, timeframe]
-  );
+const q = await client.query(
+  `SELECT open, high, low, close, volume, timestamp_es AS timestamp_close
+   FROM candles
+   WHERE symbol = $1 AND timeframe = $2
+   ORDER BY timestamp_es DESC
+   LIMIT 4`,
+  [symbol, timeframe]
+);
+
+  
 
   const velas = q.rows.reverse();
 
