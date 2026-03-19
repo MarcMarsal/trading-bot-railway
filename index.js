@@ -413,17 +413,7 @@ async function detectAndSend(symbol, timeframe) {
   );
 
   const velas = q.rows.reverse();
-  // VALIDACIÓ CRÍTICA: totes les veles han de tenir dades completes
-for (const v of velas) {
-  if (!v || v.open == null || v.close == null || v.high == null || v.low == null || v.timestamp_close == null) {
-    console.log(symbol, timeframe, "→ ERROR: vela incompleta a la BD");
-    return;
-  }
-}
 
-  if (velas.length < 4) return;
-
-  // 🔥 Validació dura: evitar veles incompletes
   for (const v of velas) {
     if (!v || v.open == null || v.close == null || v.high == null || v.low == null || v.timestamp_close == null) {
       console.log(symbol, timeframe, "→ ERROR: vela incompleta a la BD");
@@ -431,14 +421,13 @@ for (const v of velas) {
     }
   }
 
+  if (velas.length < 4) return;
+
   const v1 = velas[1];
   const v2 = velas[2];
   const v3 = velas[3];
 
-  if (!v1 || !v2 || !v3) {
-    console.log(symbol, timeframe, "→ ERROR: veles incompletes");
-    return;
-  }
+  if (!v1 || !v2 || !v3) return;
 
   if (Date.now() < v3.timestamp_close) return;
 
@@ -450,15 +439,20 @@ for (const v of velas) {
 
   const tipo = tipoBase;
 
+  // --- RETROCES ---
   const body = Math.abs(v3.close - v3.open);
   const retr = body * (RETRACEMENT_PERCENT / 100);
 
   let entry;
-  if (tipo === "MS") {
-    entry = v3.close - retr;
-  } else {
-    entry = v3.close + retr;
-  }
+  if (tipo === "MS") entry = v3.close - retr;
+  else entry = v3.close + retr;
+
+  // --- TP ---
+  let tp;
+  if (tipo === "MS") tp = entry + entry * 0.0025;
+  else tp = entry - entry * 0.0025;
+
+  const slText = "SL a sota de la segona o tercera vela";
 
   const timestamp = v3.timestamp_close;
   const timestampEs = formatSpainTime(timestamp);
@@ -466,14 +460,13 @@ for (const v of velas) {
   if (await alreadySent(symbol, timeframe, tipo, timestamp)) return;
 
   const arrow = tipo === "MS" ? "↑" : "↓";
-  //const msg =
-  //  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-  //  `${timestampEs}`;
-  
+
   const msg =
-  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-  `Entrada teòrica: ${entry.toFixed(4)}\n` +
-  `${timestampEs}`;
+    `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+    `Entrada teòrica: ${entry.toFixed(4)}\n` +
+    `TP: ${tp.toFixed(4)}\n` +
+    `SL: ${slText}\n` +
+    `${timestampEs}`;
 
   const sent = await sendTelegram(msg);
 
@@ -482,7 +475,6 @@ for (const v of velas) {
     console.log(symbol, `→ SENYAL ${timeframe} ENVIAT:`, tipo);
   }
 }
-
 
 // -------------------------------------------------------------
 // TELEGRAM
@@ -563,51 +555,43 @@ cron.schedule("* * * * *", async () => {
           await saveCandles(symbol, timeframe, candles);
 
           const signal = classifySignal(candles);
-if (!signal) continue;
+          if (!signal) continue;
 
-//const { tipoBase, tipoVX, v2, v3 } = signal;
-const { tipoBase, tipoVX, v2, v3, score } = signal;
+          const { tipoBase, tipoVX, v2, v3, score } = signal;
 
-// Validació crítica
-if (!v3 || v3.open == null || v3.close == null) {
-  console.log(symbol, timeframe, "→ ERROR: v3 incompleta");
-  continue;
-}
+          if (!v3 || v3.open == null || v3.close == null) continue;
+          if (tipoVX === "X") continue;
 
-if (tipoVX === "X") continue;
+          const tipo = tipoBase;
 
-const tipo = tipoBase;
-// --- CÀLCUL DEL RETROCES ---
-const body = Math.abs(v3.close - v3.open);
-const retr = body * (RETRACEMENT_PERCENT / 100);
+          // --- RETROCES ---
+          const body = Math.abs(v3.close - v3.open);
+          const retr = body * (RETRACEMENT_PERCENT / 100);
 
-let entry;
-if (tipo === "MS") {
-  entry = v3.close - retr;   // retrocés cap avall
-} else {
-  entry = v3.close + retr;   // retrocés cap amunt
-}
-// ----------------------------
+          let entry;
+          if (tipo === "MS") entry = v3.close - retr;
+          else entry = v3.close + retr;
 
+          // --- TP ---
+          let tp;
+          if (tipo === "MS") tp = entry + entry * 0.0025;
+          else tp = entry - entry * 0.0025;
 
+          const slText = "SL a sota de la segona o tercera vela";
 
+          const timestamp = v3.timestamp_close;
+          const timestampEs = formatSpainTime(timestamp);
 
-const timestamp = v3.timestamp;
-const timestampEs = formatSpainTime(timestamp);
-
-
-         
-          if (await alreadySent(symbol, timeframe, tipo, timestamp))  continue;
+          if (await alreadySent(symbol, timeframe, tipo, timestamp)) continue;
 
           const arrow = tipo === "MS" ? "↑" : "↓";
-          //const msg =
-          //  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-          //  `${timestampEs}`;
-const msg =
-  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-  `Entrada teòrica: ${entry.toFixed(4)}\n` +
-  `Score: ${score}/10\n` +
-  `${timestampEs}`;
+
+          const msg =
+            `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+            `Entrada teòrica: ${entry.toFixed(4)}\n` +
+            `TP: ${tp.toFixed(4)}\n` +
+            `SL: ${slText}\n` +
+            `${timestampEs}`;
 
           const sent = await sendTelegram(msg);
 
@@ -625,7 +609,6 @@ const msg =
     console.error("ERROR GLOBAL AL CRON ÚNIC:", err.message);
   }
 });
-
 
 
 
