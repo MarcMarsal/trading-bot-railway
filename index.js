@@ -333,35 +333,25 @@ async function saveSignal(symbol, timeframe, tipo, entry, timestamp, timestampEs
 // -------------------------------------------------------------
 // FETCH CANDLES OKX
 // -------------------------------------------------------------
-function intervalToMs(interval) {
-  if (interval.endsWith("m")) return parseInt(interval) * 60 * 1000;
-  if (interval.endsWith("H")) return parseInt(interval) * 60 * 60 * 1000;
-  return 0;
-}
-
 async function fetchCandles(symbol, interval) {
   const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=4`;
+
+
+
   const res = await axios.get(url);
   const data = res.data.data;
 
   if (!data || data.length === 0) return [];
 
-  const delta = intervalToMs(interval);
-
-  return data.reverse().map(k => {
-    const tsOpen = parseInt(k[0]);
-    return {
-      timestamp_open: tsOpen,
-      timestamp_close: tsOpen + delta,   // ⭐ AIXÒ ÉS EL QUE FALTAVA
-      open: parseFloat(k[1]),
-      high: parseFloat(k[2]),
-      low: parseFloat(k[3]),
-      close: parseFloat(k[4]),
-      volume: parseFloat(k[5])
-    };
-  });
+  return data.reverse().map(k => ({
+    timestamp: parseInt(k[0]),
+    open: parseFloat(k[1]),
+    high: parseFloat(k[2]),
+    low: parseFloat(k[3]),
+    close: parseFloat(k[4]),
+    volume: parseFloat(k[5])
+  }));
 }
-
 
 // -------------------------------------------------------------
 // SAVE CANDLES (POSTGRES) — UPSERT + DATA ESPANYOLA
@@ -413,19 +403,27 @@ async function saveCandles(symbol, timeframe, candles) {
 }
 
 async function detectAndSend(symbol, timeframe) {
-const q = await client.query(
-  `SELECT open, high, low, close, volume, timestamp_es AS timestamp_close
-   FROM candles
-   WHERE symbol = $1 AND timeframe = $2
-   ORDER BY timestamp_es DESC
-   LIMIT 4`,
-  [symbol, timeframe]
-);
-
-  
+  const q = await client.query(
+    `SELECT open, high, low, close, volume, timestamp_open, timestamp_close
+     FROM candles
+     WHERE symbol = $1 AND timeframe = $2
+     ORDER BY timestamp_close DESC
+     LIMIT 4`,
+    [symbol, timeframe]
+  );
 
   const velas = q.rows.reverse();
+  // VALIDACIÓ CRÍTICA: totes les veles han de tenir dades completes
+for (const v of velas) {
+  if (!v || v.open == null || v.close == null || v.high == null || v.low == null || v.timestamp_close == null) {
+    console.log(symbol, timeframe, "→ ERROR: vela incompleta a la BD");
+    return;
+  }
+}
 
+  if (velas.length < 4) return;
+
+  // 🔥 Validació dura: evitar veles incompletes
   for (const v of velas) {
     if (!v || v.open == null || v.close == null || v.high == null || v.low == null || v.timestamp_close == null) {
       console.log(symbol, timeframe, "→ ERROR: vela incompleta a la BD");
@@ -433,13 +431,14 @@ const q = await client.query(
     }
   }
 
-  if (velas.length < 4) return;
-
   const v1 = velas[1];
   const v2 = velas[2];
   const v3 = velas[3];
 
-  if (!v1 || !v2 || !v3) return;
+  if (!v1 || !v2 || !v3) {
+    console.log(symbol, timeframe, "→ ERROR: veles incompletes");
+    return;
+  }
 
   if (Date.now() < v3.timestamp_close) return;
 
@@ -451,41 +450,30 @@ const q = await client.query(
 
   const tipo = tipoBase;
 
-  // --- RETROCES ---
   const body = Math.abs(v3.close - v3.open);
   const retr = body * (RETRACEMENT_PERCENT / 100);
 
   let entry;
-  if (tipo === "MS") entry = v3.close - retr;
-  else entry = v3.close + retr;
-
-  // --- TP ---
-  let tp;
-  if (tipo === "MS") tp = entry + entry * 0.0025;
-  else tp = entry - entry * 0.0025;
-
-  const slText = "SL a sota de la segona o tercera vela";
-
-  //const timestamp = v3.timestamp_close;
-  const timestamp = Number(v3.timestamp_close);
-
-  // Si ve en segons, convertir a mil·lisegons
-  if (timestamp < 2000000000) {  
-    timestamp = timestamp * 1000;
+  if (tipo === "MS") {
+    entry = v3.close - retr;
+  } else {
+    entry = v3.close + retr;
   }
 
+  const timestamp = v3.timestamp_close;
   const timestampEs = formatSpainTime(timestamp);
 
   if (await alreadySent(symbol, timeframe, tipo, timestamp)) return;
 
   const arrow = tipo === "MS" ? "↑" : "↓";
-
+  //const msg =
+  //  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+  //  `${timestampEs}`;
+  
   const msg =
-    `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-    `Entrada teòrica: ${entry.toFixed(4)}\n` +
-    `TP: ${tp.toFixed(4)}\n` +
-    `SL: ${slText}\n` +
-    `${timestampEs}`;
+  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+  `Entrada teòrica: ${entry.toFixed(4)}\n` +
+  `${timestampEs}`;
 
   const sent = await sendTelegram(msg);
 
@@ -494,6 +482,7 @@ const q = await client.query(
     console.log(symbol, `→ SENYAL ${timeframe} ENVIAT:`, tipo);
   }
 }
+
 
 // -------------------------------------------------------------
 // TELEGRAM
@@ -518,17 +507,11 @@ async function sendTelegram(message) {
 }
 
 
+// -------------------------------------------------------------
+// FORMAT HORA ESPANYOLA
+// -------------------------------------------------------------
 function formatSpainTime(ts) {
-  // Convertir a número
-  ts = Number(ts);
-
-  // Si ve en segons (10 dígits), convertir a mil·lisegons
-  if (ts < 2000000000) {
-    ts = ts * 1000;
-  }
-
   const date = new Date(ts);
-
   return date.toLocaleString("es-ES", {
     timeZone: "Europe/Madrid",
     year: "numeric",
@@ -538,7 +521,6 @@ function formatSpainTime(ts) {
     minute: "2-digit"
   }).replace(",", "");
 }
-
 
 function preSignal(velas) {
   if (velas.length < 3) return null;
@@ -581,43 +563,51 @@ cron.schedule("* * * * *", async () => {
           await saveCandles(symbol, timeframe, candles);
 
           const signal = classifySignal(candles);
-          if (!signal) continue;
+if (!signal) continue;
 
-          const { tipoBase, tipoVX, v2, v3, score } = signal;
+//const { tipoBase, tipoVX, v2, v3 } = signal;
+const { tipoBase, tipoVX, v2, v3, score } = signal;
 
-          if (!v3 || v3.open == null || v3.close == null) continue;
-          if (tipoVX === "X") continue;
+// Validació crítica
+if (!v3 || v3.open == null || v3.close == null) {
+  console.log(symbol, timeframe, "→ ERROR: v3 incompleta");
+  continue;
+}
 
-          const tipo = tipoBase;
+if (tipoVX === "X") continue;
 
-          // --- RETROCES ---
-          const body = Math.abs(v3.close - v3.open);
-          const retr = body * (RETRACEMENT_PERCENT / 100);
+const tipo = tipoBase;
+// --- CÀLCUL DEL RETROCES ---
+const body = Math.abs(v3.close - v3.open);
+const retr = body * (RETRACEMENT_PERCENT / 100);
 
-          let entry;
-          if (tipo === "MS") entry = v3.close - retr;
-          else entry = v3.close + retr;
+let entry;
+if (tipo === "MS") {
+  entry = v3.close - retr;   // retrocés cap avall
+} else {
+  entry = v3.close + retr;   // retrocés cap amunt
+}
+// ----------------------------
 
-          // --- TP ---
-          let tp;
-          if (tipo === "MS") tp = entry + entry * 0.0025;
-          else tp = entry - entry * 0.0025;
 
-          const slText = "SL a sota de la segona o tercera vela";
 
-          const timestamp = v3.timestamp_close;
-          const timestampEs = formatSpainTime(timestamp);
 
-          if (await alreadySent(symbol, timeframe, tipo, timestamp)) continue;
+const timestamp = v3.timestamp;
+const timestampEs = formatSpainTime(timestamp);
+
+
+         
+          if (await alreadySent(symbol, timeframe, tipo, timestamp))  continue;
 
           const arrow = tipo === "MS" ? "↑" : "↓";
-
-          const msg =
-            `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-            `Entrada teòrica: ${entry.toFixed(4)}\n` +
-            `TP: ${tp.toFixed(4)}\n` +
-            `SL: ${slText}\n` +
-            `${timestampEs}`;
+          //const msg =
+          //  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+          //  `${timestampEs}`;
+const msg =
+  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+  `Entrada teòrica: ${entry.toFixed(4)}\n` +
+  `Score: ${score}/10\n` +
+  `${timestampEs}`;
 
           const sent = await sendTelegram(msg);
 
@@ -635,6 +625,7 @@ cron.schedule("* * * * *", async () => {
     console.error("ERROR GLOBAL AL CRON ÚNIC:", err.message);
   }
 });
+
 
 
 
@@ -848,7 +839,6 @@ function volatilityScore3(v1, v2, v3) {
   if (avgRange >= r2 * 1.0) return 1;
   return 0;
 }
-
 
 
 
