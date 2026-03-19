@@ -253,27 +253,7 @@ function inWindow(openTime) {
   return openTime >= startTime;
 }
 
-//function classifySignal(velas) {
-//  if (!velas || velas.length < 4) return null;
 
-//  const { msNow, esNow, v1, v2, v3 } = detectPattern(velas);
-
-  // 🔥 Validació crítica
-  //if (!v1 || !v2 || !v3) return null;
-  //if (!v3.close || !v3.open || !v3.timestamp) return null;
-
-  //if (!msNow && !esNow) return null;
-
-  //if (!inWindow(v3.timestamp)) return null;
-
-  //const vt = validTrend(msNow, esNow, v1, v2, v3);
-  //const st = structureOK(msNow, esNow, velas);
-
-  //const tipoBase = msNow ? "MS" : "ES";
-  //const tipoVX = "V";
-
-  //return { tipoBase, tipoVX, v2, v3};
-//}
 function classifySignal(velas) {
   if (!velas || velas.length < 4) return null;
 
@@ -325,14 +305,20 @@ function calcTargets(tipoBase, entry, roi = 0.01) {
 // -------------------------------------------------------------
 // ANTI-DUPLICATS
 // -------------------------------------------------------------
-async function alreadySent(symbol, timeframe, tipo, entry) {
-  const res = await client.query(
-    `SELECT 1 FROM signals 
-     WHERE symbol=$1 AND timeframe=$2 AND tipo=$3 AND ABS(entry - $4) < 0.0000001`,
-    [symbol, timeframe, tipo, entry]
+async function alreadySent(symbol, timeframe, tipo, timestamp) {
+  const q = await client.query(
+    `SELECT 1 FROM signals
+     WHERE symbol = $1
+       AND timeframe = $2
+       AND tipo = $3
+       AND timestamp = $4
+     LIMIT 1`,
+    [symbol, timeframe, tipo, timestamp]
   );
-  return res.rows.length > 0;
+
+  return q.rowCount > 0;
 }
+
 
 async function saveSignal(symbol, timeframe, tipo, entry, timestamp, timestampEs) {
   await client.query(
@@ -477,7 +463,7 @@ for (const v of velas) {
   const timestamp = v3.timestamp_close;
   const timestampEs = formatSpainTime(timestamp);
 
-  if (await alreadySent(symbol, timeframe, tipo, entry)) return;
+  if (await alreadySent(symbol, timeframe, tipo, timestamp)) return;
 
   const arrow = tipo === "MS" ? "↑" : "↓";
   //const msg =
@@ -492,7 +478,7 @@ for (const v of velas) {
   const sent = await sendTelegram(msg);
 
   if (sent) {
-    await saveSignal(symbol, timeframe, tipo, entry, timestamp, timestampEs);
+    await saveSignal(symbol, timeframe, tipo, v3.close, timestamp, timestampEs);
     console.log(symbol, `→ SENYAL ${timeframe} ENVIAT:`, tipo);
   }
 }
@@ -610,7 +596,8 @@ const timestamp = v3.timestamp;
 const timestampEs = formatSpainTime(timestamp);
 
 
-          if (await alreadySent(symbol, timeframe, tipo, entry)) continue;
+         
+          if (await alreadySent(symbol, timeframe, tipo, timestamp))  continue;
 
           const arrow = tipo === "MS" ? "↑" : "↓";
           //const msg =
@@ -625,7 +612,7 @@ const msg =
           const sent = await sendTelegram(msg);
 
           if (sent) {
-            await saveSignal(symbol, timeframe, tipo, entry, timestamp, timestampEs);
+            await saveSignal(symbol, timeframe, tipo, v3.close, timestamp, timestampEs);
             console.log(symbol, timeframe, "→ SENYAL ENVIAT:", tipo);
           }
 
