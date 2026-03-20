@@ -606,7 +606,8 @@ const timestampEs = formatSpainTime(timestamp);
           //  `${timestampEs}`;
 const msg =
   `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-  `Entrada teòrica: ${entry.toFixed(4)}\n` +
+  //`Entrada teòrica: ${entry.toFixed(4)}\n` +
+  `${entry.toFixed(4)}\n` +
   `Score: ${score}/10\n` +
   `${timestampEs}`;
 
