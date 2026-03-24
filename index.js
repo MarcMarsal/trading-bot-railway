@@ -40,6 +40,7 @@ async function initDB() {
       tipo TEXT NOT NULL,
       entry REAL NOT NULL,
       timestamp BIGINT NOT NULL,
+      timestamp_es BIGINT,
       PRIMARY KEY (symbol, timeframe, tipo, timestamp)
     );
   `);
@@ -51,39 +52,18 @@ async function initDB() {
 // CONFIGURACIÓ
 // -------------------------------------------------------------
 const SYMBOLS = [
-  "BTC-USDT",
-  "SUI-USDT",
-  "SOL-USDT",
-  "XRP-USDT",
-  "AVAX-USDT",
-  "APT-USDT",
-  "INJ-USDT",
-  "SEI-USDT",
-  "ADA-USDT",
-  "LINK-USDT",
-  "BNB-USDT",
-  "ETH-USDT",
-  "NEAR-USDT",
-  "HBAR-USDT",
-  "RENDER-USDT",
-  "ASTER-USDT",
-  "BCH-USDT",
-  "VIRTUAL-USDT"
-
+  "BTC-USDT", "SUI-USDT", "SOL-USDT", "XRP-USDT", "AVAX-USDT",
+  "APT-USDT", "INJ-USDT", "SEI-USDT", "ADA-USDT", "LINK-USDT",
+  "BNB-USDT", "ETH-USDT", "NEAR-USDT", "HBAR-USDT", "RENDER-USDT",
+  "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT"
 ];
 
-const RETRACEMENT_PERCENT = 15;   // o el percentatge que vulguis
-
+const RETRACEMENT_PERCENT = 15;
 const API_URL = "https://www.okx.com/api/v5/market/candles";
 
 // -------------------------------------------------------------
 // FUNCIONS BASE (igual que TradingView)
 // -------------------------------------------------------------
-const strongBodyPct = 0.5; // igual que TradingView
-const minStrongRange = 0.0;
-const maxBodyPctIndecision = 0.3;
-const minRangeIndecision = 0.0;
-
 function body(o, c) {
   return Math.abs(c - o);
 }
@@ -107,36 +87,22 @@ function isBear(o, c) {
 
 function isStrongBull(o, h, l, c) {
   const bp = bodyPct(o, h, l, c);
-  const rng = range(h, l);
-  const rngPct = (rng / c) * 100;
-  return (
-    bp >= strongBodyPct &&
-    (minStrongRange <= 0 || rngPct >= minStrongRange) &&
-    isBull(o, c)
-  );
+  return bp >= 0.5 && isBull(o, c);
 }
 
 function isStrongBear(o, h, l, c) {
   const bp = bodyPct(o, h, l, c);
-  const rng = range(h, l);
-  const rngPct = (rng / c) * 100;
-  return (
-    bp >= strongBodyPct &&
-    (minStrongRange <= 0 || rngPct >= minStrongRange) &&
-    isBear(o, c)
-  );
+  return bp >= 0.5 && isBear(o, c);
 }
 
 function isIndecision(o, h, l, c) {
   const bp = bodyPct(o, h, l, c);
-  const rng = range(h, l);
-  const rngPct = (rng / c) * 100;
-  return (
-    bp <= maxBodyPctIndecision &&
-    (minRangeIndecision <= 0 || rngPct >= minRangeIndecision)
-  );
+  return bp <= 0.3;
 }
 
+// -------------------------------------------------------------
+// DETECCIÓ MS/ES (patró 3 veles)
+// -------------------------------------------------------------
 function detectPattern(velas) {
   if (!velas || velas.length < 4) {
     return { msNow: false, esNow: false };
@@ -201,7 +167,7 @@ function validTrend(msNow, esNow, v1, v2, v3) {
 // PIVOTS + STRUCTUREOK
 // -------------------------------------------------------------
 function findPivotLow(velas) {
-  const idx = velas.length - 3; // v1, igual que TV
+  const idx = velas.length - 3;
   if (idx < 2 || idx + 2 >= velas.length) return null;
 
   const center = velas[idx].low;
@@ -217,7 +183,7 @@ function findPivotLow(velas) {
 }
 
 function findPivotHigh(velas) {
-  const idx = velas.length - 3; // v1, igual que TV
+  const idx = velas.length - 3;
   if (idx < 2 || idx + 2 >= velas.length) return null;
 
   const center = velas[idx].high;
@@ -245,28 +211,44 @@ function structureOK(msNow, esNow, velas) {
 }
 
 // -------------------------------------------------------------
-// INWINDOW
+// VALIDACIÓ DE VELA COMPLETA
 // -------------------------------------------------------------
-function inWindow(openTime) {
-  const now = Date.now();
-  const periodMinutes = 10080; // 1 setmana, igual que TV
-  const startTime = now - periodMinutes * 60000;
-  return openTime >= startTime;
+function velaCompleta(v) {
+  return (
+    v &&
+    v.open != null &&
+    v.close != null &&
+    v.high != null &&
+    v.low != null &&
+    v.timestamp != null
+  );
 }
 
+// -------------------------------------------------------------
+// CALCULAR TANCAMENT DE VELA
+// -------------------------------------------------------------
+function calcCloseTimestamp(openTs, timeframe) {
+  const tfMap = {
+    "15m": 15 * 60 * 1000,
+    "30m": 30 * 60 * 1000,
+    "1H": 60 * 60 * 1000,
+    "4H": 4 * 60 * 60 * 1000
+  };
+  return openTs + tfMap[timeframe];
+}
 
+// -------------------------------------------------------------
+// CLASSIFY SIGNAL (MS / ES)
+// -------------------------------------------------------------
 function classifySignal(velas) {
   if (!velas || velas.length < 4) return null;
 
   const { msNow, esNow, v1, v2, v3 } = detectPattern(velas);
 
-  // 🔥 Validació crítica
   if (!v1 || !v2 || !v3) return null;
   if (!v3.close || !v3.open || !v3.timestamp) return null;
 
   if (!msNow && !esNow) return null;
-
-  if (!inWindow(v3.timestamp)) return null;
 
   const vt = validTrend(msNow, esNow, v1, v2, v3);
   const st = structureOK(msNow, esNow, velas);
@@ -274,17 +256,10 @@ function classifySignal(velas) {
   const tipoBase = msNow ? "MS" : "ES";
   const tipoVX = "V";
 
-  // ⭐ AFEGIM LA PUNTUACIÓ (sense tocar res més)
   const score = patternScore(v1, v2, v3, velas, msNow, esNow);
 
   return { tipoBase, tipoVX, v2, v3, score };
 }
-
-
-
-// -------------------------------------------------------------
-// INDICADORS
-// -------------------------------------------------------------
 
 // -------------------------------------------------------------
 // TP / SL
@@ -320,7 +295,6 @@ async function alreadySent(symbol, timeframe, tipo, timestamp) {
   return q.rowCount > 0;
 }
 
-
 async function saveSignal(symbol, timeframe, tipo, entry, timestamp, timestampEs) {
   await client.query(
     `INSERT INTO signals (symbol, timeframe, tipo, entry, timestamp, timestamp_es)
@@ -330,14 +304,11 @@ async function saveSignal(symbol, timeframe, tipo, entry, timestamp, timestampEs
   );
 }
 
-
 // -------------------------------------------------------------
 // FETCH CANDLES OKX
 // -------------------------------------------------------------
 async function fetchCandles(symbol, interval) {
   const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=4`;
-
-
 
   const res = await axios.get(url);
   const data = res.data.data;
@@ -359,7 +330,6 @@ async function fetchCandles(symbol, interval) {
 // -------------------------------------------------------------
 async function saveCandles(symbol, timeframe, candles) {
   for (const c of candles) {
-
     const ts = c.timestamp;
 
     const tsEs = new Date(
@@ -403,214 +373,84 @@ async function saveCandles(symbol, timeframe, candles) {
   }
 }
 
+// -------------------------------------------------------------
+// DETECCIÓ I ENVIAMENT (VERSIÓ NETEJADA)
+// -------------------------------------------------------------
 async function detectAndSend(symbol, timeframe) {
-  const q = await client.query(
-    `SELECT open, high, low, close, volume, timestamp_open, timestamp_close
-     FROM candles
-     WHERE symbol = $1 AND timeframe = $2
-     ORDER BY timestamp_close DESC
-     LIMIT 4`,
-    [symbol, timeframe]
-  );
-
-  const velas = q.rows.reverse();
-  // VALIDACIÓ CRÍTICA: totes les veles han de tenir dades completes
-for (const v of velas) {
-  if (!v || v.open == null || v.close == null || v.high == null || v.low == null || v.timestamp_close == null) {
-    console.log(symbol, timeframe, "→ ERROR: vela incompleta a la BD");
-    return;
-  }
+  // ❗ Aquesta funció ja no s’utilitza
+  // La mantenim buida per evitar errors si algú la crida
+  return;
 }
-
-  if (velas.length < 4) return;
-
-  // 🔥 Validació dura: evitar veles incompletes
-  for (const v of velas) {
-    if (!v || v.open == null || v.close == null || v.high == null || v.low == null || v.timestamp_close == null) {
-      console.log(symbol, timeframe, "→ ERROR: vela incompleta a la BD");
-      return;
-    }
-  }
-
-  const v1 = velas[1];
-  const v2 = velas[2];
-  const v3 = velas[3];
-
-  if (!v1 || !v2 || !v3) {
-    console.log(symbol, timeframe, "→ ERROR: veles incompletes");
-    return;
-  }
-
-  if (Date.now() < v3.timestamp_close) return;
-
-  const signal = classifySignal(velas);
-  if (!signal) return;
-
-  const { tipoBase, tipoVX } = signal;
-  if (tipoVX === "X") return;
-
-  const tipo = tipoBase;
-
-  const body = Math.abs(v3.close - v3.open);
-  const retr = body * (RETRACEMENT_PERCENT / 100);
-
-  let entry;
-  if (tipo === "MS") {
-    entry = v3.close - retr;
-  } else {
-    entry = v3.close + retr;
-  }
-
-  const timestamp = v3.timestamp_close;
-  const timestampEs = formatSpainTime(timestamp);
-
-  if (await alreadySent(symbol, timeframe, tipo, timestamp)) return;
-
-  const arrow = tipo === "MS" ? "↑" : "↓";
-  //const msg =
-  //  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-  //  `${timestampEs}`;
-  
-  const msg =
-  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-  //`Entrada teòrica: ${entry.toFixed(4)}\n` +
-  `${entry.toFixed(4)}\n` +
-  `${timestampEs}`;
-
-  const sent = await sendTelegram(msg);
-
-  if (sent) {
-    await saveSignal(symbol, timeframe, tipo, v3.close, timestamp, timestampEs);
-    console.log(symbol, `→ SENYAL ${timeframe} ENVIAT:`, tipo);
-  }
-}
-
 
 // -------------------------------------------------------------
-// TELEGRAM
+// CRON PRINCIPAL (NETEJAT I CORREGIT)
 // -------------------------------------------------------------
-async function sendTelegram(message) {
-  const url = `https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`;
-
-  const payload = {
-    chat_id: process.env.TELEGRAM_CHAT_ID,
-    text: message,
-    parse_mode: "HTML"
-  };
-
-  try {
-    const res = await axios.post(url, payload);
-    if (res.status === 200) return true;
-    return false;
-  } catch (e) {
-    console.error("Error enviant Telegram:", e.message);
-    return false;
-  }
-}
-
-
-// -------------------------------------------------------------
-// FORMAT HORA ESPANYOLA
-// -------------------------------------------------------------
-function formatSpainTime(ts) {
-  const date = new Date(ts);
-  return date.toLocaleString("es-ES", {
-    timeZone: "Europe/Madrid",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).replace(",", "");
-}
-
-function preSignal(velas) {
-  if (velas.length < 3) return null;
-
-  const v2 = velas[velas.length - 2]; // última tancada
-  const v1 = velas[velas.length - 3]; // penúltima tancada
-
-  const v1Type = isStrongBull(v1.open, v1.high, v1.low, v1.close)
-    ? "strongBull"
-    : isStrongBear(v1.open, v1.high, v1.low, v1.close)
-    ? "strongBear"
-    : isIndecision(v1.open, v1.high, v1.low, v1.close)
-    ? "indecision"
-    : "other";
-
-  const v2Type = isStrongBull(v2.open, v2.high, v2.low, v2.close)
-    ? "strongBull"
-    : isStrongBear(v2.open, v2.high, v2.low, v2.close)
-    ? "strongBear"
-    : isIndecision(v2.open, v2.high, v2.low, v2.close)
-    ? "indecision"
-    : "other";
-
-  return {
-    v1: v1Type,
-    v2: v2Type,
-    MS_possible: v1Type === "strongBear" && v2Type === "indecision",
-    ES_possible: v1Type === "strongBull" && v2Type === "indecision"
-  };
-}
-
 cron.schedule("* * * * *", async () => {
   try {
     for (const symbol of SYMBOLS) {
       for (const timeframe of ["15m", "30m", "1H", "4H"]) {
         try {
+          // 1) FETCH + SAVE
           const candles = await fetchCandles(symbol, timeframe);
           if (!candles || candles.length === 0) continue;
 
           await saveCandles(symbol, timeframe, candles);
 
+          // 2) VALIDACIÓ DE VELAS
+          if (!candles.every(velaCompleta)) {
+            console.log(symbol, timeframe, "→ ERROR: vela incompleta");
+            continue;
+          }
+
+          if (candles.length < 4) continue;
+
+          const v1 = candles[candles.length - 3];
+          const v2 = candles[candles.length - 2];
+          const v3 = candles[candles.length - 1];
+
+          if (!velaCompleta(v3)) continue;
+
+          // 3) CALCULAR TANCAMENT DE LA VELA 3
+          const timestamp_open = v3.timestamp;
+          const timestamp_close = calcCloseTimestamp(timestamp_open, timeframe);
+
+          // Evitar operar amb la vela 3 si encara no ha tancat
+          if (Date.now() < timestamp_close) continue;
+
+          // 4) DETECTAR SENYAL
           const signal = classifySignal(candles);
-if (!signal) continue;
+          if (!signal) continue;
 
-//const { tipoBase, tipoVX, v2, v3 } = signal;
-const { tipoBase, tipoVX, v2, v3, score } = signal;
+          const { tipoBase, tipoVX, score } = signal;
+          if (tipoVX === "X") continue;
 
-// Validació crítica
-if (!v3 || v3.open == null || v3.close == null) {
-  console.log(symbol, timeframe, "→ ERROR: v3 incompleta");
-  continue;
-}
+          const tipo = tipoBase;
 
-if (tipoVX === "X") continue;
+          // 5) CÀLCUL D’ENTRADA AMB RETROCES
+          const body = Math.abs(v3.close - v3.open);
+          const retr = body * (RETRACEMENT_PERCENT / 100);
 
-const tipo = tipoBase;
-// --- CÀLCUL DEL RETROCES ---
-const body = Math.abs(v3.close - v3.open);
-const retr = body * (RETRACEMENT_PERCENT / 100);
+          let entry;
+          if (tipo === "MS") {
+            entry = v3.close - retr;
+          } else {
+            entry = v3.close + retr;
+          }
 
-let entry;
-if (tipo === "MS") {
-  entry = v3.close - retr;   // retrocés cap avall
-} else {
-  entry = v3.close + retr;   // retrocés cap amunt
-}
-// ----------------------------
+          const timestamp = timestamp_close;
+          const timestampEs = formatSpainTime(timestamp);
 
+          // 6) EVITAR DUPLICATS
+          if (await alreadySent(symbol, timeframe, tipo, timestamp)) continue;
 
-
-
-const timestamp = v3.timestamp;
-const timestampEs = formatSpainTime(timestamp);
-
-
-         
-          if (await alreadySent(symbol, timeframe, tipo, timestamp))  continue;
-
+          // 7) MISSATGE TELEGRAM
           const arrow = tipo === "MS" ? "↑" : "↓";
-          //const msg =
-          //  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-          //  `${timestampEs}`;
-const msg =
-  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-  //`Entrada teòrica: ${entry.toFixed(4)}\n` +
-  `${entry.toFixed(4)}\n` +
-  `Score: ${score}/10\n` +
-  `${timestampEs}`;
+
+          const msg =
+            `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+            `${entry.toFixed(4)}\n` +
+            `Score: ${score}/10\n` +
+            `${timestampEs}`;
 
           const sent = await sendTelegram(msg);
 
@@ -629,144 +469,138 @@ const msg =
   }
 });
 
-
-
-
 // -------------------------------------------------------------
-// INIT DB I SERVIDOR HTTP
+// SERVIDOR HTTP + PANELL HTML
 // -------------------------------------------------------------
-
 initDB().then(() => {
   console.log("DB OK — arrencant servidor HTTP");
 
   http.createServer(async (req, res) => {
 
-  if (req.url === "/panel") {
+    if (req.url === "/panel") {
 
-  const TIMEFRAMES = [
-    { tf: "15m", color: "#00ff00" },   // verd
-    { tf: "30m", color: "#00ffff" },   // cian
-    { tf: "1H",  color: "#ffff00" },   // groc
-    { tf: "4H",  color: "#ffa500" }    // taronja
-  ];
+      const TIMEFRAMES = [
+        { tf: "15m", color: "#00ff00" },
+        { tf: "30m", color: "#00ffff" },
+        { tf: "1H",  color: "#ffff00" },
+        { tf: "4H",  color: "#ffa500" }
+      ];
 
-  let htmlBlocks = "";
-  const lastUpdate = formatSpainTime(Date.now());
+      let htmlBlocks = "";
+      const lastUpdate = formatSpainTime(Date.now());
 
-  for (const { tf, color } of TIMEFRAMES) {
+      for (const { tf, color } of TIMEFRAMES) {
 
-    let rows = "";
+        let rows = "";
 
-    for (const symbol of SYMBOLS.sort()) {   // ORDENACIÓ ALFABÈTICA
-      const q = await client.query(
-        `SELECT open, high, low, close, volume, timestamp
-         FROM candles
-         WHERE symbol = $1 AND timeframe = $2
-         ORDER BY timestamp DESC
-         LIMIT 3`,
-        [symbol, tf]
-      );
+        for (const symbol of SYMBOLS.sort()) {
+          const q = await client.query(
+            `SELECT open, high, low, close, volume, timestamp
+             FROM candles
+             WHERE symbol = $1 AND timeframe = $2
+             ORDER BY timestamp DESC
+             LIMIT 3`,
+            [symbol, tf]
+          );
 
-      const candles = q.rows.reverse();
-      if (candles.length < 3) continue;
+          const candles = q.rows.reverse();
+          if (candles.length < 3) continue;
 
-      const ps = preSignal(candles);
-      const hasV = ps.MS_possible || ps.ES_possible;   // PER AL CHECKBOX
+          const ps = preSignal(candles);
+          const hasV = ps.MS_possible || ps.ES_possible;
 
-      rows += `
-        <tr style="color:${color}" data-has-v="${hasV}">
-          <td><b>${symbol}</b></td>
-          <td>${ps.v1}</td>
-          <td>${ps.v2}</td>
+          rows += `
+            <tr style="color:${color}" data-has-v="${hasV}">
+              <td><b>${symbol}</b></td>
+              <td>${ps.v1}</td>
+              <td>${ps.v2}</td>
 
-          <td style="color:${ps.MS_possible ? '#00ff00' : '#ff0000'}">
-            ${ps.MS_possible ? "✔" : "✘"}
-          </td>
+              <td style="color:${ps.MS_possible ? '#00ff00' : '#ff0000'}">
+                ${ps.MS_possible ? "✔" : "✘"}
+              </td>
 
-          <td style="color:${ps.ES_possible ? '#00ff00' : '#ff0000'}">
-            ${ps.ES_possible ? "✔" : "✘"}
-          </td>
-        </tr>
+              <td style="color:${ps.ES_possible ? '#00ff00' : '#ff0000'}">
+                ${ps.ES_possible ? "✔" : "✘"}
+              </td>
+            </tr>
+          `;
+        }
+
+        htmlBlocks += `
+          <h2 style="color:${color}">Timeframe ${tf}</h2>
+          <table>
+            <tr>
+              <th>Symbol</th>
+              <th>v1</th>
+              <th>v2</th>
+              <th>Possible MS</th>
+              <th>Possible ES</th>
+            </tr>
+            ${rows}
+          </table>
+          <br><br>
+        `;
+      }
+
+      const html = `
+      <html>
+      <head>
+        <meta http-equiv="refresh" content="300">
+        <meta charset="UTF-8">
+        <style>
+          body {
+            background-color: #000;
+            color: #00ff00;
+            font-family: Consolas, monospace;
+            padding: 20px;
+          }
+          table {
+            border-collapse: collapse;
+            width: 100%;
+          }
+          th, td {
+            border: 1px solid #00ff00;
+            padding: 8px;
+            text-align: center;
+          }
+          th {
+            background-color: #003300;
+          }
+        </style>
+
+        <script>
+          function toggleFilter() {
+            const checked = document.getElementById("filterV").checked;
+            const rows = document.querySelectorAll("tr[data-has-v]");
+            rows.forEach(row => {
+              const hasV = row.getAttribute("data-has-v") === "true";
+              row.style.display = checked && !hasV ? "none" : "";
+            });
+          }
+        </script>
+
+      </head>
+      <body>
+
+        <h1>Panell de detecció MS/ES</h1>
+        <p><b>Última actualització:</b> ${lastUpdate}</p>
+
+        <label style="color:#fff;">
+          <input type="checkbox" id="filterV" onchange="toggleFilter()">
+          Mostrar només parells amb ✔ (possible MS/ES)
+        </label>
+        <br><br>
+
+        ${htmlBlocks}
+
+      </body>
+      </html>
       `;
+
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(html);
+      return;
     }
-
-    htmlBlocks += `
-      <h2 style="color:${color}">Timeframe ${tf}</h2>
-      <table>
-        <tr>
-          <th>Symbol</th>
-          <th>v1</th>
-          <th>v2</th>
-          <th>Possible MS</th>
-          <th>Possible ES</th>
-        </tr>
-        ${rows}
-      </table>
-      <br><br>
-    `;
-  }
-
-  const html = `
-  <html>
-  <head>
-    <meta http-equiv="refresh" content="300">
-    <meta charset="UTF-8">
-    <style>
-      body {
-        background-color: #000;
-        color: #00ff00;
-        font-family: Consolas, monospace;
-        padding: 20px;
-      }
-      table {
-        border-collapse: collapse;
-        width: 100%;
-      }
-      th, td {
-        border: 1px solid #00ff00;
-        padding: 8px;
-        text-align: center;
-      }
-      th {
-        background-color: #003300;
-      }
-    </style>
-
-    <script>
-      function toggleFilter() {
-        const checked = document.getElementById("filterV").checked;
-        const rows = document.querySelectorAll("tr[data-has-v]");
-        rows.forEach(row => {
-          const hasV = row.getAttribute("data-has-v") === "true";
-          row.style.display = checked && !hasV ? "none" : "";
-        });
-      }
-    </script>
-
-  </head>
-  <body>
-
-    <h1>Panell de detecció MS/ES</h1>
-    <p><b>Última actualització:</b> ${lastUpdate}</p>
-
-    <label style="color:#fff;">
-      <input type="checkbox" id="filterV" onchange="toggleFilter()">
-      Mostrar només parells amb ✔ (possible MS/ES)
-    </label>
-    <br><br>
-
-    ${htmlBlocks}
-
-  </body>
-  </html>
-  `;
-
-  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-  res.end(html);
-  return;
-}
-
-
 
     res.writeHead(200);
     res.end("Bot OKX MS/ES en marxa");
@@ -774,6 +608,9 @@ initDB().then(() => {
 
 });
 
+// -------------------------------------------------------------
+// SCORE DEL PATRÓ (0–10)
+// -------------------------------------------------------------
 function patternScore(v1, v2, v3, velas, msNow, esNow) {
   let score = 0;
 
@@ -810,7 +647,7 @@ function patternScore(v1, v2, v3, velas, msNow, esNow) {
   // 5) Estructura
   if (structureOK(msNow, esNow, velas)) score += 1;
 
-  // 6) Volum + Volatilitat (només v1, v2, v3)
+  // 6) Volum + Volatilitat
   const volScore = volumeScore3(v1, v2, v3);
   const volaScore = volatilityScore3(v1, v2, v3);
 
@@ -820,34 +657,99 @@ function patternScore(v1, v2, v3, velas, msNow, esNow) {
   return score;
 }
 
-
-
+// -------------------------------------------------------------
+// SCORE DE VOLUM (3 veles)
+// -------------------------------------------------------------
 function volumeScore3(v1, v2, v3) {
   const avgVol = (v1.volume + v2.volume + v3.volume) / 3;
 
-  // Pots ajustar aquests llindars més endavant
-  if (avgVol >= 1.5 * v2.volume) return 2; 
+  if (avgVol >= 1.5 * v2.volume) return 2;
   if (avgVol >= 1.0 * v2.volume) return 1;
   return 0;
 }
 
+// -------------------------------------------------------------
+// SCORE DE VOLATILITAT (3 veles)
+// -------------------------------------------------------------
 function volatilityScore3(v1, v2, v3) {
   const r1 = v1.high - v1.low;
   const r2 = v2.high - v2.low;
   const r3 = v3.high - v3.low;
   const avgRange = (r1 + r2 + r3) / 3;
 
-  // Llindars simples i mecànics
   if (avgRange >= r2 * 1.5) return 2;
   if (avgRange >= r2 * 1.0) return 1;
   return 0;
 }
 
+// -------------------------------------------------------------
+// PRESIGNAL (per al panell)
+// -------------------------------------------------------------
+function preSignal(velas) {
+  if (velas.length < 3) return null;
 
+  const v2 = velas[velas.length - 2];
+  const v1 = velas[velas.length - 3];
 
+  const v1Type = isStrongBull(v1.open, v1.high, v1.low, v1.close)
+    ? "strongBull"
+    : isStrongBear(v1.open, v1.high, v1.low, v1.close)
+    ? "strongBear"
+    : isIndecision(v1.open, v1.high, v1.low, v1.close)
+    ? "indecision"
+    : "other";
 
+  const v2Type = isStrongBull(v2.open, v2.high, v2.low, v2.close)
+    ? "strongBull"
+    : isStrongBear(v2.open, v2.high, v2.low, v2.close)
+    ? "strongBear"
+    : isIndecision(v2.open, v2.high, v2.low, v2.close)
+    ? "indecision"
+    : "other";
 
+  return {
+    v1: v1Type,
+    v2: v2Type,
+    MS_possible: v1Type === "strongBear" && v2Type === "indecision",
+    ES_possible: v1Type === "strongBull" && v2Type === "indecision"
+  };
+}
 
+// -------------------------------------------------------------
+// TELEGRAM
+// -------------------------------------------------------------
+async function sendTelegram(message) {
+  const url = `https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`;
+
+  const payload = {
+    chat_id: process.env.TELEGRAM_CHAT_ID,
+    text: message,
+    parse_mode: "HTML"
+  };
+
+  try {
+    const res = await axios.post(url, payload);
+    return res.status === 200;
+  } catch (e) {
+    console.error("Error enviant Telegram:", e.message);
+    return false;
+  }
+}
+
+// -------------------------------------------------------------
+// FORMAT HORA ESPANYOLA
+// -------------------------------------------------------------
+function formatSpainTime(ts) {
+  const date = new Date(ts);
+  return date.toLocaleString("es-ES", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).replace(",", "");
+}
 
 
 
