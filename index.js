@@ -388,102 +388,71 @@ cron.schedule("* * * * *", async () => {
     for (const symbol of SYMBOLS) {
       for (const timeframe of ["15m", "30m", "1H", "4H"]) {
         try {
-          // 1) FETCH + SAVE
+          // 1) OBTENIR LES 4 VELES DIRECTAMENT DE L’API (igual que TV)
           const candles = await fetchCandles(symbol, timeframe);
-          if (!candles || candles.length === 0) continue;
+          if (!candles || candles.length < 3) continue;
 
+          // 2) GUARDAR-LES A LA BD (opcional però recomanat)
           await saveCandles(symbol, timeframe, candles);
 
-          // 2) VALIDACIÓ DE VELAS
-          if (!candles.every(velaCompleta)) {
-            console.log(symbol, timeframe, "→ ERROR: vela incompleta");
-            continue;
-          }
+          // ---------------------------------------------------------
+          // 🔵 ALERTA ANTICIPADA (vela 2)
+          // ---------------------------------------------------------
+          const ps = preSignal(candles);
+          if (ps && (ps.MS_possible || ps.ES_possible)) {
 
-          if (candles.length < 3) continue;
+            const tipoEarly = ps.MS_possible ? "EARLY_MS" : "EARLY_ES";
+            const v2 = candles[candles.length - 2];
+            const timestampEarly = v2.timestamp;
+            const timestampEsEarly = formatSpainTime(timestampEarly);
 
-          const v1 = candles[candles.length - 3];
-          const v2 = candles[candles.length - 2];
-          const v3 = candles[candles.length - 1]; // en formació o recent
+            // Anti-duplicats només per anticipades
+            if (!(await alreadySent(symbol, timeframe, tipoEarly, timestampEarly))) {
 
-          if (!velaCompleta(v3)) continue;
-
-          // 3) DETECCIÓ ANTICIPADA (ABANS DEL TANCAMENT)
-          const early = detectEarlySignal(candles);
-          if (early) {
-            const earlyTs = v3.timestamp;
-
-            if (!(await alreadySent(symbol, timeframe, "EARLY", earlyTs))) {
-              const tsEsEarly = formatSpainTime(Date.now());
-              const arrowEarly = early.tipo === "MS" ? "↑" : "↓";
-
+              const arrow = ps.MS_possible ? "↑" : "↓";
               const msgEarly =
-                `<b>${symbol} ${arrowEarly} ${timeframe} (anticipat)</b>\n` +
-                `${early.entry.toFixed(4)}\n` +
-                `Anticipat sobre v3 en formació\n` +
-                `${tsEsEarly}`;
+                `<b>${symbol} ${arrow} ${timeframe} (EARLY)</b>\n` +
+                `${timestampEsEarly}`;
 
               const sentEarly = await sendTelegram(msgEarly);
               if (sentEarly) {
-                await saveSignal(
-                  symbol,
-                  timeframe,
-                  "EARLY",
-                  early.entry,
-                  earlyTs,
-                  tsEsEarly
-                );
-                console.log(symbol, timeframe, "→ SENYAL ANTICIPAT ENVIAT:", early.tipo);
+                await saveSignal(symbol, timeframe, tipoEarly, v2.close, timestampEarly, timestampEsEarly);
+                console.log(symbol, timeframe, "→ ALERTA EARLY enviada");
               }
             }
           }
 
-          // 4) DETECCIÓ NORMAL (DESPRÉS DEL TANCAMENT)
-          if (candles.length < 4) continue;
-
-          const lastClosed = candles[candles.length - 1];
-          const timestamp_open = lastClosed.timestamp;
-          const timestamp_close = calcCloseTimestamp(timestamp_open, timeframe);
-
-          // Evitar operar amb la vela si encara no ha tancat
-          if (Date.now() < timestamp_close) continue;
-
+          // ---------------------------------------------------------
+          // 🟢 ALERTA NORMAL (vela 3 confirmada)
+          // ---------------------------------------------------------
           const signal = classifySignal(candles);
           if (!signal) continue;
 
-          const { tipoBase, tipoVX, score } = signal;
-          if (tipoVX === "X") continue;
+          const { tipoBase, v3 } = signal;
+          const tipoNormal = tipoBase; // "MS" o "ES"
 
-          const tipo = tipoBase;
-
-          const body3 = Math.abs(lastClosed.close - lastClosed.open);
-          const retr = body3 * (RETRACEMENT_PERCENT / 100);
-
-          let entry;
-          if (tipo === "MS") {
-            entry = lastClosed.close - retr;
-          } else {
-            entry = lastClosed.close + retr;
-          }
-
-          const timestamp = timestamp_close;
+          const timestamp = v3.timestamp;
           const timestampEs = formatSpainTime(timestamp);
 
-          if (await alreadySent(symbol, timeframe, tipo, timestamp)) continue;
+          // Anti-duplicats només per normals
+          if (await alreadySent(symbol, timeframe, tipoNormal, timestamp)) continue;
 
-          const arrow = tipo === "MS" ? "↑" : "↓";
+          // Entrada teòrica (igual que abans)
+          const body = Math.abs(v3.close - v3.open);
+          const retr = body * (RETRACEMENT_PERCENT / 100);
+          const entry = tipoNormal === "MS" ? v3.close - retr : v3.close + retr;
 
+          const arrow = tipoNormal === "MS" ? "↑" : "↓";
           const msg =
             `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
             `${entry.toFixed(4)}\n` +
-            `Score: ${score}/10\n` +
             `${timestampEs}`;
 
           const sent = await sendTelegram(msg);
 
           if (sent) {
-            await saveSignal(symbol, timeframe, tipo, lastClosed.close, timestamp, timestampEs);
-            console.log(symbol, timeframe, "→ SENYAL ENVIAT:", tipo);
+            await saveSignal(symbol, timeframe, tipoNormal, v3.close, timestamp, timestampEs);
+            console.log(symbol, timeframe, "→ ALERTA NORMAL enviada:", tipoNormal);
           }
 
         } catch (err) {
@@ -492,7 +461,7 @@ cron.schedule("* * * * *", async () => {
       }
     }
   } catch (err) {
-    console.error("ERROR GLOBAL AL CRON ÚNIC:", err.message);
+    console.error("ERROR GLOBAL AL CRON:", err.message);
   }
 });
 
