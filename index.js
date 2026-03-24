@@ -383,68 +383,41 @@ async function detectAndSend(symbol, timeframe) {
 // -------------------------------------------------------------
 // CRON PRINCIPAL (AMB DETECCIÓ ANTICIPADA)
 // -------------------------------------------------------------
+// -------------------------------------------------------------
+// CRON PRINCIPAL (SINCRONITZAT AMB EL PANELL)
+// -------------------------------------------------------------
 cron.schedule("* * * * *", async () => {
   try {
     for (const symbol of SYMBOLS) {
       for (const timeframe of ["15m", "30m", "1H", "4H"]) {
         try {
-          // 1) OBTENIR LES 4 VELES DIRECTAMENT DE L’API
           const candles = await fetchCandles(symbol, timeframe);
           if (!candles || candles.length < 3) continue;
 
-          // 2) GUARDAR-LES A LA BD
           await saveCandles(symbol, timeframe, candles);
 
           // ---------------------------------------------------------
-          // 🔵 ALERTA TEMPRANA (REAL) — NOMÉS SI LA VELA 3 CONFIRMA
+          // 🔵 ALERTA TEMPRANA — EXACTAMENT COM EL PANELL
           // ---------------------------------------------------------
+          const early = detectEarlySignal(candles);
 
-          const v1 = candles[candles.length - 3]; // vela 1 tancada
-          const v2 = candles[candles.length - 2]; // vela 2 tancada
-          const v3 = candles[candles.length - 1]; // vela 3 en formació
+          if (early) {
+            const tipoEarly = early.tipo === "MS" ? "EARLY_MS" : "EARLY_ES";
+            const timestampEarly = early.v3.timestamp;
+            const timestampEsEarly = formatSpainTime(timestampEarly);
 
-          // Vela 3 viva (no tancada)
-          if (Date.now() < v3.timestamp_close) {
+            if (!(await alreadySent(symbol, timeframe, tipoEarly, timestampEarly))) {
 
-            const v1StrongBull = isStrongBull(v1.open, v1.high, v1.low, v1.close);
-            const v1StrongBear = isStrongBear(v1.open, v1.high, v1.low, v1.close);
-            const v2Indecision = isIndecision(v2.open, v2.high, v2.low, v2.close);
+              const arrow = early.tipo === "MS" ? "↑" : "↓";
+              const msgEarly =
+                `<b>${symbol} ${arrow} ${timeframe} (EARLY)</b>\n` +
+                `${timestampEsEarly}`;
 
-            const MS_possible = v1StrongBear && v2Indecision;
-            const ES_possible = v1StrongBull && v2Indecision;
+              const sentEarly = await sendTelegram(msgEarly);
 
-            if (MS_possible || ES_possible) {
-
-              // 1) La vela 3 ha de superar la vela 2
-              const breaksV2 =
-                (MS_possible && v3.high > v2.high) ||
-                (ES_possible && v3.low < v2.low);
-
-              // 2) La vela 3 ha de ser forta en la direcció correcta
-              const strongV3 =
-                (MS_possible && isStrongBull(v3.open, v3.high, v3.low, v3.close)) ||
-                (ES_possible && isStrongBear(v3.open, v3.high, v3.low, v3.close));
-
-              if (breaksV2 && strongV3) {
-
-                const tipoEarly = MS_possible ? "EARLY_MS" : "EARLY_ES";
-                const timestampEarly = v3.timestamp;
-                const timestampEsEarly = formatSpainTime(timestampEarly);
-
-                if (!(await alreadySent(symbol, timeframe, tipoEarly, timestampEarly))) {
-
-                  const arrow = MS_possible ? "↑" : "↓";
-                  const msgEarly =
-                    `<b>${symbol} ${arrow} ${timeframe} (EARLY)</b>\n` +
-                    `${timestampEsEarly}`;
-
-                  const sentEarly = await sendTelegram(msgEarly);
-
-                  if (sentEarly) {
-                    await saveSignal(symbol, timeframe, tipoEarly, v3.close, timestampEarly, timestampEsEarly);
-                    console.log(symbol, timeframe, "→ ALERTA EARLY enviada");
-                  }
-                }
+              if (sentEarly) {
+                await saveSignal(symbol, timeframe, tipoEarly, early.entry, timestampEarly, timestampEsEarly);
+                console.log(symbol, timeframe, "→ ALERTA EARLY enviada");
               }
             }
           }
@@ -452,7 +425,6 @@ cron.schedule("* * * * *", async () => {
           // ---------------------------------------------------------
           // 🟢 ALERTA NORMAL (vela 3 tancada)
           // ---------------------------------------------------------
-
           const signal = classifySignal(candles);
           if (!signal) continue;
 
