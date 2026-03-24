@@ -582,7 +582,7 @@ initDB().then(() => {
       const html = `
       <html>
       <head>
-        <meta http-equiv="refresh" content="300">
+        <meta http-equiv="refresh" content="60">
         <meta charset="UTF-8">
         <style>
           body {
