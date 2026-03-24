@@ -232,7 +232,7 @@ function calcCloseTimestamp(openTs, timeframe) {
     "15m": 15 * 60 * 1000,
     "30m": 30 * 60 * 1000,
     "1H": 60 * 60 * 1000,
-    "4H": 4 * 60 * 60 * 1000
+    "4H": 4 * 60 * 1000 * 60
   };
   return openTs + tfMap[timeframe];
 }
@@ -258,7 +258,7 @@ function classifySignal(velas) {
 
   const score = patternScore(v1, v2, v3, velas, msNow, esNow);
 
-  return { tipoBase, tipoVX, v2, v3, score };
+  return { tipoBase, tipoVX, v2, v3, score, vt, st };
 }
 
 // -------------------------------------------------------------
@@ -374,16 +374,14 @@ async function saveCandles(symbol, timeframe, candles) {
 }
 
 // -------------------------------------------------------------
-// DETECCIÓ I ENVIAMENT (VERSIÓ NETEJADA)
+// DETECCIÓ I ENVIAMENT (VERSIÓ ANTIGA — NO S’USA)
 // -------------------------------------------------------------
 async function detectAndSend(symbol, timeframe) {
-  // ❗ Aquesta funció ja no s’utilitza
-  // La mantenim buida per evitar errors si algú la crida
   return;
 }
 
 // -------------------------------------------------------------
-// CRON PRINCIPAL (NETEJAT I CORREGIT)
+// CRON PRINCIPAL (AMB DETECCIÓ ANTICIPADA)
 // -------------------------------------------------------------
 cron.schedule("* * * * *", async () => {
   try {
@@ -402,22 +400,54 @@ cron.schedule("* * * * *", async () => {
             continue;
           }
 
-          if (candles.length < 4) continue;
+          if (candles.length < 3) continue;
 
           const v1 = candles[candles.length - 3];
           const v2 = candles[candles.length - 2];
-          const v3 = candles[candles.length - 1];
+          const v3 = candles[candles.length - 1]; // en formació o recent
 
           if (!velaCompleta(v3)) continue;
 
-          // 3) CALCULAR TANCAMENT DE LA VELA 3
-          const timestamp_open = v3.timestamp;
+          // 3) DETECCIÓ ANTICIPADA (ABANS DEL TANCAMENT)
+          const early = detectEarlySignal(candles);
+          if (early) {
+            const earlyTs = v3.timestamp;
+
+            if (!(await alreadySent(symbol, timeframe, "EARLY", earlyTs))) {
+              const tsEsEarly = formatSpainTime(Date.now());
+              const arrowEarly = early.tipo === "MS" ? "↑" : "↓";
+
+              const msgEarly =
+                `<b>${symbol} ${arrowEarly} ${timeframe} (anticipat)</b>\n` +
+                `${early.entry.toFixed(4)}\n` +
+                `Anticipat sobre v3 en formació\n` +
+                `${tsEsEarly}`;
+
+              const sentEarly = await sendTelegram(msgEarly);
+              if (sentEarly) {
+                await saveSignal(
+                  symbol,
+                  timeframe,
+                  "EARLY",
+                  early.entry,
+                  earlyTs,
+                  tsEsEarly
+                );
+                console.log(symbol, timeframe, "→ SENYAL ANTICIPAT ENVIAT:", early.tipo);
+              }
+            }
+          }
+
+          // 4) DETECCIÓ NORMAL (DESPRÉS DEL TANCAMENT)
+          if (candles.length < 4) continue;
+
+          const lastClosed = candles[candles.length - 1];
+          const timestamp_open = lastClosed.timestamp;
           const timestamp_close = calcCloseTimestamp(timestamp_open, timeframe);
 
-          // Evitar operar amb la vela 3 si encara no ha tancat
+          // Evitar operar amb la vela si encara no ha tancat
           if (Date.now() < timestamp_close) continue;
 
-          // 4) DETECTAR SENYAL
           const signal = classifySignal(candles);
           if (!signal) continue;
 
@@ -426,24 +456,21 @@ cron.schedule("* * * * *", async () => {
 
           const tipo = tipoBase;
 
-          // 5) CÀLCUL D’ENTRADA AMB RETROCES
-          const body = Math.abs(v3.close - v3.open);
-          const retr = body * (RETRACEMENT_PERCENT / 100);
+          const body3 = Math.abs(lastClosed.close - lastClosed.open);
+          const retr = body3 * (RETRACEMENT_PERCENT / 100);
 
           let entry;
           if (tipo === "MS") {
-            entry = v3.close - retr;
+            entry = lastClosed.close - retr;
           } else {
-            entry = v3.close + retr;
+            entry = lastClosed.close + retr;
           }
 
           const timestamp = timestamp_close;
           const timestampEs = formatSpainTime(timestamp);
 
-          // 6) EVITAR DUPLICATS
           if (await alreadySent(symbol, timeframe, tipo, timestamp)) continue;
 
-          // 7) MISSATGE TELEGRAM
           const arrow = tipo === "MS" ? "↑" : "↓";
 
           const msg =
@@ -455,7 +482,7 @@ cron.schedule("* * * * *", async () => {
           const sent = await sendTelegram(msg);
 
           if (sent) {
-            await saveSignal(symbol, timeframe, tipo, v3.close, timestamp, timestampEs);
+            await saveSignal(symbol, timeframe, tipo, lastClosed.close, timestamp, timestampEs);
             console.log(symbol, timeframe, "→ SENYAL ENVIAT:", tipo);
           }
 
@@ -507,7 +534,7 @@ initDB().then(() => {
           if (candles.length < 3) continue;
 
           const ps = preSignal(candles);
-          const hasV = ps.MS_possible || ps.ES_possible;
+          const hasV = ps.MS_possible || ps.ES_possible || ps.earlyTipo;
 
           rows += `
             <tr style="color:${color}" data-has-v="${hasV}">
@@ -522,6 +549,14 @@ initDB().then(() => {
               <td style="color:${ps.ES_possible ? '#00ff00' : '#ff0000'}">
                 ${ps.ES_possible ? "✔" : "✘"}
               </td>
+
+              <td style="color:${ps.earlyTipo ? '#00ffff' : '#555555'}">
+                ${ps.earlyTipo ? ps.earlyTipo : "-"}
+              </td>
+
+              <td style="color:${ps.earlyEntry ? '#00ffff' : '#555555'}">
+                ${ps.earlyEntry ? ps.earlyEntry.toFixed(4) : "-"}
+              </td>
             </tr>
           `;
         }
@@ -535,6 +570,8 @@ initDB().then(() => {
               <th>v2</th>
               <th>Possible MS</th>
               <th>Possible ES</th>
+              <th>Anticipat</th>
+              <th>Entrada anticipada</th>
             </tr>
             ${rows}
           </table>
@@ -587,7 +624,7 @@ initDB().then(() => {
 
         <label style="color:#fff;">
           <input type="checkbox" id="filterV" onchange="toggleFilter()">
-          Mostrar només parells amb ✔ (possible MS/ES)
+          Mostrar només parells amb ✔ o anticipats
         </label>
         <br><br>
 
@@ -614,7 +651,6 @@ initDB().then(() => {
 function patternScore(v1, v2, v3, velas, msNow, esNow) {
   let score = 0;
 
-  // 1) Força vela 1
   const body1 = Math.abs(v1.close - v1.open);
   const range1 = v1.high - v1.low;
   if (range1 > 0) {
@@ -623,7 +659,6 @@ function patternScore(v1, v2, v3, velas, msNow, esNow) {
     else if (pct1 >= 0.35) score += 1;
   }
 
-  // 2) Indecisió vela 2
   const body2 = Math.abs(v2.close - v2.open);
   const range2 = v2.high - v2.low;
   if (range2 > 0) {
@@ -632,7 +667,6 @@ function patternScore(v1, v2, v3, velas, msNow, esNow) {
     else if (pct2 <= 0.30) score += 1;
   }
 
-  // 3) Força vela 3
   const body3 = Math.abs(v3.close - v3.open);
   const range3 = v3.high - v3.low;
   if (range3 > 0) {
@@ -641,13 +675,9 @@ function patternScore(v1, v2, v3, velas, msNow, esNow) {
     else if (pct3 >= 0.35) score += 1;
   }
 
-  // 4) Tendència
   if (validTrend(msNow, esNow, v1, v2, v3)) score += 1;
-
-  // 5) Estructura
   if (structureOK(msNow, esNow, velas)) score += 1;
 
-  // 6) Volum + Volatilitat
   const volScore = volumeScore3(v1, v2, v3);
   const volaScore = volatilityScore3(v1, v2, v3);
 
@@ -683,10 +713,67 @@ function volatilityScore3(v1, v2, v3) {
 }
 
 // -------------------------------------------------------------
+// DETECCIÓ ANTICIPADA (v3 en formació)
+// -------------------------------------------------------------
+function detectEarlySignal(velas) {
+  if (!velas || velas.length < 3) return null;
+
+  const v1 = velas[velas.length - 3];
+  const v2 = velas[velas.length - 2];
+  const v3 = velas[velas.length - 1];
+
+  if (!velaCompleta(v1) || !velaCompleta(v2) || !velaCompleta(v3)) return null;
+
+  const v1Bull = isStrongBull(v1.open, v1.high, v1.low, v1.close);
+  const v1Bear = isStrongBear(v1.open, v1.high, v1.low, v1.close);
+  const v2Ind = isIndecision(v2.open, v2.high, v2.low, v2.close);
+
+  if (!v2Ind) return null;
+
+  const body3 = Math.abs(v3.close - v3.open);
+  const range3 = v3.high - v3.low;
+  if (range3 === 0) return null;
+
+  const strong3 = (body3 / range3) >= 0.5;
+  const mid1 = (v1.open + v1.close) / 2;
+
+  // MS anticipat
+  if (
+    v1Bear &&
+    strong3 &&
+    v3.close > v3.open &&
+    v3.close > v2.high &&
+    v3.close > mid1
+  ) {
+    return { tipo: "MS", entry: v3.close, v1, v2, v3 };
+  }
+
+  // ES anticipat
+  if (
+    v1Bull &&
+    strong3 &&
+    v3.close < v3.open &&
+    v3.close < v2.low &&
+    v3.close < mid1
+  ) {
+    return { tipo: "ES", entry: v3.close, v1, v2, v3 };
+  }
+
+  return null;
+}
+
+// -------------------------------------------------------------
 // PRESIGNAL (per al panell)
 // -------------------------------------------------------------
 function preSignal(velas) {
-  if (velas.length < 3) return null;
+  if (velas.length < 3) return {
+    v1: "-",
+    v2: "-",
+    MS_possible: false,
+    ES_possible: false,
+    earlyTipo: null,
+    earlyEntry: null
+  };
 
   const v2 = velas[velas.length - 2];
   const v1 = velas[velas.length - 3];
@@ -707,11 +794,15 @@ function preSignal(velas) {
     ? "indecision"
     : "other";
 
+  const early = detectEarlySignal(velas);
+
   return {
     v1: v1Type,
     v2: v2Type,
     MS_possible: v1Type === "strongBear" && v2Type === "indecision",
-    ES_possible: v1Type === "strongBull" && v2Type === "indecision"
+    ES_possible: v1Type === "strongBull" && v2Type === "indecision",
+    earlyTipo: early ? early.tipo : null,
+    earlyEntry: early ? early.entry : null
   };
 }
 
@@ -750,7 +841,4 @@ function formatSpainTime(ts) {
     minute: "2-digit"
   }).replace(",", "");
 }
-
-
-
 
