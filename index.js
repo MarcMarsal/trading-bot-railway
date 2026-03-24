@@ -67,7 +67,8 @@ const SYMBOLS = [
   "HBAR-USDT",
   "RENDER-USDT",
   "ASTER-USDT",
-  "BCH-USDT"
+  "BCH-USDT",
+  "VIRTUAL-USDT"
 
 ];
 
