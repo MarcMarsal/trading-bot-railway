@@ -39,41 +39,51 @@ cron.schedule("* * * * *", async () => {
 
       await saveCandles(symbol, timeframe, candles);
 
-      // ---------------------------------------------------------
-      // 🔵 EARLY SIGNAL
-      // ---------------------------------------------------------
-      const early = detectEarlySignal(candles);
+    // ---------------------------------------------------------
+// 🔵 EARLY SIGNAL — EXACTAMENT COM EL BOT DE 15m
+// ---------------------------------------------------------
+const early = detectEarlySignal(candles);
 
-      if (early) {
-        const tipoEarly = early.tipo === "MS" ? "EARLY_MS" : "EARLY_ES";
-        const timestampEarly = early.v3.timestamp;
-        const timestampEsEarly = formatSpainTime(timestampEarly);
+if (early) {
+  const tipoEarly = early.tipo === "MS" ? "EARLY_MS" : "EARLY_ES";
+  const timestampEarly = early.v3.timestamp;
+  const timestampEsEarly = formatSpainTime(timestampEarly);
 
-        const exists = await alreadySent5m(symbol, timeframe, tipoEarly, timestampEarly);
-        if (!exists) {
-          const result = applyFilters(candles, early);
+  const exists = await alreadySent5m(symbol, timeframe, tipoEarly, timestampEarly);
+  if (!exists) {
 
-          let debugMsg =
-            `<b>${symbol} 5m (EARLY)</b>\n` +
-            `${tipoEarly}\n` +
-            (result.ok ? "correcte" : `descartada per: ${result.reason}`);
+    // 🔥 Calcular entrada EXACTAMENT com el bot de 15m
+    const body = Math.abs(early.v3.close - early.v3.open);
+    const retr = body * (RETRACEMENT_PERCENT / 100);
 
-          await sendTelegram(debugMsg);
+    const entry =
+      early.tipo === "MS"
+        ? early.v3.close - retr
+        : early.v3.close + retr;
 
-          if (result.ok) {
-            await saveSignal5m(
-              symbol,
-              timeframe,
-              tipoEarly,
-              early.entry,
-              timestampEarly,
-              timestampEsEarly
-            );
-          }
+    // 🔥 Enviar debug a Telegram (només per 5m)
+    const debugMsg =
+      `<b>${symbol} 5m (EARLY)</b>\n` +
+      `${tipoEarly}\n` +
+      `Entrada: ${entry.toFixed(4)}\n` +
+      `${timestampEsEarly}`;
 
-          console.log(symbol, "→ EARLY processada");
-        }
-      }
+    await sendTelegram(debugMsg);
+
+    // 🔥 Guardar sempre (NOT NULL)
+    await saveSignal5m(
+      symbol,
+      timeframe,
+      tipoEarly,
+      entry,
+      timestampEarly,
+      timestampEsEarly
+    );
+
+    console.log(symbol, "→ EARLY guardada amb entrada", entry.toFixed(4));
+  }
+}
+
 
       // ---------------------------------------------------------
       // 🟢 NORMAL SIGNAL
