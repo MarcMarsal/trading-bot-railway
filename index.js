@@ -543,63 +543,33 @@ initDB().then(() => {
 
     if (req.url === "/panel") {
 
-      const TIMEFRAMES = [
-  { tf: "5m",  color: "#00ff00" },
-  { tf: "15m", color: "#00ff00" },
-  { tf: "30m", color: "#00ffff" },
-  { tf: "1H",  color: "#ffff00" },
-  { tf: "4H",  color: "#ffa500" }
-];
-
-
-      let htmlBlocks = "";
       const lastUpdate = formatSpainTime(Date.now());
 
-      for (const { tf, color } of TIMEFRAMES) {
+      // 🔥 Generem cada panell individual
+      const block5m  = await generatePanelBlock("5m",  "#00ff00");
+      const block15m = await generatePanelBlock("15m", "#00ff00");
+      const block30m = await generatePanelBlock("30m", "#00ffff");
+      const block1H  = await generatePanelBlock("1H",  "#ffff00");
+      const block4H  = await generatePanelBlock("4H",  "#ffa500");
 
-        let rows = "";
+      // 🔥 Layout final amb files i columnes
+      const htmlBlocks = `
+        <div class="row">
+          <div class="col-50">${block5m}</div>
+          <div class="col-50">${block15m}</div>
+        </div>
 
-        const block5m  = await generatePanelBlock("5m",  "#00ff00");
-const block15m = await generatePanelBlock("15m", "#00ff00");
-const block30m = await generatePanelBlock("30m", "#00ffff");
-const block1H  = await generatePanelBlock("1H",  "#ffff00");
-const block4H  = await generatePanelBlock("4H",  "#ffa500");
+        <div class="row">
+          <div class="col-50">${block30m}</div>
+          <div class="col-50">${block1H}</div>
+        </div>
 
-const htmlBlocks = `
-  <div class="row">
-    <div class="col-50">${block5m}</div>
-    <div class="col-50">${block15m}</div>
-  </div>
+        <div class="row">
+          <div class="col-50">${block4H}</div>
+        </div>
+      `;
 
-  <div class="row">
-    <div class="col-50">${block30m}</div>
-    <div class="col-50">${block1H}</div>
-  </div>
-
-  <div class="row">
-    <div class="col-50">${block4H}</div>
-  </div>
-`;
-
-
-        htmlBlocks += `
-          <h2 style="color:${color}">Timeframe ${tf}</h2>
-          <table>
-            <tr>
-              <th>Symbol</th>
-              <th>v1</th>
-              <th>v2</th>
-              <th>Possible MS</th>
-              <th>Possible ES</th>
-              <th>Anticipat</th>
-              <th>Entrada anticipada</th>
-            </tr>
-            ${rows}
-          </table>
-          <br><br>
-        `;
-      }
-
+      // 🔥 HTML complet
       const html = `
       <html>
       <head>
@@ -624,16 +594,16 @@ const htmlBlocks = `
           th {
             background-color: #003300;
           }
+
+          /* 🔥 Layout 2 columnes */
           .row {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 40px;
-}
-
-.col-50 {
-  width: 50%;
-}
-
+            display: flex;
+            gap: 20px;
+            margin-bottom: 40px;
+          }
+          .col-50 {
+            width: 50%;
+          }
         </style>
 
         <script>
@@ -670,11 +640,13 @@ const htmlBlocks = `
       return;
     }
 
+    // Resposta per defecte
     res.writeHead(200);
     res.end("Bot OKX MS/ES en marxa");
   }).listen(process.env.PORT || 3000);
 
 });
+
 
 // -------------------------------------------------------------
 // SCORE DEL PATRÓ (0–10)
