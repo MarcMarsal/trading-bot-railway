@@ -725,8 +725,11 @@ function detectEarlySignal(velas) {
   const v2 = velas[velas.length - 2];
   const v3 = velas[velas.length - 1];
 
-  if (!velaCompleta(v1) || !velaCompleta(v2) || !velaCompleta(v3)) return null;
+  
+  if (!velaCompleta(v1) || !velaCompleta(v2)) return null;
+  // v3 pot estar en formació
 
+  
   const v1Bull = isStrongBull(v1.open, v1.high, v1.low, v1.close);
   const v1Bear = isStrongBear(v1.open, v1.high, v1.low, v1.close);
   const v2Ind = isIndecision(v2.open, v2.high, v2.low, v2.close);
