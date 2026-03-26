@@ -483,11 +483,13 @@ initDB().then(() => {
     if (req.url === "/panel") {
 
       const TIMEFRAMES = [
-        { tf: "15m", color: "#00ff00" },
-        { tf: "30m", color: "#00ffff" },
-        { tf: "1H",  color: "#ffff00" },
-        { tf: "4H",  color: "#ffa500" }
-      ];
+  { tf: "5m",  color: "#00ff00" },
+  { tf: "15m", color: "#00ff00" },
+  { tf: "30m", color: "#00ffff" },
+  { tf: "1H",  color: "#ffff00" },
+  { tf: "4H",  color: "#ffa500" }
+];
+
 
       let htmlBlocks = "";
       const lastUpdate = formatSpainTime(Date.now());
