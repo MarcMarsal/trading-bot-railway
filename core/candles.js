@@ -48,16 +48,24 @@ async function fetchCandles(symbol, timeframe) {
   }
 }
 
-// -------------------------------------------------------------
-// SAVE CANDLES TO DATABASE (versió completa amb timestamp_es i date_es)
-// -------------------------------------------------------------
 async function saveCandles(symbol, timeframe, candles) {
   try {
     for (const c of candles) {
 
-      const timestamp = c.timestamp;
-      const timestamp_es = formatSpainTime(timestamp);
-      const date_es = formatSpainDate(timestamp);
+      const ts = c.timestamp;
+
+      const tsEs = new Date(
+        new Date(ts).toLocaleString("en-US", { timeZone: "Europe/Madrid" })
+      ).getTime();
+
+      const dateEs = new Date(ts).toLocaleString("es-ES", {
+        timeZone: "Europe/Madrid",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).replace(",", "");
 
       await client.query(
         `INSERT INTO candles 
@@ -66,13 +74,13 @@ async function saveCandles(symbol, timeframe, candles) {
           ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
          ON CONFLICT (symbol, timeframe, timestamp)
          DO UPDATE SET 
-            open=$3, 
-            high=$4, 
-            low=$5, 
-            close=$6, 
-            volume=$7,
-            timestamp_es=$9,
-            date_es=$10`,
+            open = EXCLUDED.open,
+            high = EXCLUDED.high,
+            low = EXCLUDED.low,
+            close = EXCLUDED.close,
+            volume = EXCLUDED.volume,
+            timestamp_es = EXCLUDED.timestamp_es,
+            date_es = EXCLUDED.date_es`,
         [
           symbol,
           timeframe,
@@ -81,9 +89,9 @@ async function saveCandles(symbol, timeframe, candles) {
           c.low,
           c.close,
           c.volume,
-          timestamp,
-          timestamp_es,
-          date_es
+          ts,
+          tsEs,
+          dateEs
         ]
       );
     }
@@ -91,6 +99,7 @@ async function saveCandles(symbol, timeframe, candles) {
     console.error(`Error saveCandles ${symbol} ${timeframe}:`, err.message);
   }
 }
+
 
 module.exports = {
   fetchCandles,
