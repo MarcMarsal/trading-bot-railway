@@ -13,6 +13,8 @@ const SYMBOLS = [
   "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT"
 ];
 
+const RETRACEMENT_PERCENT = 10; // mateix valor que al de 15m
+
 // -------------------------------------------------------------
 // FILTRES (de moment buits — mode debug)
 // -------------------------------------------------------------
