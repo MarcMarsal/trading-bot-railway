@@ -1,5 +1,5 @@
 const cron = require("node-cron");
-const { fetchCandles, saveCandles } = require("./candles");
+const { fetchCandles, saveCandles } = require("./core/candles");
 const { detectEarlySignal } = require("./patterns");
 const { applyFilters } = require("./filters");
 const { sendTelegram } = require("./telegram");
