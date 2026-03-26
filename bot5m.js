@@ -10,7 +10,7 @@ const SYMBOLS = [
   "BTC-USDT", "SUI-USDT", "SOL-USDT", "XRP-USDT", "AVAX-USDT",
   "APT-USDT", "INJ-USDT", "SEI-USDT", "ADA-USDT", "LINK-USDT",
   "BNB-USDT", "ETH-USDT", "NEAR-USDT", "HBAR-USDT", "RENDER-USDT",
-  "ASTR-USDT", "BCH-USDT", "VIRTUAL-USDT"
+  "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT"
 ];
 
 // -------------------------------------------------------------
