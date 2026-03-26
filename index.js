@@ -471,6 +471,67 @@ console.log(symbol, timeframe, "→ NORMAL guardada (Telegram només si 15m)");
   }
 });
 
+async function generatePanelBlock(tf, color) {
+  let rows = "";
+
+  for (const symbol of SYMBOLS.sort()) {
+    const q = await client.query(
+      `SELECT open, high, low, close, volume, timestamp
+       FROM candles
+       WHERE symbol = $1 AND timeframe = $2
+       ORDER BY timestamp DESC
+       LIMIT 3`,
+      [symbol, tf]
+    );
+
+    const candles = q.rows.reverse();
+    if (candles.length < 3) continue;
+
+    const ps = preSignal(candles);
+    const hasV = ps.MS_possible || ps.ES_possible || ps.earlyTipo;
+
+    rows += `
+      <tr style="color:${color}" data-has-v="${hasV}">
+        <td><b>${symbol}</b></td>
+        <td>${ps.v1}</td>
+        <td>${ps.v2}</td>
+
+        <td style="color:${ps.MS_possible ? '#00ff00' : '#ff0000'}">
+          ${ps.MS_possible ? "✔" : "✘"}
+        </td>
+
+        <td style="color:${ps.ES_possible ? '#00ff00' : '#ff0000'}">
+          ${ps.ES_possible ? "✔" : "✘"}
+        </td>
+
+        <td style="color:${ps.earlyTipo ? '#00ffff' : '#555555'}">
+          ${ps.earlyTipo ? ps.earlyTipo : "-"}
+        </td>
+
+        <td style="color:${ps.earlyEntry ? '#00ffff' : '#555555'}">
+          ${ps.earlyEntry ? ps.earlyEntry.toFixed(4) : "-"}
+        </td>
+      </tr>
+    `;
+  }
+
+  return `
+    <h2 style="color:${color}">Timeframe ${tf}</h2>
+    <table>
+      <tr>
+        <th>Symbol</th>
+        <th>v1</th>
+        <th>v2</th>
+        <th>Possible MS</th>
+        <th>Possible ES</th>
+        <th>Anticipat</th>
+        <th>Entrada anticipada</th>
+      </tr>
+      ${rows}
+    </table>
+  `;
+}
+
 
 // -------------------------------------------------------------
 // SERVIDOR HTTP + PANELL HTML
@@ -498,46 +559,28 @@ initDB().then(() => {
 
         let rows = "";
 
-        for (const symbol of SYMBOLS.sort()) {
-          const q = await client.query(
-            `SELECT open, high, low, close, volume, timestamp
-             FROM candles
-             WHERE symbol = $1 AND timeframe = $2
-             ORDER BY timestamp DESC
-             LIMIT 3`,
-            [symbol, tf]
-          );
+        const block5m  = await generatePanelBlock("5m",  "#00ff00");
+const block15m = await generatePanelBlock("15m", "#00ff00");
+const block30m = await generatePanelBlock("30m", "#00ffff");
+const block1H  = await generatePanelBlock("1H",  "#ffff00");
+const block4H  = await generatePanelBlock("4H",  "#ffa500");
 
-          const candles = q.rows.reverse();
-          if (candles.length < 3) continue;
+const htmlBlocks = `
+  <div class="row">
+    <div class="col-50">${block5m}</div>
+    <div class="col-50">${block15m}</div>
+  </div>
 
-          const ps = preSignal(candles);
-          const hasV = ps.MS_possible || ps.ES_possible || ps.earlyTipo;
+  <div class="row">
+    <div class="col-50">${block30m}</div>
+    <div class="col-50">${block1H}</div>
+  </div>
 
-          rows += `
-            <tr style="color:${color}" data-has-v="${hasV}">
-              <td><b>${symbol}</b></td>
-              <td>${ps.v1}</td>
-              <td>${ps.v2}</td>
+  <div class="row">
+    <div class="col-50">${block4H}</div>
+  </div>
+`;
 
-              <td style="color:${ps.MS_possible ? '#00ff00' : '#ff0000'}">
-                ${ps.MS_possible ? "✔" : "✘"}
-              </td>
-
-              <td style="color:${ps.ES_possible ? '#00ff00' : '#ff0000'}">
-                ${ps.ES_possible ? "✔" : "✘"}
-              </td>
-
-              <td style="color:${ps.earlyTipo ? '#00ffff' : '#555555'}">
-                ${ps.earlyTipo ? ps.earlyTipo : "-"}
-              </td>
-
-              <td style="color:${ps.earlyEntry ? '#00ffff' : '#555555'}">
-                ${ps.earlyEntry ? ps.earlyEntry.toFixed(4) : "-"}
-              </td>
-            </tr>
-          `;
-        }
 
         htmlBlocks += `
           <h2 style="color:${color}">Timeframe ${tf}</h2>
@@ -581,6 +624,16 @@ initDB().then(() => {
           th {
             background-color: #003300;
           }
+          .row {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.col-50 {
+  width: 50%;
+}
+
         </style>
 
         <script>
