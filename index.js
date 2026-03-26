@@ -401,59 +401,65 @@ cron.schedule("* * * * *", async () => {
           // ---------------------------------------------------------
           const early = detectEarlySignal(candles);
 
-          if (early) {
-            const tipoEarly = early.tipo === "MS" ? "EARLY_MS" : "EARLY_ES";
-            const timestampEarly = early.v3.timestamp;
-            const timestampEsEarly = formatSpainTime(timestampEarly);
+         if (early) {
+  const tipoEarly = early.tipo === "MS" ? "EARLY_MS" : "EARLY_ES";
+  const timestampEarly = early.v3.timestamp;
+  const timestampEsEarly = formatSpainTime(timestampEarly);
 
-            if (!(await alreadySent(symbol, timeframe, tipoEarly, timestampEarly))) {
+  if (!(await alreadySent(symbol, timeframe, tipoEarly, timestampEarly))) {
 
-              const arrow = early.tipo === "MS" ? "↑" : "↓";
-              const msgEarly =
-                `<b>${symbol} ${arrow} ${timeframe} (EARLY)</b>\n` +
-                `${timestampEsEarly}`;
+    const arrow = early.tipo === "MS" ? "↑" : "↓";
+    const msgEarly =
+      `<b>${symbol} ${arrow} ${timeframe} (EARLY)</b>\n` +
+      `${timestampEsEarly}`;
 
-              const sentEarly = await sendTelegram(msgEarly);
+    // 🔵 Només enviar a Telegram si és 15m
+    if (timeframe === "15m") {
+      await sendTelegram(msgEarly);
+    }
 
-              if (sentEarly) {
-                await saveSignal(symbol, timeframe, tipoEarly, early.entry, timestampEarly, timestampEsEarly);
-                console.log(symbol, timeframe, "→ ALERTA EARLY enviada");
-              }
-            }
-          }
+    // 🟢 Guardar sempre
+    await saveSignal(symbol, timeframe, tipoEarly, early.entry, timestampEarly, timestampEsEarly);
+    console.log(symbol, timeframe, "→ EARLY guardada (Telegram només si 15m)");
+  }
+}
+
 
           // ---------------------------------------------------------
           // 🟢 ALERTA NORMAL (vela 3 tancada)
           // ---------------------------------------------------------
           const signal = classifySignal(candles);
-          if (!signal) continue;
+if (!signal) continue;
 
-          const { tipoBase, v3: v3closed } = signal;
-          const tipoNormal = tipoBase;
+const { tipoBase, v3: v3closed } = signal;
+const tipoNormal = tipoBase;
 
-          const timestamp = v3closed.timestamp;
-          const timestampEs = formatSpainTime(timestamp);
+const timestamp = v3closed.timestamp;
+const timestampEs = formatSpainTime(timestamp);
 
-          if (await alreadySent(symbol, timeframe, tipoNormal, timestamp)) continue;
+if (await alreadySent(symbol, timeframe, tipoNormal, timestamp)) continue;
 
-          const body = Math.abs(v3closed.close - v3closed.open);
-          const retr = body * (RETRACEMENT_PERCENT / 100);
-          const entry = tipoNormal === "MS"
-            ? v3closed.close - retr
-            : v3closed.close + retr;
+const body = Math.abs(v3closed.close - v3closed.open);
+const retr = body * (RETRACEMENT_PERCENT / 100);
+const entry = tipoNormal === "MS"
+  ? v3closed.close - retr
+  : v3closed.close + retr;
 
-          const arrow = tipoNormal === "MS" ? "↑" : "↓";
-          const msg =
-            `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-            `${entry.toFixed(4)}\n` +
-            `${timestampEs}`;
+const arrow = tipoNormal === "MS" ? "↑" : "↓";
+const msg =
+  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
+  `${entry.toFixed(4)}\n` +
+  `${timestampEs}`;
 
-          const sent = await sendTelegram(msg);
+// 🔵 Només enviar a Telegram si és 15m
+if (timeframe === "15m") {
+  await sendTelegram(msg);
+}
 
-          if (sent) {
-            await saveSignal(symbol, timeframe, tipoNormal, v3closed.close, timestamp, timestampEs);
-            console.log(symbol, timeframe, "→ ALERTA NORMAL enviada:", tipoNormal);
-          }
+// 🟢 Guardar sempre
+await saveSignal(symbol, timeframe, tipoNormal, v3closed.close, timestamp, timestampEs);
+console.log(symbol, timeframe, "→ NORMAL guardada (Telegram només si 15m)");
+
 
         } catch (err) {
           console.error(symbol, timeframe, "→ ERROR INTERIOR:", err.message);
