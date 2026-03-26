@@ -1,10 +1,9 @@
 const cron = require("node-cron");
 const { fetchCandles, saveCandles } = require("./core/candles");
-const { detectEarlySignal } = require("./patterns");
-const { applyFilters } = require("./filters");
+const { detectEarlySignal } = require("./core.signals.js");
 const { sendTelegram } = require("./telegram");
 const { alreadySent5m, saveSignal5m } = require("./db/signals5m");
-const { formatSpainTime } = require("./utils/time");
+const { formatSpainTime } = require("./core/utils.js");
 
 const SYMBOLS = [
   "BTC-USDT", "SUI-USDT", "SOL-USDT", "XRP-USDT", "AVAX-USDT",
