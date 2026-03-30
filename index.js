@@ -1077,19 +1077,19 @@ function preSignal(velas) {
   const v1 = velas[velas.length - 3];
 
   const v1Type = isStrongBull(v1.open, v1.high, v1.low, v1.close)
-    ? "strongBull"
+    ? "strBull"
     : isStrongBear(v1.open, v1.high, v1.low, v1.close)
-    ? "strongBear"
+    ? "strBear"
     : isIndecision(v1.open, v1.high, v1.low, v1.close)
-    ? "indecision"
+    ? "ind"
     : "other";
 
   const v2Type = isStrongBull(v2.open, v2.high, v2.low, v2.close)
-    ? "strongBull"
+    ? "strBull"
     : isStrongBear(v2.open, v2.high, v2.low, v2.close)
-    ? "strongBear"
+    ? "strBear"
     : isIndecision(v2.open, v2.high, v2.low, v2.close)
-    ? "indecision"
+    ? "ind"
     : "other";
 
   const early = detectEarlySignal(velas);
@@ -1097,8 +1097,8 @@ function preSignal(velas) {
   return {
     v1: v1Type,
     v2: v2Type,
-    MS_possible: v1Type === "strongBear" && v2Type === "indecision",
-    ES_possible: v1Type === "strongBull" && v2Type === "indecision",
+    MS_possible: v1Type === "strBear" && v2Type === "ind",
+    ES_possible: v1Type === "strBull" && v2Type === "ind",
     earlyTipo: early ? early.tipo : null,
     earlyEntry: early ? early.entry : null
   };
