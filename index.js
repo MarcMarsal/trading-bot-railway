@@ -471,8 +471,92 @@ console.log(symbol, timeframe, "→ NORMAL guardada (Telegram només si 15m)");
   }
 });
 
+function calcMarketScore(candles) {
+  if (candles.length < 50) return 0;
+
+  const closes = candles.map(c => c.close);
+  const highs  = candles.map(c => c.high);
+  const lows   = candles.map(c => c.low);
+  const volumes = candles.map(c => c.volume);
+
+  // ATR aproximat
+  let trs = [];
+  for (let i = 1; i < candles.length; i++) {
+    trs.push(Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i-1]),
+      Math.abs(lows[i] - closes[i-1])
+    ));
+  }
+  const atrNow = trs[trs.length - 1];
+  const atrAvg = trs.slice(-50).reduce((a,b)=>a+b,0) / 50;
+
+  const condVolatility = atrNow > atrAvg * 0.8 && atrNow < atrAvg * 1.4;
+
+  // Wicks
+  function wickPct(c) {
+    const range = c.high - c.low;
+    if (range === 0) return 0;
+    const upper = c.high - Math.max(c.open, c.close);
+    const lower = Math.min(c.open, c.close) - c.low;
+    return (upper + lower) / range;
+  }
+
+  const avgWick = candles.slice(-20).map(wickPct).reduce((a,b)=>a+b,0) / 20;
+  const condWicks = avgWick < 0.40;
+
+  // Volum relatiu
+  const volNow = volumes[volumes.length - 1];
+  const volAvg = volumes.slice(-50).reduce((a,b)=>a+b,0) / 50;
+  const condVolume = volNow > volAvg * 0.6;
+
+  // Swings
+  let swingCount = 0;
+  for (let i = candles.length - 16; i < candles.length; i++) {
+    if (i <= 1) continue;
+    const isHigh = highs[i] > highs[i-1] && highs[i] > highs[i-2];
+    const isLow  = lows[i] < lows[i-1] && lows[i] < lows[i-2];
+    if (isHigh || isLow) swingCount++;
+  }
+  const condSwings = swingCount >= 3;
+
+  // Continuació
+  let hasContinuation = false;
+  for (let i = candles.length - 11; i < candles.length - 1; i++) {
+    const cont = Math.abs(closes[i] - candles[i].open) / candles[i].open;
+    if (cont > 0.0025) hasContinuation = true;
+  }
+  const condContinuation = hasContinuation;
+
+  // Tendència
+  function ema(arr, period) {
+    const k = 2 / (period + 1);
+    let ema = arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      ema = arr[i] * k + ema * (1 - k);
+    }
+    return ema;
+  }
+
+  const ema20 = ema(closes.slice(-60), 20);
+  const ema50 = ema(closes.slice(-60), 50);
+  const emaDist = Math.abs(ema20 - ema50) / closes[closes.length - 1];
+  const condTrend = emaDist > 0.002 && emaDist < 0.015;
+
+  // Score final
+  return [
+    condVolatility,
+    condWicks,
+    condVolume,
+    condSwings,
+    condContinuation,
+    condTrend
+  ].filter(Boolean).length;
+}
+
 async function generatePanelBlock(tf, color) {
   let rows = "";
+  let allCandles = []; // per calcular el marketScore
 
   for (const symbol of SYMBOLS.sort()) {
     const q = await client.query(
@@ -480,14 +564,17 @@ async function generatePanelBlock(tf, color) {
        FROM candles
        WHERE symbol = $1 AND timeframe = $2
        ORDER BY timestamp DESC
-       LIMIT 3`,
+       LIMIT 60`,
       [symbol, tf]
     );
 
     const candles = q.rows.reverse();
     if (candles.length < 3) continue;
 
-    const ps = preSignal(candles);
+    // Guardem totes les candles per calcular el marketScore del timeframe
+    allCandles = candles;
+
+    const ps = preSignal(candles.slice(-3));
     const hasV = ps.MS_possible || ps.ES_possible || ps.earlyTipo;
 
     rows += `
@@ -515,23 +602,29 @@ async function generatePanelBlock(tf, color) {
     `;
   }
 
-  return `
-    <h2 style="color:${color}">Timeframe ${tf}</h2>
-    <table>
-      <tr>
-        <th>Symbol</th>
-        <th>v1</th>
-        <th>v2</th>
-        <th>Possible MS</th>
-        <th>Possible ES</th>
-        <th>Anticipat</th>
-        <th>Entrada anticipada</th>
-      </tr>
-      ${rows}
-    </table>
-  `;
-}
+  // Calculem el marketScore del timeframe
+  const score = calcMarketScore(allCandles);
 
+  // Retornem HTML + score
+  return {
+    html: `
+      <h2 style="color:${color}">Timeframe ${tf} (${score}/6)</h2>
+      <table>
+        <tr>
+          <th>Symbol</th>
+          <th>v1</th>
+          <th>v2</th>
+          <th>Possible MS</th>
+          <th>Possible ES</th>
+          <th>Anticipat</th>
+          <th>Entrada anticipada</th>
+        </tr>
+        ${rows}
+      </table>
+    `,
+    score
+  };
+}
 
 // -------------------------------------------------------------
 // SERVIDOR HTTP + PANELL HTML
@@ -550,16 +643,15 @@ const block30m = await generatePanelBlock("30m", "#00ffff");
 const block1H  = await generatePanelBlock("1H",  "#ffff00");
 const block4H  = await generatePanelBlock("4H",  "#ffa500");
 
-// 🔥 Layout final amb files i columnes (sense 5m)
 const htmlBlocks = `
   <div class="row">
-    <div class="col-50">${block15m}</div>
-    <div class="col-50">${block30m}</div>
+    <div class="col-50">${block15m.html}</div>
+    <div class="col-50">${block30m.html}</div>
   </div>
 
   <div class="row">
-    <div class="col-50">${block1H}</div>
-    <div class="col-50">${block4H}</div>
+    <div class="col-50">${block1H.html}</div>
+    <div class="col-50">${block4H.html}</div>
   </div>
 `;
 
