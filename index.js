@@ -615,8 +615,13 @@ async function generatePanelBlock(timeframe, color) {
     const v1 = ps.v1 || "-";
     const v2 = ps.v2 || "-";
 
-    const MS = ps.MS_possible ? "✓" : "✗";
-    const ES = ps.ES_possible ? "✓" : "✗";
+    const MS = ps.MS_possible 
+  ? "✓" 
+  : `<span style="color:#cc4444;">✗</span>`;
+
+const ES = ps.ES_possible 
+  ? "✓" 
+  : `<span style="color:#cc4444;">✗</span>`;
 
     const anticipat = ps.earlyTipo ? ps.earlyTipo : "-";
     const entry = ps.earlyEntry ? ps.earlyEntry.toFixed(4) : "-";
