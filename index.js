@@ -260,15 +260,9 @@ function classifySignal(velas) {
 
   if (!msNow && !esNow) return null;
 
-  const vt = validTrend(msNow, esNow, v1, v2, v3);
-  const st = structureOK(msNow, esNow, velas);
-
   const tipoBase = msNow ? "MS" : "ES";
-  const tipoVX = "V";
 
-  const score = patternScore(v1, v2, v3, velas, msNow, esNow);
-
-  return { tipoBase, tipoVX, v2, v3, score, vt, st };
+  return { tipoBase, v3 };
 }
 
 // -------------------------------------------------------------
@@ -409,12 +403,6 @@ async function saveCandles(symbol, timeframe, candles) {
   }
 }
 
-// -------------------------------------------------------------
-// DETECCIÓ I ENVIAMENT (VERSIÓ ANTIGA — NO S’USA)
-// -------------------------------------------------------------
-async function detectAndSend(symbol, timeframe) {
-  return;
-}
 
 updateCandles(); // primera càrrega immediata
 cron.schedule("*/1 * * * *", updateCandles); // cada minut
@@ -528,88 +516,6 @@ cron.schedule("* * * * *", async () => {
   }
 });
 
-// -------------------------------------------------------------
-// MARKET SCORE (Opció A — complet 6/6)
-// -------------------------------------------------------------
-function calcMarketScore(candles) {
-  if (!candles || candles.length < 60) return 0;
-
-  const closes = candles.map(c => c.close);
-  const highs  = candles.map(c => c.high);
-  const lows   = candles.map(c => c.low);
-  const volumes = candles.map(c => c.volume);
-
-  // ATR aproximat
-  let trs = [];
-  for (let i = 1; i < candles.length; i++) {
-    trs.push(Math.max(
-      highs[i] - lows[i],
-      Math.abs(highs[i] - closes[i-1]),
-      Math.abs(lows[i] - closes[i-1])
-    ));
-  }
-  const atrNow = trs[trs.length - 1];
-  const atrAvg = trs.slice(-50).reduce((a,b)=>a+b,0) / 50;
-  const condVolatility = atrNow > atrAvg * 0.8 && atrNow < atrAvg * 1.4;
-
-  // Wicks
-  function wickPct(c) {
-    const range = c.high - c.low;
-    if (range === 0) return 0;
-    const upper = c.high - Math.max(c.open, c.close);
-    const lower = Math.min(c.open, c.close) - c.low;
-    return (upper + lower) / range;
-  }
-  const avgWick = candles.slice(-20).map(wickPct).reduce((a,b)=>a+b,0) / 20;
-  const condWicks = avgWick < 0.40;
-
-  // Volum relatiu
-  const volNow = volumes[volumes.length - 1];
-  const volAvg = volumes.slice(-50).reduce((a,b)=>a+b,0) / 50;
-  const condVolume = volNow > volAvg * 0.6;
-
-  // Swings
-  let swingCount = 0;
-  for (let i = candles.length - 16; i < candles.length; i++) {
-    if (i <= 1) continue;
-    const isHigh = highs[i] > highs[i-1] && highs[i] > highs[i-2];
-    const isLow  = lows[i] < lows[i-1] && lows[i] < lows[i-2];
-    if (isHigh || isLow) swingCount++;
-  }
-  const condSwings = swingCount >= 3;
-
-  // Continuació
-  let hasContinuation = false;
-  for (let i = candles.length - 11; i < candles.length - 1; i++) {
-    const cont = Math.abs(closes[i] - candles[i].open) / candles[i].open;
-    if (cont > 0.0025) hasContinuation = true;
-  }
-  const condContinuation = hasContinuation;
-
-  // Tendència (EMA20 vs EMA50)
-  function ema(arr, period) {
-    const k = 2 / (period + 1);
-    let e = arr[0];
-    for (let i = 1; i < arr.length; i++) {
-      e = arr[i] * k + e * (1 - k);
-    }
-    return e;
-  }
-  const ema20 = ema(closes.slice(-60), 20);
-  const ema50 = ema(closes.slice(-60), 50);
-  const emaDist = Math.abs(ema20 - ema50) / closes[closes.length - 1];
-  const condTrend = emaDist > 0.002 && emaDist < 0.015;
-
-  // Score final
-  return [
-    condVolatility,
-    condWicks,
-    condVolume,
-    condSwings,
-    condContinuation,
-    condTrend
-  ].filter(Boolean).length;
-}
 
 // -------------------------------------------------------------
 // FIABILITAT EXACTA (TradingView → Bot)
@@ -734,7 +640,7 @@ function calcReliability(candles) {
   else if (trendPercent < 40 && msPercent < 40)
     contextLabel = "No operar";
 
-  return { trendPercent, msPercent, contextLabel };
+  return { trendPercent, msPercent, contextLabel , volumeOK: condVolume };
 }
 // -------------------------------------------------------------
 // GENERATE PANEL BLOCK (FIAT) — amb score per cripto i score global
@@ -743,81 +649,60 @@ async function generatePanelBlock(timeframe, color) {
   const symbols = Object.keys(globalCache[timeframe] || {}).sort();
 
   let rowsHTML = "";
-  let scores = [];
 
   for (const symbol of symbols) {
     const velas = globalCache[timeframe][symbol];
     if (!velas || velas.length < 60) continue;
 
-    // 1) Pre-signal
+    // 1) Pre-signal (v1, v2, anticipats)
     const ps = preSignal(velas);
 
-    // 2) Market score (0–6)
-    const score = calcMarketScore(velas);
-    scores.push(score);
+    // 2) Fiabilitats exactes (TradingView → Bot → Panell)
+    const { trendPercent, msPercent, contextLabel, volumeOK } = calcReliability(velas);
+    const vol = volumeOK ? "OK" : "LOW";
 
-    // 3) Fiabilitats exactes (TradingView → Bot → Panell)
-    const { trendPercent, msPercent, contextLabel } = calcReliability(velas);
-
-    // 4) Formatació
+    // 3) Formatació
     const v1 = ps.v1 || "-";
     const v2 = ps.v2 || "-";
-
-    const MS = ps.MS_possible
-      ? "✓"
-      : `<span style="color:#cc4444;">✗</span>`;
-
-    const ES = ps.ES_possible
-      ? "✓"
-      : `<span style="color:#cc4444;">✗</span>`;
 
     const anticipat = ps.earlyTipo ? ps.earlyTipo : "-";
     const entry = ps.earlyEntry ? ps.earlyEntry.toFixed(4) : "-";
 
-    // 5) Afegim fila amb fiabilitats
+    // 4) Afegim fila
     rowsHTML += `
       <tr>
         <td>${symbol}</td>
-        <td>${score}/6</td>
         <td>${trendPercent}%</td>
         <td>${msPercent}%</td>
         <td>${contextLabel}</td>
         <td>${v1}</td>
         <td>${v2}</td>
-        <td>${MS}</td>
-        <td>${ES}</td>
+        <td>${ps.gir}</td>
+        <td>${vol}</td>
         <td>${anticipat}</td>
         <td>${entry}</td>
       </tr>
     `;
   }
 
-  // 6) Score global del timeframe
-  const avgScore = scores.length > 0
-    ? (scores.reduce((a,b)=>a+b,0) / scores.length)
-    : 0;
-
-  const avgFormatted = avgScore.toFixed(1);
-
-  // 7) HTML final
+  // HTML final FIAT
   const html = `
     <div class="tf-block" style="border:2px solid ${color}; padding:10px; margin-bottom:20px;">
-      <h2 style="color:${color};">Timeframe ${timeframe} (${avgFormatted}/6)</h2>
+      <h2 style="color:${color};">Timeframe ${timeframe}</h2>
 
       <table>
         <thead>
           <tr>
             <th>Symbol</th>
-            <th>Score</th>
             <th>Trend%</th>
             <th>MS/ES%</th>
             <th>Context</th>
             <th>v1</th>
             <th>v2</th>
-            <th>Possible MS</th>
-            <th>Possible ES</th>
-            <th>Anticipat</th>
-            <th>Entrada anticipada</th>
+            <th>Gir</th>
+            <th>Volum</th>
+            <th>Ant.</th>
+            <th>Entr.</th>
           </tr>
         </thead>
         <tbody>
@@ -827,7 +712,7 @@ async function generatePanelBlock(timeframe, color) {
     </div>
   `;
 
-  return { html, score: avgScore };
+  return { html };
 }
 // -------------------------------------------------------------
 // SERVIDOR HTTP + PANELL HTML
@@ -939,74 +824,6 @@ const htmlBlocks = `
 
 });
 
-
-// -------------------------------------------------------------
-// SCORE DEL PATRÓ (0–10)
-// -------------------------------------------------------------
-function patternScore(v1, v2, v3, velas, msNow, esNow) {
-  let score = 0;
-
-  const body1 = Math.abs(v1.close - v1.open);
-  const range1 = v1.high - v1.low;
-  if (range1 > 0) {
-    const pct1 = body1 / range1;
-    if (pct1 >= 0.5) score += 2;
-    else if (pct1 >= 0.35) score += 1;
-  }
-
-  const body2 = Math.abs(v2.close - v2.open);
-  const range2 = v2.high - v2.low;
-  if (range2 > 0) {
-    const pct2 = body2 / range2;
-    if (pct2 <= 0.20) score += 2;
-    else if (pct2 <= 0.30) score += 1;
-  }
-
-  const body3 = Math.abs(v3.close - v3.open);
-  const range3 = v3.high - v3.low;
-  if (range3 > 0) {
-    const pct3 = body3 / range3;
-    if (pct3 >= 0.5) score += 2;
-    else if (pct3 >= 0.35) score += 1;
-  }
-
-  if (validTrend(msNow, esNow, v1, v2, v3)) score += 1;
-  if (structureOK(msNow, esNow, velas)) score += 1;
-
-  const volScore = volumeScore3(v1, v2, v3);
-  const volaScore = volatilityScore3(v1, v2, v3);
-
-  if (volScore + volaScore >= 2) score += 2;
-  else if (volScore + volaScore >= 1) score += 1;
-
-  return score;
-}
-
-// -------------------------------------------------------------
-// SCORE DE VOLUM (3 veles)
-// -------------------------------------------------------------
-function volumeScore3(v1, v2, v3) {
-  const avgVol = (v1.volume + v2.volume + v3.volume) / 3;
-
-  if (avgVol >= 1.5 * v2.volume) return 2;
-  if (avgVol >= 1.0 * v2.volume) return 1;
-  return 0;
-}
-
-// -------------------------------------------------------------
-// SCORE DE VOLATILITAT (3 veles)
-// -------------------------------------------------------------
-function volatilityScore3(v1, v2, v3) {
-  const r1 = v1.high - v1.low;
-  const r2 = v2.high - v2.low;
-  const r3 = v3.high - v3.low;
-  const avgRange = (r1 + r2 + r3) / 3;
-
-  if (avgRange >= r2 * 1.5) return 2;
-  if (avgRange >= r2 * 1.0) return 1;
-  return 0;
-}
-
 // -------------------------------------------------------------
 // DETECCIÓ ANTICIPADA (v3 en formació)
 // -------------------------------------------------------------
@@ -1067,8 +884,7 @@ function preSignal(velas) {
   if (velas.length < 3) return {
     v1: "-",
     v2: "-",
-    MS_possible: false,
-    ES_possible: false,
+    gir: "-",
     earlyTipo: null,
     earlyEntry: null
   };
@@ -1094,16 +910,19 @@ function preSignal(velas) {
 
   const early = detectEarlySignal(velas);
 
+  // 🔥 GIR FIAT
+  let gir = "-";
+  if (v1Type === "strBear" && v2Type === "ind") gir = "MS";
+  if (v1Type === "strBull" && v2Type === "ind") gir = "ES";
+
   return {
     v1: v1Type,
     v2: v2Type,
-    MS_possible: v1Type === "strBear" && v2Type === "ind",
-    ES_possible: v1Type === "strBull" && v2Type === "ind",
+    gir,
     earlyTipo: early ? early.tipo : null,
     earlyEntry: early ? early.entry : null
   };
 }
-
 // -------------------------------------------------------------
 // TELEGRAM (VERSIÓ MILLORADA)
 // -------------------------------------------------------------
