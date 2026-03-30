@@ -67,7 +67,7 @@ cron.schedule("* * * * *", async () => {
             `Entrada: ${entry.toFixed(4)}\n` +
             `${timestampEsEarly}`;
 
-          await sendTelegram(debugMsg);
+          //await sendTelegram(debugMsg);
 
           // 🔥 Guardar sempre (NOT NULL)
           await saveSignal5m(
