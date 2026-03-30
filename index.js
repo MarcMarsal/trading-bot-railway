@@ -545,29 +545,24 @@ initDB().then(() => {
 
       const lastUpdate = formatSpainTime(Date.now());
 
-      // 🔥 Generem cada panell individual
-      const block5m  = await generatePanelBlock("5m",  "#00ff00");
       const block15m = await generatePanelBlock("15m", "#00ff00");
-      const block30m = await generatePanelBlock("30m", "#00ffff");
-      const block1H  = await generatePanelBlock("1H",  "#ffff00");
-      const block4H  = await generatePanelBlock("4H",  "#ffa500");
+const block30m = await generatePanelBlock("30m", "#00ffff");
+const block1H  = await generatePanelBlock("1H",  "#ffff00");
+const block4H  = await generatePanelBlock("4H",  "#ffa500");
 
-      // 🔥 Layout final amb files i columnes
-      const htmlBlocks = `
-        <div class="row">
-          <div class="col-50">${block5m}</div>
-          <div class="col-50">${block15m}</div>
-        </div>
+// 🔥 Layout final amb files i columnes (sense 5m)
+const htmlBlocks = `
+  <div class="row">
+    <div class="col-50">${block15m}</div>
+    <div class="col-50">${block30m}</div>
+  </div>
 
-        <div class="row">
-          <div class="col-50">${block30m}</div>
-          <div class="col-50">${block1H}</div>
-        </div>
+  <div class="row">
+    <div class="col-50">${block1H}</div>
+    <div class="col-50">${block4H}</div>
+  </div>
+`;
 
-        <div class="row">
-          <div class="col-50">${block4H}</div>
-        </div>
-      `;
 
       // 🔥 HTML complet
       const html = `
