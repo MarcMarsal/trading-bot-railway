@@ -403,6 +403,20 @@ async function saveCandles(symbol, timeframe, candles) {
   }
 }
 
+function getRecommendation({ trendPercent, msPercent, volumeOK, gir }) {
+  // 1) Tendència forta
+  if (trendPercent >= 70 && volumeOK) {
+    return "TENDÈNCIA";
+  }
+
+  // 2) MS/ES favorable
+  if (msPercent >= 70 && gir !== "-" && volumeOK) {
+    return "MS/ES";
+  }
+
+  // 3) No operar
+  return "NO OPERAR";
+}
 
 updateCandles(); // primera càrrega immediata
 cron.schedule("*/1 * * * *", updateCandles); // cada minut
@@ -668,6 +682,13 @@ async function generatePanelBlock(timeframe, color) {
     const anticipat = ps.earlyTipo ? ps.earlyTipo : "-";
     const entry = ps.earlyEntry ? ps.earlyEntry.toFixed(4) : "-";
 
+    const recom = getRecommendation({
+      trendPercent,
+      msPercent,
+      volumeOK,
+      gir: ps.gir
+      });
+
     // 4) Afegim fila
     rowsHTML += `
       <tr>
@@ -681,6 +702,7 @@ async function generatePanelBlock(timeframe, color) {
         <td>${vol}</td>
         <td>${anticipat}</td>
         <td>${entry}</td>
+        <td>${recom}</td>
       </tr>
     `;
   }
@@ -703,6 +725,7 @@ async function generatePanelBlock(timeframe, color) {
             <th>Volum</th>
             <th>Ant.</th>
             <th>Entr.</th>
+            <th>Recom.</th>
           </tr>
         </thead>
         <tbody>
