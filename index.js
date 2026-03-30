@@ -471,8 +471,11 @@ console.log(symbol, timeframe, "→ NORMAL guardada (Telegram només si 15m)");
   }
 });
 
+// -------------------------------------------------------------
+// MARKET SCORE (Opció A — complet 6/6)
+// -------------------------------------------------------------
 function calcMarketScore(candles) {
-  if (candles.length < 50) return 0;
+  if (!candles || candles.length < 60) return 0;
 
   const closes = candles.map(c => c.close);
   const highs  = candles.map(c => c.high);
@@ -490,7 +493,6 @@ function calcMarketScore(candles) {
   }
   const atrNow = trs[trs.length - 1];
   const atrAvg = trs.slice(-50).reduce((a,b)=>a+b,0) / 50;
-
   const condVolatility = atrNow > atrAvg * 0.8 && atrNow < atrAvg * 1.4;
 
   // Wicks
@@ -501,7 +503,6 @@ function calcMarketScore(candles) {
     const lower = Math.min(c.open, c.close) - c.low;
     return (upper + lower) / range;
   }
-
   const avgWick = candles.slice(-20).map(wickPct).reduce((a,b)=>a+b,0) / 20;
   const condWicks = avgWick < 0.40;
 
@@ -528,16 +529,15 @@ function calcMarketScore(candles) {
   }
   const condContinuation = hasContinuation;
 
-  // Tendència
+  // Tendència (EMA20 vs EMA50)
   function ema(arr, period) {
     const k = 2 / (period + 1);
-    let ema = arr[0];
+    let e = arr[0];
     for (let i = 1; i < arr.length; i++) {
-      ema = arr[i] * k + ema * (1 - k);
+      e = arr[i] * k + e * (1 - k);
     }
-    return ema;
+    return e;
   }
-
   const ema20 = ema(closes.slice(-60), 20);
   const ema50 = ema(closes.slice(-60), 50);
   const emaDist = Math.abs(ema20 - ema50) / closes[closes.length - 1];
@@ -554,76 +554,84 @@ function calcMarketScore(candles) {
   ].filter(Boolean).length;
 }
 
-async function generatePanelBlock(tf, color) {
-  let rows = "";
-  let allCandles = []; // per calcular el marketScore
+// -------------------------------------------------------------
+// GENERATE PANEL BLOCK (FIAT) — amb score per cripto i score global
+// -------------------------------------------------------------
+async function generatePanelBlock(timeframe, color) {
+  const symbols = Object.keys(globalCache[timeframe] || {}).sort(); // ordre alfabètic
 
-  for (const symbol of SYMBOLS.sort()) {
-    const q = await client.query(
-      `SELECT open, high, low, close, volume, timestamp
-       FROM candles
-       WHERE symbol = $1 AND timeframe = $2
-       ORDER BY timestamp DESC
-       LIMIT 60`,
-      [symbol, tf]
-    );
+  let rowsHTML = "";
+  let scores = [];
 
-    const candles = q.rows.reverse();
-    if (candles.length < 3) continue;
+  for (const symbol of symbols) {
+    const velas = globalCache[timeframe][symbol];
+    if (!velas || velas.length < 3) continue;
 
-    // Guardem totes les candles per calcular el marketScore del timeframe
-    allCandles = candles;
+    // 1) Pre-signal (v1, v2, MS, ES, anticipats)
+    const ps = preSignal(velas);
 
-    const ps = preSignal(candles.slice(-3));
-    const hasV = ps.MS_possible || ps.ES_possible || ps.earlyTipo;
+    // 2) Market score per cripto (0–6)
+    const score = calcMarketScore(velas);
+    scores.push(score);
 
-    rows += `
-      <tr style="color:${color}" data-has-v="${hasV}">
-        <td><b>${symbol}</b></td>
-        <td>${ps.v1}</td>
-        <td>${ps.v2}</td>
+    // 3) Formatació
+    const v1 = ps.v1 || "-";
+    const v2 = ps.v2 || "-";
 
-        <td style="color:${ps.MS_possible ? '#00ff00' : '#ff0000'}">
-          ${ps.MS_possible ? "✔" : "✘"}
-        </td>
+    const MS = ps.MS_possible ? "✓" : "✗";
+    const ES = ps.ES_possible ? "✓" : "✗";
 
-        <td style="color:${ps.ES_possible ? '#00ff00' : '#ff0000'}">
-          ${ps.ES_possible ? "✔" : "✘"}
-        </td>
+    const anticipat = ps.earlyTipo ? ps.earlyTipo : "-";
+    const entry = ps.earlyEntry ? ps.earlyEntry.toFixed(4) : "-";
 
-        <td style="color:${ps.earlyTipo ? '#00ffff' : '#555555'}">
-          ${ps.earlyTipo ? ps.earlyTipo : "-"}
-        </td>
-
-        <td style="color:${ps.earlyEntry ? '#00ffff' : '#555555'}">
-          ${ps.earlyEntry ? ps.earlyEntry.toFixed(4) : "-"}
-        </td>
+    // 4) Afegim fila
+    rowsHTML += `
+      <tr>
+        <td>${symbol}</td>
+        <td>${score}/6</td>
+        <td>${v1}</td>
+        <td>${v2}</td>
+        <td>${MS}</td>
+        <td>${ES}</td>
+        <td>${anticipat}</td>
+        <td>${entry}</td>
       </tr>
     `;
   }
 
-  // Calculem el marketScore del timeframe
-  const score = calcMarketScore(allCandles);
+  // 5) Score global del timeframe (mitjana)
+  const avgScore = scores.length > 0
+    ? (scores.reduce((a,b)=>a+b,0) / scores.length)
+    : 0;
 
-  // Retornem HTML + score
-  return {
-    html: `
-      <h2 style="color:${color}">Timeframe ${tf} (${score}/6)</h2>
+  const avgFormatted = avgScore.toFixed(1);
+
+  // 6) HTML final del bloc
+  const html = `
+    <div class="tf-block" style="border:2px solid ${color}; padding:10px; margin-bottom:20px;">
+      <h2 style="color:${color};">Timeframe ${timeframe} (${avgFormatted}/6)</h2>
+
       <table>
-        <tr>
-          <th>Symbol</th>
-          <th>v1</th>
-          <th>v2</th>
-          <th>Possible MS</th>
-          <th>Possible ES</th>
-          <th>Anticipat</th>
-          <th>Entrada anticipada</th>
-        </tr>
-        ${rows}
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Score</th>
+            <th>v1</th>
+            <th>v2</th>
+            <th>Possible MS</th>
+            <th>Possible ES</th>
+            <th>Anticipat</th>
+            <th>Entrada anticipada</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHTML}
+        </tbody>
       </table>
-    `,
-    score
-  };
+    </div>
+  `;
+
+  return { html, score: avgScore };
 }
 
 // -------------------------------------------------------------
@@ -638,11 +646,12 @@ initDB().then(() => {
 
       const lastUpdate = formatSpainTime(Date.now());
 
-      const block15m = await generatePanelBlock("15m", "#00ff00");
+     const block15m = await generatePanelBlock("15m", "#00ff00");
 const block30m = await generatePanelBlock("30m", "#00ffff");
 const block1H  = await generatePanelBlock("1H",  "#ffff00");
 const block4H  = await generatePanelBlock("4H",  "#ffa500");
 
+// 🔥 Layout final amb files i columnes (ara amb .html)
 const htmlBlocks = `
   <div class="row">
     <div class="col-50">${block15m.html}</div>
@@ -654,6 +663,7 @@ const htmlBlocks = `
     <div class="col-50">${block4H.html}</div>
   </div>
 `;
+
 
 
       // 🔥 HTML complet
