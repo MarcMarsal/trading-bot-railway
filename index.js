@@ -318,7 +318,7 @@ async function saveSignal(symbol, timeframe, tipo, entry, timestamp, timestampEs
 // FETCH CANDLES OKX
 // -------------------------------------------------------------
 async function fetchCandles(symbol, interval) {
-  const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=4`;
+  const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=100`;
 
   const res = await axios.get(url);
   const data = res.data.data;
@@ -334,6 +334,32 @@ async function fetchCandles(symbol, interval) {
     volume: parseFloat(k[5])
   }));
 }
+
+// -------------------------------------------------------------
+// UPDATE CANDLES → Omple globalCache per al panell
+// -------------------------------------------------------------
+async function updateCandles() {
+  for (const symbol of SYMBOLS) {
+    try {
+      const c15  = await fetchCandles(symbol, "15m");
+      const c30  = await fetchCandles(symbol, "30m");
+      const c1H  = await fetchCandles(symbol, "1H");
+      const c4H  = await fetchCandles(symbol, "4H");
+
+      globalCache["15m"][symbol] = c15;
+      globalCache["30m"][symbol] = c30;
+      globalCache["1H"][symbol]  = c1H;
+      globalCache["4H"][symbol]  = c4H;
+
+    } catch (err) {
+      console.log("Error descarregant veles per", symbol, err.message);
+    }
+  }
+
+  console.log("globalCache actualitzat:", new Date().toISOString());
+}
+
+
 
 // -------------------------------------------------------------
 // SAVE CANDLES (POSTGRES) — UPSERT + DATA ESPANYOLA
@@ -390,9 +416,10 @@ async function detectAndSend(symbol, timeframe) {
   return;
 }
 
-// -------------------------------------------------------------
-// CRON PRINCIPAL (AMB DETECCIÓ ANTICIPADA)
-// -------------------------------------------------------------
+updateCandles(); // primera càrrega immediata
+cron.schedule("*/1 * * * *", updateCandles); // cada minut
+
+
 // -------------------------------------------------------------
 // CRON PRINCIPAL (SINCRONITZAT AMB EL PANELL)
 // -------------------------------------------------------------
