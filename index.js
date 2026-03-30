@@ -423,6 +423,9 @@ cron.schedule("*/1 * * * *", updateCandles); // cada minut
 // -------------------------------------------------------------
 // CRON PRINCIPAL (SINCRONITZAT AMB EL PANELL)
 // -------------------------------------------------------------
+// -------------------------------------------------------------
+// CRON PRINCIPAL (SINCRONITZAT AMB EL PANELL)
+// -------------------------------------------------------------
 cron.schedule("* * * * *", async () => {
   try {
     for (const symbol of SYMBOLS) {
@@ -434,69 +437,86 @@ cron.schedule("* * * * *", async () => {
           await saveCandles(symbol, timeframe, candles);
 
           // ---------------------------------------------------------
+          // 🔥 FIABILITAT EXACTA (TradingView → Bot)
+          // ---------------------------------------------------------
+          const { trendPercent, msPercent, contextLabel } = calcReliability(candles);
+
+          // ---------------------------------------------------------
           // 🔵 ALERTA TEMPRANA — EXACTAMENT COM EL PANELL
           // ---------------------------------------------------------
           const early = detectEarlySignal(candles);
 
-         if (early) {
-  const tipoEarly = early.tipo === "MS" ? "EARLY_MS" : "EARLY_ES";
-  const timestampEarly = early.v3.timestamp;
-  const timestampEsEarly = formatSpainTime(timestampEarly);
+          if (early) {
+            const tipoEarly = early.tipo === "MS" ? "EARLY_MS" : "EARLY_ES";
+            const timestampEarly = early.v3.timestamp;
+            const timestampEsEarly = formatSpainTime(timestampEarly);
 
-  if (!(await alreadySent(symbol, timeframe, tipoEarly, timestampEarly))) {
+            if (!(await alreadySent(symbol, timeframe, tipoEarly, timestampEarly))) {
 
-    const arrow = early.tipo === "MS" ? "↑" : "↓";
-    const msgEarly =
-      `<b>${symbol} ${arrow} ${timeframe} (EARLY)</b>\n` +
-      `${timestampEsEarly}`;
+              const arrow = early.tipo === "MS" ? "↑" : "↓";
 
-    // 🔵 Només enviar a Telegram si és 15m
-    if (timeframe === "15m") {
-      await sendTelegram(msgEarly);
-    }
+              // 🔥 Només enviar a Telegram si és 15m
+              if (timeframe === "15m") {
+                await sendTelegram({
+                  title: `${symbol} ${arrow} ${timeframe} (EARLY)`,
+                  entry: early.entry.toFixed(4),
+                  trendPercent,
+                  msPercent,
+                  contextLabel,
+                  extra: timestampEsEarly
+                });
+              }
 
-    // 🟢 Guardar sempre
-    await saveSignal(symbol, timeframe, tipoEarly, early.entry, timestampEarly, timestampEsEarly);
-    console.log(symbol, timeframe, "→ EARLY guardada (Telegram només si 15m)");
-  }
-}
-
+              // Guardar sempre
+              await saveSignal(symbol, timeframe, tipoEarly, early.entry, timestampEarly, timestampEsEarly);
+              console.log(symbol, timeframe, "→ EARLY guardada (Telegram només si 15m)");
+            }
+          }
 
           // ---------------------------------------------------------
           // 🟢 ALERTA NORMAL (vela 3 tancada)
           // ---------------------------------------------------------
           const signal = classifySignal(candles);
-if (!signal) continue;
+          if (!signal) continue;
 
-const { tipoBase, v3: v3closed } = signal;
-const tipoNormal = tipoBase;
+          const { tipoBase, v3: v3closed } = signal;
+          const tipoNormal = tipoBase;
 
-const timestamp = v3closed.timestamp;
-const timestampEs = formatSpainTime(timestamp);
+          const timestamp = v3closed.timestamp;
+          const timestampEs = formatSpainTime(timestamp);
 
-if (await alreadySent(symbol, timeframe, tipoNormal, timestamp)) continue;
+          if (await alreadySent(symbol, timeframe, tipoNormal, timestamp)) continue;
 
-const body = Math.abs(v3closed.close - v3closed.open);
-const retr = body * (RETRACEMENT_PERCENT / 100);
-const entry = tipoNormal === "MS"
-  ? v3closed.close - retr
-  : v3closed.close + retr;
+          const body = Math.abs(v3closed.close - v3closed.open);
+          const retr = body * (RETRACEMENT_PERCENT / 100);
 
-const arrow = tipoNormal === "MS" ? "↑" : "↓";
-const msg =
-  `<b>${symbol} ${arrow} ${timeframe}</b>\n` +
-  `${entry.toFixed(4)}\n` +
-  `${timestampEs}`;
+          const entry =
+            tipoNormal === "MS"
+              ? v3closed.close - retr
+              : v3closed.close + retr;
 
-// 🔵 Només enviar a Telegram si és 15m
-if (timeframe === "15m") {
-  await sendTelegram(msg);
-}
+          const { tp, sl } = calcTargets(tipoNormal, entry);
 
-// 🟢 Guardar sempre
-await saveSignal(symbol, timeframe, tipoNormal, v3closed.close, timestamp, timestampEs);
-console.log(symbol, timeframe, "→ NORMAL guardada (Telegram només si 15m)");
+          const arrow = tipoNormal === "MS" ? "↑" : "↓";
 
+          // 🔥 Només enviar a Telegram si és 15m
+          if (timeframe === "15m") {
+            await sendTelegram({
+              title: `${symbol} ${arrow} ${timeframe}`,
+              direction: tipoNormal === "MS" ? "LONG" : "SHORT",
+              entry: entry.toFixed(4),
+              tp: tp.toFixed(4),
+              sl: sl.toFixed(4),
+              trendPercent,
+              msPercent,
+              contextLabel,
+              extra: timestampEs
+            });
+          }
+
+          // Guardar sempre
+          await saveSignal(symbol, timeframe, tipoNormal, v3closed.close, timestamp, timestampEs);
+          console.log(symbol, timeframe, "→ NORMAL guardada (Telegram només si 15m)");
 
         } catch (err) {
           console.error(symbol, timeframe, "→ ERROR INTERIOR:", err.message);
@@ -592,45 +612,176 @@ function calcMarketScore(candles) {
 }
 
 // -------------------------------------------------------------
+// FIABILITAT EXACTA (TradingView → Bot)
+// -------------------------------------------------------------
+function calcReliability(candles) {
+  if (!candles || candles.length < 60) {
+    return {
+      trendPercent: 0,
+      msPercent: 0,
+      contextLabel: "Sense dades"
+    };
+  }
+
+  const closes = candles.map(c => c.close);
+  const highs  = candles.map(c => c.high);
+  const lows   = candles.map(c => c.low);
+  const volumes = candles.map(c => c.volume);
+
+  // ATR
+  let trs = [];
+  for (let i = 1; i < candles.length; i++) {
+    trs.push(Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i-1]),
+      Math.abs(lows[i] - closes[i-1])
+    ));
+  }
+  const atrNow = trs[trs.length - 1];
+  const atrAvg = trs.slice(-50).reduce((a,b)=>a+b,0) / 50;
+  const condVolatility = atrNow > atrAvg * 0.8 && atrNow < atrAvg * 1.4;
+
+  // Wicks
+  function wickPct(c) {
+    const range = c.high - c.low;
+    if (range === 0) return 0;
+    const upper = c.high - Math.max(c.open, c.close);
+    const lower = Math.min(c.open, c.close) - c.low;
+    return (upper + lower) / range;
+  }
+  const avgWick = candles.slice(-20).map(wickPct).reduce((a,b)=>a+b,0) / 20;
+  const condWicks = avgWick < 0.40;
+
+  // Volum relatiu
+  const volNow = volumes[volumes.length - 1];
+  const volAvg = volumes.slice(-50).reduce((a,b)=>a+b,0) / 50;
+  const condVolume = volNow > volAvg * 0.6;
+
+  // Swings
+  let swingCount = 0;
+  for (let i = candles.length - 16; i < candles.length; i++) {
+    if (i <= 1) continue;
+    const isHigh = highs[i] > highs[i-1] && highs[i] > highs[i-2];
+    const isLow  = lows[i] < lows[i-1] && lows[i] < lows[i-2];
+    if (isHigh || isLow) swingCount++;
+  }
+  const condSwings = swingCount >= 3;
+
+  // Continuació
+  let hasContinuation = false;
+  for (let i = candles.length - 11; i < candles.length - 1; i++) {
+    const cont = Math.abs(closes[i] - candles[i].open) / candles[i].open;
+    if (cont > 0.0025) hasContinuation = true;
+  }
+  const condContinuation = hasContinuation;
+
+  // Tendència (EMA20 vs EMA50)
+  function ema(arr, period) {
+    const k = 2 / (period + 1);
+    let e = arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      e = arr[i] * k + e * (1 - k);
+    }
+    return e;
+  }
+  const ema20 = ema(closes.slice(-60), 20);
+  const ema50 = ema(closes.slice(-60), 50);
+  const emaDist = Math.abs(ema20 - ema50) / closes[closes.length - 1];
+  const condTrend = emaDist > 0.002 && emaDist < 0.015;
+
+  // -------------------------------------------------------------
+  // TREND PERCENT (igual que TradingView)
+  // -------------------------------------------------------------
+  let trendScore = 0;
+
+  if (condContinuation) trendScore += 20;
+  if (condTrend)        trendScore += 20;
+  if (condVolume)       trendScore += 20;
+  if (condWicks)        trendScore += 10;
+  if (condSwings)       trendScore += 10;
+  if (condVolatility)   trendScore += 10;
+
+  const trendStrength =
+    emaDist > 0.008 ? 10 :
+    emaDist > 0.004 ? 5  :
+    0;
+
+  trendScore += trendStrength;
+  const trendPercent = Math.min(trendScore, 100);
+
+  // -------------------------------------------------------------
+  // MS/ES PERCENT (igual que TradingView)
+  // -------------------------------------------------------------
+  let msScore = 0;
+
+  if (condVolume) msScore += 40;
+  if (!condContinuation) msScore += 30;
+  if (!condTrend) msScore += 30;
+
+  const msPercent = Math.min(msScore, 100);
+
+  // -------------------------------------------------------------
+  // CONTEXT LABEL
+  // -------------------------------------------------------------
+  let contextLabel = "Neutre";
+
+  if (trendPercent >= 70 && msPercent < 40)
+    contextLabel = "Tendència forta";
+
+  else if (msPercent >= 70 && trendPercent < 40)
+    contextLabel = "MS/ES favorable";
+
+  else if (trendPercent < 40 && msPercent < 40)
+    contextLabel = "No operar";
+
+  return { trendPercent, msPercent, contextLabel };
+}
+// -------------------------------------------------------------
 // GENERATE PANEL BLOCK (FIAT) — amb score per cripto i score global
 // -------------------------------------------------------------
 async function generatePanelBlock(timeframe, color) {
-  const symbols = Object.keys(globalCache[timeframe] || {}).sort(); // ordre alfabètic
+  const symbols = Object.keys(globalCache[timeframe] || {}).sort();
 
   let rowsHTML = "";
   let scores = [];
 
   for (const symbol of symbols) {
     const velas = globalCache[timeframe][symbol];
-    if (!velas || velas.length < 3) continue;
+    if (!velas || velas.length < 60) continue;
 
-    // 1) Pre-signal (v1, v2, MS, ES, anticipats)
+    // 1) Pre-signal
     const ps = preSignal(velas);
 
-    // 2) Market score per cripto (0–6)
+    // 2) Market score (0–6)
     const score = calcMarketScore(velas);
     scores.push(score);
 
-    // 3) Formatació
+    // 3) Fiabilitats exactes (TradingView → Bot → Panell)
+    const { trendPercent, msPercent, contextLabel } = calcReliability(velas);
+
+    // 4) Formatació
     const v1 = ps.v1 || "-";
     const v2 = ps.v2 || "-";
 
-    const MS = ps.MS_possible 
-  ? "✓" 
-  : `<span style="color:#cc4444;">✗</span>`;
+    const MS = ps.MS_possible
+      ? "✓"
+      : `<span style="color:#cc4444;">✗</span>`;
 
-const ES = ps.ES_possible 
-  ? "✓" 
-  : `<span style="color:#cc4444;">✗</span>`;
+    const ES = ps.ES_possible
+      ? "✓"
+      : `<span style="color:#cc4444;">✗</span>`;
 
     const anticipat = ps.earlyTipo ? ps.earlyTipo : "-";
     const entry = ps.earlyEntry ? ps.earlyEntry.toFixed(4) : "-";
 
-    // 4) Afegim fila
+    // 5) Afegim fila amb fiabilitats
     rowsHTML += `
       <tr>
         <td>${symbol}</td>
         <td>${score}/6</td>
+        <td>${trendPercent}%</td>
+        <td>${msPercent}%</td>
+        <td>${contextLabel}</td>
         <td>${v1}</td>
         <td>${v2}</td>
         <td>${MS}</td>
@@ -641,14 +792,14 @@ const ES = ps.ES_possible
     `;
   }
 
-  // 5) Score global del timeframe (mitjana)
+  // 6) Score global del timeframe
   const avgScore = scores.length > 0
     ? (scores.reduce((a,b)=>a+b,0) / scores.length)
     : 0;
 
   const avgFormatted = avgScore.toFixed(1);
 
-  // 6) HTML final del bloc
+  // 7) HTML final
   const html = `
     <div class="tf-block" style="border:2px solid ${color}; padding:10px; margin-bottom:20px;">
       <h2 style="color:${color};">Timeframe ${timeframe} (${avgFormatted}/6)</h2>
@@ -658,6 +809,9 @@ const ES = ps.ES_possible
           <tr>
             <th>Symbol</th>
             <th>Score</th>
+            <th>Trend%</th>
+            <th>MS/ES%</th>
+            <th>Context</th>
             <th>v1</th>
             <th>v2</th>
             <th>Possible MS</th>
@@ -675,7 +829,6 @@ const ES = ps.ES_possible
 
   return { html, score: avgScore };
 }
-
 // -------------------------------------------------------------
 // SERVIDOR HTTP + PANELL HTML
 // -------------------------------------------------------------
@@ -952,10 +1105,42 @@ function preSignal(velas) {
 }
 
 // -------------------------------------------------------------
-// TELEGRAM
+// TELEGRAM (VERSIÓ MILLORADA)
 // -------------------------------------------------------------
-async function sendTelegram(message) {
+async function sendTelegram({
+  title = "",
+  direction = "",
+  entry = "",
+  tp = "",
+  sl = "",
+  trendPercent = null,
+  msPercent = null,
+  contextLabel = "",
+  extra = ""
+}) {
   const url = `https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`;
+
+  // Construcció del missatge
+  let message = "";
+
+  if (title) message += `<b>${title}</b>\n`;
+  if (direction) message += `Direcció: <b>${direction}</b>\n`;
+  if (entry) message += `Entrada: <b>${entry}</b>\n`;
+  if (tp) message += `TP: <b>${tp}</b>\n`;
+  if (sl) message += `SL: <b>${sl}</b>\n`;
+
+  // Afegim fiabilitats si existeixen
+  if (trendPercent !== null)
+    message += `\nFiabilitat Tendència: <b>${trendPercent}%</b>`;
+  if (msPercent !== null)
+    message += `\nFiabilitat MS/ES: <b>${msPercent}%</b>`;
+
+  // Etiqueta de context
+  if (contextLabel)
+    message += `\nContext: <b>${contextLabel}</b>`;
+
+  if (extra)
+    message += `\n\n${extra}`;
 
   const payload = {
     chat_id: process.env.TELEGRAM_CHAT_ID,
