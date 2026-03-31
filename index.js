@@ -404,25 +404,25 @@ async function saveCandles(symbol, timeframe, candles) {
 }
 
 function getRecommendation({ trendPercent, msPercent, volumeOK, gir, operarTendencia, pullbackActiu }) {
-
-  // 🔥 1) Entrada en tendència (igual que indicador v2)
-  if (operarTendencia && volumeOK) {
+  // 1) Entrada en tendència (relaxada)
+  if (operarTendencia) {
     return "TENDÈNCIA";
   }
 
-  // 🔥 2) MS/ES favorable (igual que indicador v2)
-  if (msPercent >= 70 && trendPercent < 40 && volumeOK) {
+  // 2) MS/ES favorable (relaxat)
+  if (msPercent >= 60 && trendPercent < 60 && volumeOK) {
     return "MS/ES";
   }
 
-  // 🔥 3) Pullback actiu → NO operar
+  // 3) Pullback actiu → NO operar
   if (pullbackActiu) {
     return "PULLBACK";
   }
 
-  // 🔥 4) No operar
+  // 4) No operar
   return "NO OPERAR";
 }
+
 
 
 updateCandles(); // primera càrrega immediata
@@ -460,7 +460,7 @@ cron.schedule("* * * * *", async () => {
           // ---------------------------------------------------------
           // 🟥 FILTRE GLOBAL — NO OPERAR SI NO HI HA VOLUM
           // ---------------------------------------------------------
-          if (!volumeOK) continue;
+          //if (!volumeOK) continue;
 
           // ---------------------------------------------------------
           // 🟦 MS/ES ANTICIPAT (v3 en formació)
@@ -473,7 +473,7 @@ cron.schedule("* * * * *", async () => {
             const timestampEsEarly = formatSpainTime(timestampEarly);
 
             // ❗ Només enviar si MS/ES és realment favorable
-            if (msPercent >= 70 && trendPercent < 40) {
+            if (msPercent >= 60 && trendPercent < 60) {
               if (!(await alreadySent(symbol, timeframe, tipoEarly, timestampEarly))) {
 
                 if (timeframe === "15m") {
@@ -504,7 +504,7 @@ cron.schedule("* * * * *", async () => {
             if (!(await alreadySent(symbol, timeframe, tipoBase, timestamp))) {
 
               // ❗ Només enviar si MS/ES és realment favorable
-              if (msPercent >= 70 && trendPercent < 40) {
+              if (msPercent >= 60 && trendPercent < 60) {
 
                 const body = Math.abs(v3.close - v3.open);
                 const retr = body * (RETRACEMENT_PERCENT / 100);
@@ -691,35 +691,19 @@ function calcReliability(candles) {
   if (ema20 > ema50) tendenciaPrincipal = "LONG";
   if (ema20 < ema50) tendenciaPrincipal = "SHORT";
 
-  // 2 veles contra tendència (igual que indicador v2)
-  let velesContra = 0;
-  const c1 = candles[candles.length - 2];
-  const c2 = candles[candles.length - 3];
+  // 🟩 PULLBACK RELAXAT (igual que TradingView relaxat)
+const pullbackActiu =
+  (
+    (tendenciaPrincipal === "LONG"  && lastClose < ema20 * 0.997) ||
+    (tendenciaPrincipal === "SHORT" && lastClose > ema20 * 1.003) ||
+    msPercent > 50
+  );
 
-  if (tendenciaPrincipal === "LONG") {
-    if (c1.close < c1.open) velesContra++;
-    if (c2.close < c2.open) velesContra++;
-  } else if (tendenciaPrincipal === "SHORT") {
-    if (c1.close > c1.open) velesContra++;
-    if (c2.close > c2.open) velesContra++;
-  }
-
-  // PULLBACK INTEL·LIGENT (igual que indicador v2)
-  const pullbackActiu =
-    (
-      (tendenciaPrincipal === "LONG"  && lastClose < ema20) ||
-      (tendenciaPrincipal === "SHORT" && lastClose > ema20) ||
-      velesContra >= 2 ||
-      msPercent > 20
-    );
-
-  // OK ENTRAR TENDÈNCIA (igual que indicador v2)
-  const operarTendencia =
-    tendenciaPrincipal !== "CAP" &&
-    !pullbackActiu &&
-    trendPercent >= 70 &&
-    msPercent < 30 &&
-    velesContra < 2;
+// 🟦 OK ENTRAR TENDÈNCIA (relaxat)
+const operarTendencia =
+  tendenciaPrincipal !== "CAP" &&
+  !pullbackActiu &&
+  trendPercent >= 50;
 
   // CONTEXT LABEL (pots deixar-ho igual o ajustar-ho després)
   let contextLabel = "Neutre";
