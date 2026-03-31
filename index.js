@@ -759,7 +759,15 @@ async function generatePanelBlock(timeframe, color) {
     const ps = preSignal(velas);
 
     // 2) Fiabilitats exactes (TradingView → Bot → Panell)
-    const { trendPercent, msPercent, contextLabel, volumeOK } = calcReliability(velas);
+    const {
+  trendPercent,
+  msPercent,
+  contextLabel,
+  volumeOK,
+  operarTendencia,
+  pullbackActiu
+} = calcReliability(velas);
+
     const vol = volumeOK ? "OK" : "LOW";
 
     // 3) Formatació
