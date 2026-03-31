@@ -425,9 +425,6 @@ cron.schedule("*/1 * * * *", updateCandles); // cada minut
 // -------------------------------------------------------------
 // CRON PRINCIPAL (SINCRONITZAT AMB EL PANELL)
 // -------------------------------------------------------------
-// -------------------------------------------------------------
-// CRON PRINCIPAL (SINCRONITZAT AMB EL PANELL)
-// -------------------------------------------------------------
 cron.schedule("* * * * *", async () => {
   try {
     for (const symbol of SYMBOLS) {
@@ -441,10 +438,25 @@ cron.schedule("* * * * *", async () => {
           // ---------------------------------------------------------
           // 🔥 FIABILITAT EXACTA (TradingView → Bot)
           // ---------------------------------------------------------
-          const { trendPercent, msPercent, contextLabel } = calcReliability(candles);
+          const {
+            trendPercent,
+            msPercent,
+            contextLabel,
+            volumeOK,
+            tendenciaPrincipal,
+            pullbackActiu,
+            operarTendencia,
+            msNow,
+            esNow
+          } = calcReliability(candles);
 
           // ---------------------------------------------------------
-          // 🔵 ALERTA TEMPRANA — EXACTAMENT COM EL PANELL
+          // 🟥 FILTRE GLOBAL — NO OPERAR SI NO HI HA VOLUM
+          // ---------------------------------------------------------
+          if (!volumeOK) continue;
+
+          // ---------------------------------------------------------
+          // 🟦 MS/ES ANTICIPAT (v3 en formació)
           // ---------------------------------------------------------
           const early = detectEarlySignal(candles);
 
@@ -453,72 +465,97 @@ cron.schedule("* * * * *", async () => {
             const timestampEarly = early.v3.timestamp;
             const timestampEsEarly = formatSpainTime(timestampEarly);
 
-            if (!(await alreadySent(symbol, timeframe, tipoEarly, timestampEarly))) {
+            // ❗ Només enviar si MS/ES és realment favorable
+            if (msPercent >= 70 && trendPercent < 40) {
+              if (!(await alreadySent(symbol, timeframe, tipoEarly, timestampEarly))) {
 
-              const arrow = early.tipo === "MS" ? "↑" : "↓";
+                if (timeframe === "15m") {
+                  await sendTelegram({
+                    title: `${symbol} ${early.tipo === "MS" ? "↑" : "↓"} ${timeframe} (EARLY)`,
+                    entry: early.entry.toFixed(4),
+                    trendPercent,
+                    msPercent,
+                    contextLabel,
+                    extra: timestampEsEarly
+                  });
+                }
 
-              // 🔥 Només enviar a Telegram si és 15m
-              if (timeframe === "15m") {
-                await sendTelegram({
-                  title: `${symbol} ${arrow} ${timeframe} (EARLY)`,
-                  entry: early.entry.toFixed(4),
-                  trendPercent,
-                  msPercent,
-                  contextLabel,
-                  extra: timestampEsEarly
-                });
+                await saveSignal(symbol, timeframe, tipoEarly, early.entry, timestampEarly, timestampEsEarly);
               }
-
-              // Guardar sempre
-              await saveSignal(symbol, timeframe, tipoEarly, early.entry, timestampEarly, timestampEsEarly);
-              console.log(symbol, timeframe, "→ EARLY guardada (Telegram només si 15m)");
             }
           }
 
           // ---------------------------------------------------------
-          // 🟢 ALERTA NORMAL (vela 3 tancada)
+          // 🟩 MS/ES NORMAL (vela 3 tancada)
           // ---------------------------------------------------------
           const signal = classifySignal(candles);
-          if (!signal) continue;
+          if (signal) {
+            const { tipoBase, v3 } = signal;
+            const timestamp = v3.timestamp;
+            const timestampEs = formatSpainTime(timestamp);
 
-          const { tipoBase, v3: v3closed } = signal;
-          const tipoNormal = tipoBase;
+            if (!(await alreadySent(symbol, timeframe, tipoBase, timestamp))) {
 
-          const timestamp = v3closed.timestamp;
-          const timestampEs = formatSpainTime(timestamp);
+              // ❗ Només enviar si MS/ES és realment favorable
+              if (msPercent >= 70 && trendPercent < 40) {
 
-          if (await alreadySent(symbol, timeframe, tipoNormal, timestamp)) continue;
+                const body = Math.abs(v3.close - v3.open);
+                const retr = body * (RETRACEMENT_PERCENT / 100);
 
-          const body = Math.abs(v3closed.close - v3closed.open);
-          const retr = body * (RETRACEMENT_PERCENT / 100);
+                const entry =
+                  tipoBase === "MS"
+                    ? v3.close - retr
+                    : v3.close + retr;
 
-          const entry =
-            tipoNormal === "MS"
-              ? v3closed.close - retr
-              : v3closed.close + retr;
+                const { tp, sl } = calcTargets(tipoBase, entry);
 
-          const { tp, sl } = calcTargets(tipoNormal, entry);
+                if (timeframe === "15m") {
+                  await sendTelegram({
+                    title: `${symbol} ${tipoBase === "MS" ? "↑" : "↓"} ${timeframe}`,
+                    direction: tipoBase === "MS" ? "LONG" : "SHORT",
+                    entry: entry.toFixed(4),
+                    tp: tp.toFixed(4),
+                    sl: sl.toFixed(4),
+                    trendPercent,
+                    msPercent,
+                    contextLabel,
+                    extra: timestampEs
+                  });
+                }
 
-          const arrow = tipoNormal === "MS" ? "↑" : "↓";
-
-          // 🔥 Només enviar a Telegram si és 15m
-          if (timeframe === "15m") {
-            await sendTelegram({
-              title: `${symbol} ${arrow} ${timeframe}`,
-              direction: tipoNormal === "MS" ? "LONG" : "SHORT",
-              entry: entry.toFixed(4),
-              tp: tp.toFixed(4),
-              sl: sl.toFixed(4),
-              trendPercent,
-              msPercent,
-              contextLabel,
-              extra: timestampEs
-            });
+                await saveSignal(symbol, timeframe, tipoBase, entry, timestamp, timestampEs);
+              }
+            }
           }
 
-          // Guardar sempre
-          await saveSignal(symbol, timeframe, tipoNormal, v3closed.close, timestamp, timestampEs);
-          console.log(symbol, timeframe, "→ NORMAL guardada (Telegram només si 15m)");
+          // ---------------------------------------------------------
+          // 🟢 ENTRADA EN TENDÈNCIA (FIAT)
+          // ---------------------------------------------------------
+          if (operarTendencia) {
+
+            // ❗ Evitar duplicats
+            const lastCandle = candles[candles.length - 1];
+            const ts = lastCandle.timestamp;
+
+            if (!(await alreadySent(symbol, timeframe, "TENDENCIA", ts))) {
+
+              const direction = tendenciaPrincipal === "LONG" ? "↑ LONG" : "↓ SHORT";
+
+              if (timeframe === "15m") {
+                await sendTelegram({
+                  title: `${symbol} ${direction} ${timeframe}`,
+                  direction: tendenciaPrincipal,
+                  entry: lastCandle.close.toFixed(4),
+                  trendPercent,
+                  msPercent,
+                  contextLabel,
+                  extra: formatSpainTime(ts)
+                });
+              }
+
+              await saveSignal(symbol, timeframe, "TENDENCIA", lastCandle.close, ts, formatSpainTime(ts));
+            }
+          }
 
         } catch (err) {
           console.error(symbol, timeframe, "→ ERROR INTERIOR:", err.message);
@@ -530,7 +567,6 @@ cron.schedule("* * * * *", async () => {
   }
 });
 
-
 // -------------------------------------------------------------
 // FIABILITAT EXACTA (TradingView → Bot)
 // -------------------------------------------------------------
@@ -539,7 +575,13 @@ function calcReliability(candles) {
     return {
       trendPercent: 0,
       msPercent: 0,
-      contextLabel: "Sense dades"
+      contextLabel: "Sense dades",
+      volumeOK: false,
+      tendenciaPrincipal: "CAP",
+      pullbackActiu: false,
+      operarTendencia: false,
+      msNow: false,
+      esNow: false
     };
   }
 
@@ -610,7 +652,7 @@ function calcReliability(candles) {
   const condTrend = emaDist > 0.002 && emaDist < 0.015;
 
   // -------------------------------------------------------------
-  // TREND PERCENT (igual que TradingView)
+  // TREND PERCENT
   // -------------------------------------------------------------
   let trendScore = 0;
 
@@ -630,7 +672,7 @@ function calcReliability(candles) {
   const trendPercent = Math.min(trendScore, 100);
 
   // -------------------------------------------------------------
-  // MS/ES PERCENT (igual que TradingView)
+  // MS/ES PERCENT
   // -------------------------------------------------------------
   let msScore = 0;
 
@@ -639,6 +681,39 @@ function calcReliability(candles) {
   if (!condTrend) msScore += 30;
 
   const msPercent = Math.min(msScore, 100);
+
+  // -------------------------------------------------------------
+  // MS/ES ACTUALS (patró 3 veles)
+  // -------------------------------------------------------------
+  const { msNow, esNow } = detectPattern(candles);
+
+  // -------------------------------------------------------------
+  // TENDÈNCIA PRINCIPAL
+  // -------------------------------------------------------------
+  let tendenciaPrincipal = "CAP";
+  if (ema20 > ema50) tendenciaPrincipal = "LONG";
+  if (ema20 < ema50) tendenciaPrincipal = "SHORT";
+
+  // -------------------------------------------------------------
+  // PULLBACK ACTIU
+  // -------------------------------------------------------------
+  let pullbackActiu = false;
+
+  const lastClose = closes[closes.length - 1];
+
+  if (tendenciaPrincipal === "LONG"  && lastClose < ema20 && !condContinuation)
+    pullbackActiu = true;
+
+  if (tendenciaPrincipal === "SHORT" && lastClose > ema20 && !condContinuation)
+    pullbackActiu = true;
+
+  // -------------------------------------------------------------
+  // OK ENTRAR TENDÈNCIA
+  // -------------------------------------------------------------
+  const operarTendencia =
+    tendenciaPrincipal !== "CAP" &&
+    !pullbackActiu &&
+    trendPercent >= 70;
 
   // -------------------------------------------------------------
   // CONTEXT LABEL
@@ -654,8 +729,19 @@ function calcReliability(candles) {
   else if (trendPercent < 40 && msPercent < 40)
     contextLabel = "No operar";
 
-  return { trendPercent, msPercent, contextLabel , volumeOK: condVolume };
+  return {
+    trendPercent,
+    msPercent,
+    contextLabel,
+    volumeOK: condVolume,
+    tendenciaPrincipal,
+    pullbackActiu,
+    operarTendencia,
+    msNow,
+    esNow
+  };
 }
+
 // -------------------------------------------------------------
 // GENERATE PANEL BLOCK (FIAT) — amb score per cripto i score global
 // -------------------------------------------------------------
