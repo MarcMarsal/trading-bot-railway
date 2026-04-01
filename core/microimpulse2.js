@@ -1,3 +1,5 @@
+// core/microimpulse2.js
+
 import { detectMSES } from "./patterns.js";
 
 // -------------------------------------------------------------
@@ -25,12 +27,12 @@ function calcEMA(values, period) {
 }
 
 // -------------------------------------------------------------
-// MICROIMPULSE FIAT (1:1 amb lògica simple)
+// MICROIMPULSE FIAT (1:1 TradingView)
 // -------------------------------------------------------------
 export function detectMicroimpulse(candles, symbol, timeframe) {
   if (!candles || candles.length < 30) return null;
 
-  // només veles tancades → última és candles[candles.length - 2]
+  // només veles tancades
   const n = candles.length;
   const last = candles[n - 2];
   const prev1 = candles[n - 3];
@@ -48,7 +50,7 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   const trendShort = ema20 < ema40;
   if (!trendLong && !trendShort) return null;
 
-  // MS/ES simples com a context
+  // MS/ES FIAT
   const { ms, es } = detectMSES(candles);
 
   let direction = null;
@@ -56,7 +58,7 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   if (trendShort && es) direction = "SHORT";
   if (!direction) return null;
 
-  // retracement: agafem prev1 i prev2 com a candidates
+  // retracement
   const retraceHigh = Math.max(prev1.high, prev2.high);
   const retraceLow = Math.min(prev1.low, prev2.low);
 
@@ -64,14 +66,15 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   let type = null;
   let entry = null;
 
+  // BREAKOUT FIAT (evita falsos positius)
   if (direction === "LONG") {
-    if (last.high > retraceHigh && last.close > retraceHigh) {
+    if (last.close > retraceHigh && last.open < retraceHigh) {
       confirmed = true;
       type = "MICRO_LONG";
       entry = last.close;
     }
   } else if (direction === "SHORT") {
-    if (last.low < retraceLow && last.close < retraceLow) {
+    if (last.close < retraceLow && last.open > retraceLow) {
       confirmed = true;
       type = "MICRO_SHORT";
       entry = last.close;
@@ -89,7 +92,7 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
     normalizeTimestamp(last.ts) ??
     Date.now();
 
-  const timestamp = rawTs; // ms
+  const timestamp = rawTs;
 
   return {
     symbol,
