@@ -17,7 +17,7 @@ function normalizeTimestamp(raw) {
 // -------------------------------------------------------------
 export async function fetchAndStoreCandles(symbol, interval) {
   try {
-    const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=1`;
+    const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=2`;
 
     const res = await axios.get(url);
     const data = res.data.data;
