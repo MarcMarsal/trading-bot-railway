@@ -1,4 +1,5 @@
 // db/saveSignal2.js
+// db/saveSignal2.js
 import { client } from "./client.js";
 import { splitSpainDate } from "../core/utils.js";
 
@@ -7,12 +8,12 @@ export async function saveSignal2({
   timeframe,
   type,
   entry,
-  timestamp,
+  timestamp,   // ← sempre en mil·lisegons
   reason = "",
   sensitivity = null
 }) {
-  // Detectem si el timestamp és en segons o mil·lisegons
-  const tsMs = timestamp < 2000000000 ? timestamp * 1000 : timestamp;
+  const tsMs = Number(timestamp);          // ms
+  const tsSec = Math.floor(tsMs / 1000);   // segons
 
   const { date_es, hora_es, timestamp_es } = splitSpainDate(tsMs);
 
@@ -33,8 +34,8 @@ export async function saveSignal2({
       timeframe,
       type,
       entry,
-      timestamp,      // guardem l’original
-      timestamp_es,   // ms correctes
+      tsSec,          // ← AIXÒ és el que va a la BD (segons)
+      tsMs,           // ← timestamp_es (mil·lisegons)
       date_es,
       hora_es,
       reason,
