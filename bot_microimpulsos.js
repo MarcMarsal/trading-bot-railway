@@ -55,7 +55,17 @@ const micro = detectMicroimpulse(candles, {
 
 if (micro) {
   if (!(await alreadySent2(symbol, timeframe, micro.type, micro.timestamp))) {
-    await saveSignal2(micro);
+    //await saveSignal2(micro);
+    await saveSignal2({
+  symbol,
+  timeframe,
+  type: micro.type,
+  entry: micro.entry,
+  timestamp: micro.timestamp,
+  reason: "microimpulse",
+  sensitivity: micro.reliability ?? null
+});
+
 
     if (timeframe === "15m") {
       await sendTelegram({
