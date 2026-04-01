@@ -1,20 +1,19 @@
 // core/microimpulse2.js
 
+// -------------------------------------------------------------
+// VALIDACIÓ DE TIMESTAMP
+// -------------------------------------------------------------
 function normalizeTimestamp(raw) {
-  // Si no existeix → invalid
   if (raw === undefined || raw === null) return null;
-
-  // Si no és número → invalid
   if (typeof raw !== "number") return null;
-
-  // Si és 0 → invalid
   if (raw === 0) return null;
-
-  // Si és massa petit → invalid (UNIX real > 1.000.000.000)
-  if (raw < 1000000000) return null;
-
-  return raw;
+  if (raw < 1000000000) return null; // massa petit per ser UNIX real
+  return raw; // OK → ms
 }
+
+// -------------------------------------------------------------
+// EMA
+// -------------------------------------------------------------
 function calcEMA(values, period) {
   if (values.length < period) return null;
   const k = 2 / (period + 1);
@@ -25,13 +24,21 @@ function calcEMA(values, period) {
   return ema;
 }
 
+// -------------------------------------------------------------
+// DIRECCIÓ DE TENDÈNCIA
+// -------------------------------------------------------------
 function getTrendDirection(reliability) {
   if (reliability.trendPercent >= 50 && reliability.msPercent < 50) {
-    return reliability.trendLabel === "LONG" || reliability.msNow ? "LONG" : "SHORT";
+    return reliability.trendLabel === "LONG" || reliability.msNow
+      ? "LONG"
+      : "SHORT";
   }
   return null;
 }
 
+// -------------------------------------------------------------
+// RETRACEMENT PETIT
+// -------------------------------------------------------------
 function isSmallRetraceCandle(candle, direction, ema20, maxDistancePct = 0.5) {
   const { open, close, high, low } = candle;
   const body = Math.abs(close - open);
@@ -54,6 +61,9 @@ function isSmallRetraceCandle(candle, direction, ema20, maxDistancePct = 0.5) {
   return true;
 }
 
+// -------------------------------------------------------------
+// MICROIMPULSE DETECTION (VERSIÓ FIAT COM TRADINGVIEW)
+// -------------------------------------------------------------
 function detectMicroimpulse(candles, reliability, symbol, timeframe) {
   if (!candles || candles.length < 30) return null;
 
@@ -64,13 +74,14 @@ function detectMicroimpulse(candles, reliability, symbol, timeframe) {
   if (reliability.msPercent >= 50) return null;
   if (!reliability.volumeOK) return null;
 
+  // ✔ NOMÉS VELA TANCADA (com TradingView)
+  const last = candles[candles.length - 2];   // última vela TANCADA
+  const prev1 = candles[candles.length - 3];
+  const prev2 = candles[candles.length - 4];
+
   const closes = candles.map(c => c.close);
   const ema20 = calcEMA(closes.slice(-25), 20);
   if (!ema20) return null;
-
-  const last = candles[candles.length - 1];
-  const prev1 = candles[candles.length - 2];
-  const prev2 = candles[candles.length - 3];
 
   const retraceCandidates = [];
   if (isSmallRetraceCandle(prev1, direction, ema20)) retraceCandidates.push(prev1);
@@ -101,16 +112,17 @@ function detectMicroimpulse(candles, reliability, symbol, timeframe) {
 
   if (!isConfirmed) return null;
 
- const rawTs =
-  normalizeTimestamp(last.timestamp) ??
-  normalizeTimestamp(last.time) ??
-  normalizeTimestamp(last.openTime) ??
-  normalizeTimestamp(last.closeTime) ??
-  normalizeTimestamp(last.t) ??
-  normalizeTimestamp(last.ts) ??
-  Date.now();
+  // ✔ TIMESTAMP EN MIL·LISEGONS (FIAT)
+  const rawTs =
+    normalizeTimestamp(last.timestamp) ??
+    normalizeTimestamp(last.time) ??
+    normalizeTimestamp(last.openTime) ??
+    normalizeTimestamp(last.closeTime) ??
+    normalizeTimestamp(last.t) ??
+    normalizeTimestamp(last.ts) ??
+    Date.now();
 
-const timestamp = rawTs;   // rawTs ja és en mil·lisegons
+  const timestamp = rawTs; // ja en mil·lisegons
 
   return {
     symbol,
