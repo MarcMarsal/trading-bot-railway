@@ -9,6 +9,8 @@ import { alreadySent2 } from "./db/alreadySent2.js";
 import { saveSignal2 } from "./db/saveSignal2.js";
 import { sendTelegram } from "./telegram/send.js";
 import { formatSpainTime } from "./core/utils.js";
+import { detectMicroimpulse } from "./core/microimpulse2.js";
+
 
 // -------------------------------------------------------------
 // CONFIGURACIÓ
@@ -40,6 +42,39 @@ async function processSymbol(symbol, timeframe) {
     esNow
   } = calcReliability(candles);
 
+  // 1.5) Microimpulsos reals (3 capes)
+const micro = detectMicroimpulse(candles, {
+  trendPercent,
+  msPercent,
+  contextLabel,
+  volumeOK,
+  msNow,
+  esNow,
+  trendLabel: msNow ? "LONG" : esNow ? "SHORT" : "LONG"
+}, symbol, timeframe);
+
+if (micro) {
+  if (!(await alreadySent2(symbol, timeframe, micro.type, micro.timestamp))) {
+    await saveSignal2(micro);
+
+    if (timeframe === "15m") {
+      await sendTelegram({
+        title: `${symbol} ${micro.type.includes("LONG") ? "↑" : "↓"} ${timeframe}`,
+        direction: micro.type.includes("LONG") ? "LONG" : "SHORT",
+        entry: micro.entry.toFixed(4),
+        tp: "-",
+        sl: "-",
+        trendPercent,
+        msPercent,
+        contextLabel,
+        extra: formatSpainTime(micro.timestamp)
+      });
+    }
+
+    console.log(`Microimpuls REAL detectat: ${symbol} ${timeframe} → ${micro.type}`);
+  }
+}
+
   // 2) MS/ES normal (vela 3 tancada)
   const signal = classifySignal(candles);
   if (!signal) return;
@@ -54,6 +89,7 @@ async function processSymbol(symbol, timeframe) {
   // 4) Filtre de fiabilitat (igual que bot antic)
   if (!(msPercent >= 60 && trendPercent < 60)) return;
 
+  
   // 5) Càlcul d'entrada amb retracement
   const body = Math.abs(v3.close - v3.open);
   const retr = body * (RETRACEMENT_PERCENT / 100);
