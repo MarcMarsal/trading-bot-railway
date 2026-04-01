@@ -7,14 +7,13 @@ export async function saveSignal2({
   timeframe,
   type,
   entry,
-  timestamp,   // <-- arriba en segons
+  timestamp,
   reason = "",
   sensitivity = null
 }) {
-  // Convertim a mil·lisegons
-  const tsMs = timestamp * 1000;
+  // Detectem si el timestamp és en segons o mil·lisegons
+  const tsMs = timestamp < 2000000000 ? timestamp * 1000 : timestamp;
 
-  // splitSpainDate espera mil·lisegons
   const { date_es, hora_es, timestamp_es } = splitSpainDate(tsMs);
 
   await client.query(
@@ -34,8 +33,8 @@ export async function saveSignal2({
       timeframe,
       type,
       entry,
-      timestamp,      // <-- en segons (UTC)
-      timestamp_es,   // <-- correcte (ms)
+      timestamp,      // guardem l’original
+      timestamp_es,   // ms correctes
       date_es,
       hora_es,
       reason,
