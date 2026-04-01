@@ -1,4 +1,4 @@
-// core/microimpulse2.js
+import { detectMSES } from "./patterns.js";
 
 // -------------------------------------------------------------
 // VALIDACIÓ DE TIMESTAMP
@@ -7,8 +7,8 @@ function normalizeTimestamp(raw) {
   if (raw === undefined || raw === null) return null;
   if (typeof raw !== "number") return null;
   if (raw === 0) return null;
-  if (raw < 1000000000) return null; // massa petit per ser UNIX real
-  return raw; // OK → ms
+  if (raw < 1000000000) return null;
+  return raw; // ms
 }
 
 // -------------------------------------------------------------
@@ -25,94 +25,61 @@ function calcEMA(values, period) {
 }
 
 // -------------------------------------------------------------
-// DIRECCIÓ DE TENDÈNCIA
+// MICROIMPULSE FIAT (1:1 amb lògica simple)
 // -------------------------------------------------------------
-function getTrendDirection(reliability) {
-  if (reliability.trendPercent >= 50 && reliability.msPercent < 50) {
-    return reliability.trendLabel === "LONG" || reliability.msNow
-      ? "LONG"
-      : "SHORT";
-  }
-  return null;
-}
-
-// -------------------------------------------------------------
-// RETRACEMENT PETIT
-// -------------------------------------------------------------
-function isSmallRetraceCandle(candle, direction, ema20, maxDistancePct = 0.5) {
-  const { open, close, high, low } = candle;
-  const body = Math.abs(close - open);
-  const range = high - low;
-  if (range === 0) return false;
-
-  const bodyPct = (body / range) * 100;
-  if (bodyPct > 40) return false;
-
-  const isRed = close < open;
-  const isGreen = close > open;
-
-  if (direction === "LONG" && !isRed) return false;
-  if (direction === "SHORT" && !isGreen) return false;
-
-  const mid = (high + low) / 2;
-  const distPct = Math.abs((mid - ema20) / ema20) * 100;
-  if (distPct > maxDistancePct) return false;
-
-  return true;
-}
-
-// -------------------------------------------------------------
-// MICROIMPULSE DETECTION (VERSIÓ FIAT COM TRADINGVIEW)
-// -------------------------------------------------------------
-function detectMicroimpulse(candles, reliability, symbol, timeframe) {
+export function detectMicroimpulse(candles, symbol, timeframe) {
   if (!candles || candles.length < 30) return null;
 
-  const direction = getTrendDirection(reliability);
+  // només veles tancades → última és candles[candles.length - 2]
+  const n = candles.length;
+  const last = candles[n - 2];
+  const prev1 = candles[n - 3];
+  const prev2 = candles[n - 4];
+
+  if (!last || !prev1 || !prev2) return null;
+
+  // tendència simple amb EMA20 i EMA40
+  const closes = candles.map(c => c.close);
+  const ema20 = calcEMA(closes.slice(-40), 20);
+  const ema40 = calcEMA(closes.slice(-40), 40);
+  if (!ema20 || !ema40) return null;
+
+  const trendLong = ema20 > ema40;
+  const trendShort = ema20 < ema40;
+  if (!trendLong && !trendShort) return null;
+
+  // MS/ES simples com a context
+  const { ms, es } = detectMSES(candles);
+
+  let direction = null;
+  if (trendLong && ms) direction = "LONG";
+  if (trendShort && es) direction = "SHORT";
   if (!direction) return null;
 
-  if (reliability.trendPercent < 50) return null;
-  if (reliability.msPercent >= 50) return null;
-  if (!reliability.volumeOK) return null;
+  // retracement: agafem prev1 i prev2 com a candidates
+  const retraceHigh = Math.max(prev1.high, prev2.high);
+  const retraceLow = Math.min(prev1.low, prev2.low);
 
-  // ✔ NOMÉS VELA TANCADA (com TradingView)
-  const last = candles[candles.length - 2];   // última vela TANCADA
-  const prev1 = candles[candles.length - 3];
-  const prev2 = candles[candles.length - 4];
-
-  const closes = candles.map(c => c.close);
-  const ema20 = calcEMA(closes.slice(-25), 20);
-  if (!ema20) return null;
-
-  const retraceCandidates = [];
-  if (isSmallRetraceCandle(prev1, direction, ema20)) retraceCandidates.push(prev1);
-  if (isSmallRetraceCandle(prev2, direction, ema20)) retraceCandidates.push(prev2);
-
-  if (retraceCandidates.length === 0) return null;
-
-  const retraceHigh = Math.max(...retraceCandidates.map(c => c.high));
-  const retraceLow = Math.min(...retraceCandidates.map(c => c.low));
-
-  let isConfirmed = false;
+  let confirmed = false;
   let type = null;
   let entry = null;
 
   if (direction === "LONG") {
     if (last.high > retraceHigh && last.close > retraceHigh) {
-      isConfirmed = true;
+      confirmed = true;
       type = "MICRO_LONG";
       entry = last.close;
     }
   } else if (direction === "SHORT") {
     if (last.low < retraceLow && last.close < retraceLow) {
-      isConfirmed = true;
+      confirmed = true;
       type = "MICRO_SHORT";
       entry = last.close;
     }
   }
 
-  if (!isConfirmed) return null;
+  if (!confirmed) return null;
 
-  // ✔ TIMESTAMP EN MIL·LISEGONS (FIAT)
   const rawTs =
     normalizeTimestamp(last.timestamp) ??
     normalizeTimestamp(last.time) ??
@@ -122,7 +89,7 @@ function detectMicroimpulse(candles, reliability, symbol, timeframe) {
     normalizeTimestamp(last.ts) ??
     Date.now();
 
-  const timestamp = rawTs; // ja en mil·lisegons
+  const timestamp = rawTs; // ms
 
   return {
     symbol,
@@ -134,5 +101,3 @@ function detectMicroimpulse(candles, reliability, symbol, timeframe) {
     sensitivity: 40
   };
 }
-
-export { detectMicroimpulse };
