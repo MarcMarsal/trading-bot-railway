@@ -28,50 +28,51 @@ function normalizeTimestamp(raw) {
 }
 
 // -------------------------------------------------------------
-// FETCH + STORE (PG, limit=1)
+// FETCH + STORE (PG, limit=2)  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 // -------------------------------------------------------------
 async function fetchAndStoreCandles(symbol, timeframe) {
   try {
-    const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=1`;
+    const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=2`;
     const res = await axios.get(url);
     const data = res.data.data;
 
-    if (!data || data.length === 0) return;
+    if (!data || data.length < 2) return;
 
-    const k = data[0];
-    const rawTs = normalizeTimestamp(parseInt(k[0])) ?? Date.now();
-    const timestamp = Math.floor(rawTs);
+    for (const k of data) {
+      const rawTs = normalizeTimestamp(parseInt(k[0])) ?? Date.now();
+      const timestamp = Math.floor(rawTs);
 
-    const open = parseFloat(k[1]);
-    const high = parseFloat(k[2]);
-    const low = parseFloat(k[3]);
-    const close = parseFloat(k[4]);
-    const volume = parseFloat(k[5]);
+      const open = parseFloat(k[1]);
+      const high = parseFloat(k[2]);
+      const low = parseFloat(k[3]);
+      const close = parseFloat(k[4]);
+      const volume = parseFloat(k[5]);
 
-    const timestamp_es = new Date(
-      new Date(timestamp).toLocaleString("en-US", { timeZone: "Europe/Madrid" })
-    ).getTime();
+      const timestamp_es = new Date(
+        new Date(timestamp).toLocaleString("en-US", { timeZone: "Europe/Madrid" })
+      ).getTime();
 
-    const date_es = new Date(timestamp).toLocaleString("es-ES", {
-      timeZone: "Europe/Madrid",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit"
-    }).replace(",", "");
+      const date_es = new Date(timestamp).toLocaleString("es-ES", {
+        timeZone: "Europe/Madrid",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).replace(",", "");
 
-    await client.query(
-      `
-      INSERT INTO candles (symbol, timeframe, timestamp, open, high, low, close, volume, timestamp_es, date_es)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-      ON CONFLICT (symbol, timeframe, timestamp)
-      DO UPDATE SET
-        open=$4, high=$5, low=$6, close=$7, volume=$8,
-        timestamp_es=$9, date_es=$10;
-      `,
-      [symbol, timeframe, timestamp, open, high, low, close, volume, timestamp_es, date_es]
-    );
+      await client.query(
+        `
+        INSERT INTO candles (symbol, timeframe, timestamp, open, high, low, close, volume, timestamp_es, date_es)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        ON CONFLICT (symbol, timeframe, timestamp)
+        DO UPDATE SET
+          open=$4, high=$5, low=$6, close=$7, volume=$8,
+          timestamp_es=$9, date_es=$10;
+        `,
+        [symbol, timeframe, timestamp, open, high, low, close, volume, timestamp_es, date_es]
+      );
+    }
 
   } catch (err) {
     console.log("Error descarregant vela:", symbol, timeframe, err.message);
@@ -103,6 +104,18 @@ async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 120);
   if (!candles || candles.length < 60) return;
 
+  // EVITAR INTRAVELA  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+  const n = candles.length;
+  const current = candles[n - 1];
+  const closed = candles[n - 2];
+
+  const tfMs = timeframeToMs(timeframe);
+  const expectedClose = current.timestamp + tfMs;
+
+  if (Date.now() < expectedClose) {
+    return; // NO PROCESSAR VELA NO TANCADA
+  }
+
   const micro = detectMicroimpulse(candles, symbol, timeframe);
   if (!micro) return;
 
@@ -125,11 +138,20 @@ async function processSymbol(symbol, timeframe) {
 }
 
 // -------------------------------------------------------------
+// TIMEFRAME → MS
+// -------------------------------------------------------------
+function timeframeToMs(tf) {
+  if (tf === "15m") return 15 * 60 * 1000;
+  if (tf === "30m") return 30 * 60 * 1000;
+  if (tf === "1H") return 60 * 60 * 1000;
+  if (tf === "4H") return 4 * 60 * 60 * 1000;
+  return 0;
+}
+
+// -------------------------------------------------------------
 // LOOP PRINCIPAL
 // -------------------------------------------------------------
 async function mainLoop() {
-  //console.log("Tick microimpulsos:", new Date().toISOString());
-
   for (const symbol of SYMBOLS) {
     for (const timeframe of TIMEFRAMES) {
       await fetchAndStoreCandles(symbol, timeframe);
