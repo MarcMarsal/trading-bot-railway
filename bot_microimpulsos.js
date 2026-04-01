@@ -128,7 +128,7 @@ async function processSymbol(symbol, timeframe) {
 // LOOP PRINCIPAL
 // -------------------------------------------------------------
 async function mainLoop() {
-  //console.log("Tick microimpulsos:", new Date().toISOString());
+  console.log("Tick microimpulsos:", new Date().toISOString());
 
   for (const symbol of SYMBOLS) {
     for (const timeframe of TIMEFRAMES) {
