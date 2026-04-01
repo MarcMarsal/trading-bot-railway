@@ -7,11 +7,15 @@ export async function saveSignal2({
   timeframe,
   type,
   entry,
-  timestamp,
+  timestamp,   // <-- arriba en segons
   reason = "",
   sensitivity = null
 }) {
-  const { date_es, hora_es, timestamp_es } = splitSpainDate(timestamp);
+  // Convertim a mil·lisegons
+  const tsMs = timestamp * 1000;
+
+  // splitSpainDate espera mil·lisegons
+  const { date_es, hora_es, timestamp_es } = splitSpainDate(tsMs);
 
   await client.query(
     `
@@ -30,8 +34,8 @@ export async function saveSignal2({
       timeframe,
       type,
       entry,
-      timestamp,
-      timestamp_es,
+      timestamp,      // <-- en segons (UTC)
+      timestamp_es,   // <-- correcte (ms)
       date_es,
       hora_es,
       reason,
