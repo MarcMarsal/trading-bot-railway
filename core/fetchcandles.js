@@ -1,5 +1,7 @@
 import axios from "axios";
-import prisma from "../db.js";
+import { client } from "../db/client.js";
+
+const API_URL = process.env.API_URL;
 
 // Validació robusta del timestamp
 function normalizeTimestamp(raw) {
@@ -11,11 +13,10 @@ function normalizeTimestamp(raw) {
 }
 
 // -------------------------------------------------------------
-// FETCH + STORE CANDLES (OPTIMITZAT)
+// FETCH + STORE CANDLES (OPTIMITZAT, PG)
 // -------------------------------------------------------------
-async function fetchAndStoreCandles(symbol, interval) {
+export async function fetchAndStoreCandles(symbol, interval) {
   try {
-    // Només 1 candle (o 10 si vols)
     const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=1`;
 
     const res = await axios.get(url);
@@ -25,33 +26,25 @@ async function fetchAndStoreCandles(symbol, interval) {
 
     const k = data[0];
 
-    // Validació robusta del timestamp
     const rawTs = normalizeTimestamp(parseInt(k[0])) ?? Date.now();
     const timestamp = Math.floor(rawTs / 1000);
 
-    const candle = {
-      symbol,
-      interval,
-      timestamp,
-      open: parseFloat(k[1]),
-      high: parseFloat(k[2]),
-      low: parseFloat(k[3]),
-      close: parseFloat(k[4]),
-      volume: parseFloat(k[5])
-    };
+    const open = parseFloat(k[1]);
+    const high = parseFloat(k[2]);
+    const low = parseFloat(k[3]);
+    const close = parseFloat(k[4]);
+    const volume = parseFloat(k[5]);
 
-    // Desa a la DB (upsert)
-    await prisma.candles.upsert({
-      where: {
-        symbol_interval_timestamp: {
-          symbol,
-          interval,
-          timestamp
-        }
-      },
-      update: candle,
-      create: candle
-    });
+    // UPSERT manual amb PostgreSQL
+    await client.query(
+      `
+      INSERT INTO candles (symbol, interval, timestamp, open, high, low, close, volume)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      ON CONFLICT (symbol, interval, timestamp)
+      DO UPDATE SET open=$4, high=$5, low=$6, close=$7, volume=$8;
+      `,
+      [symbol, interval, timestamp, open, high, low, close, volume]
+    );
 
     console.log(`Stored ${symbol} ${interval} @ ${timestamp}`);
 
