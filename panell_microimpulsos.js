@@ -21,7 +21,7 @@ const TIMEFRAMES = ["15m", "30m", "1H", "4H"];
 // -------------------------------------------------------------
 // LLEGIR MICROIMPULSOS RECENTS
 // -------------------------------------------------------------
-async function getRecentSignals(limit = 50) {
+async function getRecentSignals(limit = 10) {
   const q = await client.query(
     `
     SELECT symbol, timeframe, type, entry,
@@ -141,7 +141,7 @@ async function startPanel() {
 
   http.createServer(async (req, res) => {
     if (req.url === "/") {
-      const signals = await getRecentSignals(50);
+      const signals = await getRecentSignals(10);
       const signalsHTML = renderSignalsTable(signals);
       const reliabilityHTML = await renderReliabilityTable();
       const lastUpdate = formatSpainTime(Date.now());
