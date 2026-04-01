@@ -1,6 +1,22 @@
 // core/microimpulse.js
 import { detectPattern } from "./patterns.js";
 
+function normalizeTimestamp(raw) {
+  // Si no existeix → invalid
+  if (raw === undefined || raw === null) return null;
+
+  // Si no és número → invalid
+  if (typeof raw !== "number") return null;
+
+  // Si és 0 → invalid
+  if (raw === 0) return null;
+
+  // Si és massa petit → invalid (UNIX real > 1.000.000.000)
+  if (raw < 1000000000) return null;
+
+  return raw;
+}
+
 export function classifySignal(velas) {
   if (!velas || velas.length < 4) return null;
 
@@ -10,16 +26,18 @@ export function classifySignal(velas) {
   if (!msNow && !esNow) return null;
 
   // 🔥 Timestamp universal i robust
-  const rawTs =
-    v3.timestamp ??
-    v3.time ??
-    v3.openTime ??
-    v3.closeTime ??
-    v3.t ??
-    v3.ts ??
-    Date.now();
+ const rawTs =
+  normalizeTimestamp(v3.timestamp) ??
+  normalizeTimestamp(v3.time) ??
+  normalizeTimestamp(v3.openTime) ??
+  normalizeTimestamp(v3.closeTime) ??
+  normalizeTimestamp(v3.t) ??
+  normalizeTimestamp(v3.ts) ??
+  Date.now();
 
-  v3.timestamp = Math.floor(rawTs / 1000);
+v3.timestamp = Math.floor(rawTs / 1000);
+
+
 
   const tipoBase = msNow ? "MS" : "ES";
   return { tipoBase, v3 };
