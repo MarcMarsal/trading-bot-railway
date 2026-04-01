@@ -27,7 +27,7 @@ function calcEMA(values, period) {
 }
 
 // -------------------------------------------------------------
-// MICROIMPULSE FIAT (1:1 TradingView)
+// MICROIMPULSE EXACTE COM TRADINGVIEW
 // -------------------------------------------------------------
 export function detectMicroimpulse(candles, symbol, timeframe) {
   if (!candles || candles.length < 30) return null;
@@ -50,13 +50,10 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   const trendShort = ema20 < ema40;
   if (!trendLong && !trendShort) return null;
 
-  // MS/ES FIAT
-  const { ms, es } = detectMSES(candles);
-
+  // JA NO REQUERIM MS/ES PER MICROIMPULSOS
   let direction = null;
-  if (trendLong && ms) direction = "LONG";
-  if (trendShort && es) direction = "SHORT";
-  if (!direction) return null;
+  if (trendLong) direction = "LONG";
+  if (trendShort) direction = "SHORT";
 
   // retracement
   const retraceHigh = Math.max(prev1.high, prev2.high);
@@ -66,15 +63,15 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   let type = null;
   let entry = null;
 
-  // BREAKOUT FIAT (evita falsos positius)
+  // BREAKOUT EXACTE COM TRADINGVIEW
   if (direction === "LONG") {
-    if (last.close > retraceHigh && last.open < retraceHigh) {
+    if (last.close > retraceHigh) {
       confirmed = true;
       type = "MICRO_LONG";
       entry = last.close;
     }
   } else if (direction === "SHORT") {
-    if (last.close < retraceLow && last.open > retraceLow) {
+    if (last.close < retraceLow) {
       confirmed = true;
       type = "MICRO_SHORT";
       entry = last.close;
