@@ -13,7 +13,7 @@ function normalizeTimestamp(raw) {
 }
 
 // -------------------------------------------------------------
-// FETCH + STORE CANDLES (OPTIMITZAT, PG)
+// FETCH + STORE CANDLES (CORREGIT, limit=2)
 // -------------------------------------------------------------
 export async function fetchAndStoreCandles(symbol, interval) {
   try {
@@ -24,29 +24,27 @@ export async function fetchAndStoreCandles(symbol, interval) {
 
     if (!data || data.length === 0) return;
 
-    const k = data[0];
+    // Guardem les dues veles: actual i tancada
+    for (const k of data) {
+      const rawTs = normalizeTimestamp(parseInt(k[0])) ?? Date.now();
+      const timestamp = Math.floor(rawTs / 1000);
 
-    const rawTs = normalizeTimestamp(parseInt(k[0])) ?? Date.now();
-    const timestamp = Math.floor(rawTs / 1000);
+      const open = parseFloat(k[1]);
+      const high = parseFloat(k[2]);
+      const low = parseFloat(k[3]);
+      const close = parseFloat(k[4]);
+      const volume = parseFloat(k[5]);
 
-    const open = parseFloat(k[1]);
-    const high = parseFloat(k[2]);
-    const low = parseFloat(k[3]);
-    const close = parseFloat(k[4]);
-    const volume = parseFloat(k[5]);
-
-    // UPSERT manual amb PostgreSQL
-    await client.query(
-      `
-      INSERT INTO candles (symbol, interval, timestamp, open, high, low, close, volume)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-      ON CONFLICT (symbol, interval, timestamp)
-      DO UPDATE SET open=$4, high=$5, low=$6, close=$7, volume=$8;
-      `,
-      [symbol, interval, timestamp, open, high, low, close, volume]
-    );
-
-    
+      await client.query(
+        `
+        INSERT INTO candles (symbol, interval, timestamp, open, high, low, close, volume)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        ON CONFLICT (symbol, interval, timestamp)
+        DO UPDATE SET open=$4, high=$5, low=$6, close=$7, volume=$8;
+        `,
+        [symbol, interval, timestamp, open, high, low, close, volume]
+      );
+    }
 
   } catch (err) {
     console.log("Error descarregant vela:", symbol, interval, err.message);
