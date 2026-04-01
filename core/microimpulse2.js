@@ -110,5 +110,3 @@ function detectMicroimpulse(candles, reliability, symbol, timeframe) {
 }
 
 export { detectMicroimpulse };
-
-
