@@ -21,21 +21,6 @@ export function isBear(o, c) {
   return c < o;
 }
 
-export function isStrongBull(o, h, l, c) {
-  const bp = bodyPct(o, h, l, c);
-  return bp >= 0.5 && isBull(o, c);
-}
-
-export function isStrongBear(o, h, l, c) {
-  const bp = bodyPct(o, h, l, c);
-  return bp >= 0.5 && isBear(o, c);
-}
-
-export function isIndecision(o, h, l, c) {
-  const bp = bodyPct(o, h, l, c);
-  return bp <= 0.3;
-}
-
 export function velaCompleta(v) {
   return (
     v &&
@@ -47,18 +32,8 @@ export function velaCompleta(v) {
   );
 }
 
-export function midpoint(v) {
-  return (v.high + v.low) / 2;
-}
-
-export function smallBody(v, maxPct = 0.3) {
-  const r = v.high - v.low;
-  if (r === 0) return false;
-  return Math.abs(v.close - v.open) / r < maxPct;
-}
-
 // -------------------------------------------------------------
-// MS/ES FIAT (1:1 amb TradingView)
+// MS / ES EXACTAMENT COM TRADINGVIEW
 // -------------------------------------------------------------
 export function detectMSES(velas) {
   if (!velas || velas.length < 4) return { ms: false, es: false };
@@ -91,19 +66,19 @@ export function detectMSES(velas) {
     return body / range <= 0.3;
   };
 
-  const mid1 = midpoint(v1);
+  const midpoint = (v1.high + v1.low) / 2;
 
   const ms =
     strongBear(v1) &&
     indecision(v2) &&
     strongBull(v3) &&
-    v3.close > mid1;
+    v3.close > midpoint;
 
   const es =
     strongBull(v1) &&
     indecision(v2) &&
     strongBear(v3) &&
-    v3.close < mid1;
+    v3.close < midpoint;
 
   return { ms, es };
 }
