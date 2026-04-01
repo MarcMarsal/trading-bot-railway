@@ -28,7 +28,7 @@ function normalizeTimestamp(raw) {
 }
 
 // -------------------------------------------------------------
-// FETCH + STORE (PG, limit=2)  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+// FETCH + STORE (PG, limit=2)
 // -------------------------------------------------------------
 async function fetchAndStoreCandles(symbol, timeframe) {
   try {
@@ -104,17 +104,8 @@ async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 120);
   if (!candles || candles.length < 60) return;
 
-  // EVITAR INTRAVELA  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-  const n = candles.length;
-  const current = candles[n - 1];
-  const closed = candles[n - 2];
-
-  const tfMs = timeframeToMs(timeframe);
-  const expectedClose = current.timestamp + tfMs;
-
-  if (Date.now() < expectedClose) {
-    return; // NO PROCESSAR VELA NO TANCADA
-  }
+  // JA NO CAL EVITAR INTRAVELA
+  // Perquè fetchAndStoreCandles ja desa la vela tancada
 
   const micro = detectMicroimpulse(candles, symbol, timeframe);
   if (!micro) return;
@@ -135,17 +126,6 @@ async function processSymbol(symbol, timeframe) {
   });
 
   console.log(`Microimpuls detectat: ${symbol} ${timeframe} → ${micro.type}`);
-}
-
-// -------------------------------------------------------------
-// TIMEFRAME → MS
-// -------------------------------------------------------------
-function timeframeToMs(tf) {
-  if (tf === "15m") return 15 * 60 * 1000;
-  if (tf === "30m") return 30 * 60 * 1000;
-  if (tf === "1H") return 60 * 60 * 1000;
-  if (tf === "4H") return 4 * 60 * 60 * 1000;
-  return 0;
 }
 
 // -------------------------------------------------------------
