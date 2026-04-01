@@ -47,19 +47,28 @@ export function velaCompleta(v) {
   );
 }
 
-export function detectPattern(velas) {
-  if (!velas || velas.length < 4) {
-    return { msNow: false, esNow: false };
-  }
+export function midpoint(v) {
+  return (v.high + v.low) / 2;
+}
+
+export function smallBody(v, maxPct = 0.3) {
+  const r = v.high - v.low;
+  if (r === 0) return false;
+  return Math.abs(v.close - v.open) / r < maxPct;
+}
+
+// -------------------------------------------------------------
+// MS/ES FIAT (1:1 amb TradingView)
+// -------------------------------------------------------------
+export function detectMSES(velas) {
+  if (!velas || velas.length < 4) return { ms: false, es: false };
 
   const n = velas.length;
   const v1 = velas[n - 4];
   const v2 = velas[n - 3];
   const v3 = velas[n - 2];
 
-  if (!v1 || !v2 || !v3) {
-    return { msNow: false, esNow: false };
-  }
+  if (!v1 || !v2 || !v3) return { ms: false, es: false };
 
   const strongBull = (v) => {
     const body = Math.abs(v.close - v.open);
@@ -82,43 +91,19 @@ export function detectPattern(velas) {
     return body / range <= 0.3;
   };
 
-  const msNow = strongBear(v1) && indecision(v2) && strongBull(v3);
-  const esNow = strongBull(v1) && indecision(v2) && strongBear(v3);
-
-  return { msNow, esNow, v1, v2, v3 };
-}
-
-export function midpoint(v) {
-  return (v.high + v.low) / 2;
-}
-
-export function smallBody(v, maxPct = 0.3) {
-  const r = v.high - v.low;
-  if (r === 0) return false;
-  return Math.abs(v.close - v.open) / r < maxPct;
-}
-
-export function detectMSES(velas) {
-  if (!velas || velas.length < 4) return { ms: false, es: false };
-
-  const n = velas.length;
-  const v1 = velas[n - 4];
-  const v2 = velas[n - 3];
-  const v3 = velas[n - 2];
-
-  if (!v1 || !v2 || !v3) return { ms: false, es: false };
-
-  const bearish1 = v1.close < v1.open;
-  const bullish1 = v1.close > v1.open;
-
-  const small2 = smallBody(v2);
-  const bullish3 = v3.close > v3.open;
-  const bearish3 = v3.close < v3.open;
-
   const mid1 = midpoint(v1);
 
-  const ms = bearish1 && small2 && bullish3 && v3.close > mid1;
-  const es = bullish1 && small2 && bearish3 && v3.close < mid1;
+  const ms =
+    strongBear(v1) &&
+    indecision(v2) &&
+    strongBull(v3) &&
+    v3.close > mid1;
 
-  return { ms, es, v1, v2, v3 };
+  const es =
+    strongBull(v1) &&
+    indecision(v2) &&
+    strongBear(v3) &&
+    v3.close < mid1;
+
+  return { ms, es };
 }
