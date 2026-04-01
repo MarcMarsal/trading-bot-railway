@@ -10,41 +10,37 @@ function normalizeTimestamp(raw) {
   return raw;
 }
 
-export async function fetchAndStoreCandles(symbol, interval) {
+// -------------------------------------------------------------
+// FETCH + STORE CANDLES (OPTIMITZAT)
+// -------------------------------------------------------------
+async function fetchAndStoreCandles(symbol, interval) {
   try {
-    const url = `${process.env.API_URL}?instId=${symbol}&bar=${interval}&limit=1`;
+    // Només 1 candle (o 10 si vols)
+    const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=1`;
 
-    const response = await axios.get(url);
-    const data = response.data.data;
+    const res = await axios.get(url);
+    const data = res.data.data;
 
-    if (!data || data.length === 0) {
-      console.log(`No candles for ${symbol} ${interval}`);
-      return;
-    }
+    if (!data || data.length === 0) return;
 
-    const c = data[0];
+    const k = data[0];
 
-    const rawTs =
-      normalizeTimestamp(c.ts) ??
-      normalizeTimestamp(c.t) ??
-      normalizeTimestamp(c.time) ??
-      normalizeTimestamp(c.openTime) ??
-      normalizeTimestamp(c.closeTime) ??
-      Date.now();
-
+    // Validació robusta del timestamp
+    const rawTs = normalizeTimestamp(parseInt(k[0])) ?? Date.now();
     const timestamp = Math.floor(rawTs / 1000);
 
     const candle = {
       symbol,
       interval,
       timestamp,
-      open: Number(c.o),
-      high: Number(c.h),
-      low: Number(c.l),
-      close: Number(c.c),
-      volume: Number(c.v)
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low: parseFloat(k[3]),
+      close: parseFloat(k[4]),
+      volume: parseFloat(k[5])
     };
 
+    // Desa a la DB (upsert)
     await prisma.candles.upsert({
       where: {
         symbol_interval_timestamp: {
@@ -57,9 +53,9 @@ export async function fetchAndStoreCandles(symbol, interval) {
       create: candle
     });
 
-    console.log(`Stored candle ${symbol} ${interval} @ ${timestamp}`);
+    console.log(`Stored ${symbol} ${interval} @ ${timestamp}`);
 
   } catch (err) {
-    console.error("Error fetching candles:", err.message);
+    console.log("Error descarregant vela:", symbol, interval, err.message);
   }
 }
