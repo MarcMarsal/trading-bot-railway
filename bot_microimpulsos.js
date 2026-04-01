@@ -79,8 +79,7 @@ async function fetchAndStoreCandles(symbol, timeframe) {
       [symbol, timeframe, timestamp, open, high, low, close, volume, timestamp_es, date_es]
     );
 
-    console.log(`Stored ${symbol} ${timeframe} @ ${timestamp}`);
-
+   
   } catch (err) {
     console.log("Error descarregant vela:", symbol, timeframe, err.message);
   }
