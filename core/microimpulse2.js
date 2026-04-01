@@ -1,5 +1,20 @@
 // core/microimpulse2.js
 
+function normalizeTimestamp(raw) {
+  // Si no existeix → invalid
+  if (raw === undefined || raw === null) return null;
+
+  // Si no és número → invalid
+  if (typeof raw !== "number") return null;
+
+  // Si és 0 → invalid
+  if (raw === 0) return null;
+
+  // Si és massa petit → invalid (UNIX real > 1.000.000.000)
+  if (raw < 1000000000) return null;
+
+  return raw;
+}
 function calcEMA(values, period) {
   if (values.length < period) return null;
   const k = 2 / (period + 1);
@@ -86,17 +101,16 @@ function detectMicroimpulse(candles, reliability, symbol, timeframe) {
 
   if (!isConfirmed) return null;
 
-  // 🔥 Timestamp universal i robust
-  const rawTs =
-    last.timestamp ??
-    last.time ??
-    last.openTime ??
-    last.closeTime ??
-    last.t ??
-    last.ts ??
-    Date.now();
+ const rawTs =
+  normalizeTimestamp(last.timestamp) ??
+  normalizeTimestamp(last.time) ??
+  normalizeTimestamp(last.openTime) ??
+  normalizeTimestamp(last.closeTime) ??
+  normalizeTimestamp(last.t) ??
+  normalizeTimestamp(last.ts) ??
+  Date.now();
 
-  const timestamp = Math.floor(rawTs / 1000);
+const timestamp = Math.floor(rawTs / 1000);
 
   return {
     symbol,
