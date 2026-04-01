@@ -35,9 +35,9 @@ function normalizeTimestamp(raw) {
 // -------------------------------------------------------------
 // FETCH + STORE (PG, limit=1)
 // -------------------------------------------------------------
-async function fetchAndStoreCandles(symbol, interval) {
+async function fetchAndStoreCandles(symbol, timeframe) {
   try {
-    const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=1`;
+    const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=1`;
     const res = await axios.get(url);
     const data = res.data.data;
 
@@ -45,7 +45,7 @@ async function fetchAndStoreCandles(symbol, interval) {
 
     const k = data[0];
     const rawTs = normalizeTimestamp(parseInt(k[0])) ?? Date.now();
-    const timestamp = Math.floor(rawTs / 1000);
+    const timestamp = Math.floor(rawTs);
 
     const open = parseFloat(k[1]);
     const high = parseFloat(k[2]);
@@ -53,36 +53,52 @@ async function fetchAndStoreCandles(symbol, interval) {
     const close = parseFloat(k[4]);
     const volume = parseFloat(k[5]);
 
+    // Timestamp espanyol
+    const timestamp_es = new Date(
+      new Date(timestamp).toLocaleString("en-US", { timeZone: "Europe/Madrid" })
+    ).getTime();
+
+    const date_es = new Date(timestamp).toLocaleString("es-ES", {
+      timeZone: "Europe/Madrid",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).replace(",", "");
+
     await client.query(
       `
-      INSERT INTO candles (symbol, interval, timestamp, open, high, low, close, volume)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-      ON CONFLICT (symbol, interval, timestamp)
-      DO UPDATE SET open=$4, high=$5, low=$6, close=$7, volume=$8;
+      INSERT INTO candles (symbol, timeframe, timestamp, open, high, low, close, volume, timestamp_es, date_es)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      ON CONFLICT (symbol, timeframe, timestamp)
+      DO UPDATE SET
+        open=$4, high=$5, low=$6, close=$7, volume=$8,
+        timestamp_es=$9, date_es=$10;
       `,
-      [symbol, interval, timestamp, open, high, low, close, volume]
+      [symbol, timeframe, timestamp, open, high, low, close, volume, timestamp_es, date_es]
     );
 
-    console.log(`Stored ${symbol} ${interval} @ ${timestamp}`);
+    console.log(`Stored ${symbol} ${timeframe} @ ${timestamp}`);
 
   } catch (err) {
-    console.log("Error descarregant vela:", symbol, interval, err.message);
+    console.log("Error descarregant vela:", symbol, timeframe, err.message);
   }
 }
 
 // -------------------------------------------------------------
 // GET CANDLES FROM DB (PG)
 // -------------------------------------------------------------
-async function getCandlesFromDB(symbol, interval, limit = 120) {
+async function getCandlesFromDB(symbol, timeframe, limit = 120) {
   const res = await client.query(
     `
-    SELECT *
+    SELECT symbol, timeframe, open, high, low, close, volume, timestamp
     FROM candles
-    WHERE symbol = $1 AND interval = $2
+    WHERE symbol = $1 AND timeframe = $2
     ORDER BY timestamp DESC
     LIMIT $3
     `,
-    [symbol, interval, limit]
+    [symbol, timeframe, limit]
   );
 
   return res.rows.reverse();
