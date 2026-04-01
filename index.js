@@ -476,16 +476,16 @@ cron.schedule("* * * * *", async () => {
             if (msPercent >= 60 && trendPercent < 60) {
               if (!(await alreadySent(symbol, timeframe, tipoEarly, timestampEarly))) {
 
-                if (timeframe === "15m") {
-                  await sendTelegram({
-                    title: `${symbol} ${early.tipo === "MS" ? "↑" : "↓"} ${timeframe} (EARLY)`,
-                    entry: early.entry.toFixed(4),
-                    trendPercent,
-                    msPercent,
-                    contextLabel,
-                    extra: timestampEsEarly
-                  });
-                }
+                //if (timeframe === "15m") {
+                //  await sendTelegram({
+                //    title: `${symbol} ${early.tipo === "MS" ? "↑" : "↓"} ${timeframe} (EARLY)`,
+                //    entry: early.entry.toFixed(4),
+                 //   trendPercent,
+                //    msPercent,
+                //    contextLabel,
+                //    extra: timestampEsEarly
+                //  });
+                //}
 
                 await saveSignal(symbol, timeframe, tipoEarly, early.entry, timestampEarly, timestampEsEarly);
               }
@@ -516,19 +516,19 @@ cron.schedule("* * * * *", async () => {
 
                 const { tp, sl } = calcTargets(tipoBase, entry);
 
-                if (timeframe === "15m") {
-                  await sendTelegram({
-                    title: `${symbol} ${tipoBase === "MS" ? "↑" : "↓"} ${timeframe}`,
-                    direction: tipoBase === "MS" ? "LONG" : "SHORT",
-                    entry: entry.toFixed(4),
-                    tp: tp.toFixed(4),
-                    sl: sl.toFixed(4),
-                    trendPercent,
-                    msPercent,
-                    contextLabel,
-                    extra: timestampEs
-                  });
-                }
+                //if (timeframe === "15m") {
+                //  await sendTelegram({
+                //    title: `${symbol} ${tipoBase === "MS" ? "↑" : "↓"} ${timeframe}`,
+                //    direction: tipoBase === "MS" ? "LONG" : "SHORT",
+                //    entry: entry.toFixed(4),
+                //    tp: tp.toFixed(4),
+                //    sl: sl.toFixed(4),
+                //    trendPercent,
+                //    msPercent,
+                //    contextLabel,
+                //    extra: timestampEs
+                //  });
+                //}
 
                 await saveSignal(symbol, timeframe, tipoBase, entry, timestamp, timestampEs);
               }
@@ -548,17 +548,17 @@ cron.schedule("* * * * *", async () => {
 
               const direction = tendenciaPrincipal === "LONG" ? "↑ LONG" : "↓ SHORT";
 
-              if (timeframe === "15m") {
-                await sendTelegram({
-                  title: `${symbol} ${direction} ${timeframe}`,
-                  direction: tendenciaPrincipal,
-                  entry: lastCandle.close.toFixed(4),
-                  trendPercent,
-                  msPercent,
-                  contextLabel,
-                  extra: formatSpainTime(ts)
-                });
-              }
+              //if (timeframe === "15m") {
+                //await sendTelegram({
+                //  title: `${symbol} ${direction} ${timeframe}`,
+                //  direction: tendenciaPrincipal,
+                //  entry: lastCandle.close.toFixed(4),
+                //  trendPercent,
+                //  msPercent,
+                //  contextLabel,
+                //  extra: formatSpainTime(ts)
+                //});
+              //}
 
               await saveSignal(symbol, timeframe, "TENDENCIA", lastCandle.close, ts, formatSpainTime(ts));
             }
@@ -1031,7 +1031,7 @@ function preSignal(velas) {
 // -------------------------------------------------------------
 // TELEGRAM (VERSIÓ MILLORADA)
 // -------------------------------------------------------------
-async function sendTelegram({
+async function gram({
   title = "",
   direction = "",
   entry = "",
