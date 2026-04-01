@@ -46,7 +46,7 @@ export async function fetchAndStoreCandles(symbol, interval) {
       [symbol, interval, timestamp, open, high, low, close, volume]
     );
 
-    console.log(`Stored ${symbol} ${interval} @ ${timestamp}`);
+    
 
   } catch (err) {
     console.log("Error descarregant vela:", symbol, interval, err.message);
