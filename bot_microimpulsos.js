@@ -61,9 +61,9 @@ if (micro) {
   timeframe,
   type: micro.type,
   entry: micro.entry,
-  timestamp: micro.timestamp,
+  timestamp: Math.floor(micro.timestamp / 1000), // arregla Invalid Date
   reason: "microimpulse",
-  sensitivity: micro.reliability ?? null
+  sensitivity: micro.reliability ?? msPercent     // arregla null
 });
 
 
