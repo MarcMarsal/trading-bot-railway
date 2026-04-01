@@ -130,14 +130,14 @@ async function processSymbol(symbol, timeframe) {
   }, symbol, timeframe);
 
   if (micro) {
-    if (!(await alreadySent2(symbol, timeframe, micro.type, micro.timestamp))) {
+    if (!(await alreadySent2(symbol, timeframe, micro.type, Math.floor(micro.timestamp / 1000)))) {
 
       await saveSignal2({
         symbol,
         timeframe,
         type: micro.type,
         entry: micro.entry,
-        timestamp: Math.floor(micro.timestamp / 1000),
+        timestamp: micro.timestamp,   // ja en mil·lisegons
         reason: "microimpulse",
         sensitivity: micro.reliability ?? msPercent
       });
@@ -167,7 +167,7 @@ async function processSymbol(symbol, timeframe) {
   const timestamp = v3.timestamp;
   const timestampEs = formatSpainTime(timestamp);
 
-  if (await alreadySent2(symbol, timeframe, tipoBase, timestamp)) return;
+  if (await alreadySent2(symbol, timeframe, tipoBase, Math.floor(timestamp / 1000))) return;
   if (!(msPercent >= 60 && trendPercent < 60)) return;
 
   const body = Math.abs(v3.close - v3.open);
