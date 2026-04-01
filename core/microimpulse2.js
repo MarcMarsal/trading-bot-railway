@@ -110,7 +110,7 @@ function detectMicroimpulse(candles, reliability, symbol, timeframe) {
   normalizeTimestamp(last.ts) ??
   Date.now();
 
-const timestamp = Math.floor(rawTs / 1000);
+const timestamp = rawTs;   // rawTs ja és en mil·lisegons
 
   return {
     symbol,
