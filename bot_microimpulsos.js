@@ -28,14 +28,17 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
     SELECT symbol, timeframe, open, high, low, close, volume, timestamp
     FROM candles
     WHERE symbol = $1 AND timeframe = $2
-    ORDER BY timestamp ASC
+    ORDER BY timestamp DESC     -- ✅ agafem les més recents
     LIMIT $3
   `;
 
   const params = [symbol, timeframe, limit];
   const res = await client.query(query, params);
-  return res.rows;
+
+  // les hem demanat DESC, les tornem a posar en ordre cronològic
+  return res.rows.reverse();
 }
+
 
 // -------------------------------------------------------------
 // MICROIMPULSOS FIAT
