@@ -101,12 +101,12 @@ async function processSymbol(symbol, timeframe) {
     const alreadyMSES = await alreadySent2(symbol, timeframe, mses.type, tsSecMSES, "mses");
 
     if (!alreadyMSES) {
-      console.log(`MSES DETECTED: ${symbol} ${timeframe} → ${mses.type} ${mses.entry}`);
+     
       await saveSignal2({
         symbol,
         timeframe,
         type: mses.type,
-        price: mses.entry,        // 🔥 price FIAT (mai null)
+        entry: mses.entry,        // 🔥 price FIAT (mai null)
         timestamp: mses.timestamp,
         reason: mses.reason,
         sensitivity: 50,
