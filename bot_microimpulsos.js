@@ -55,7 +55,7 @@ async function processSymbol(symbol, timeframe) {
         symbol,
         timeframe,
         type: early.type,
-        price: early.entry,       // 🔥 price FIAT
+        entry: early.entry,       // 🔥 price FIAT
         timestamp: early.timestamp,
         reason: early.reason,
         sensitivity: early.sensitivity,
@@ -80,7 +80,7 @@ async function processSymbol(symbol, timeframe) {
         symbol,
         timeframe,
         type: micro.type,
-        price: micro.entry,       // 🔥 price FIAT
+        entry: micro.entry,       // 🔥 price FIAT
         timestamp: micro.timestamp,
         reason: micro.reason,
         sensitivity: micro.sensitivity,
