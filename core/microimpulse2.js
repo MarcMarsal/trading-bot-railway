@@ -33,7 +33,7 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   if (!candles || candles.length < 30) return null;
 
   const n = candles.length;
-  const last = candles[n - 2];
+  const last = candles[n - 2];   // última vela TANCADA
   const prev1 = candles[n - 3];
   const prev2 = candles[n - 4];
   if (!last || !prev1 || !prev2) return null;
@@ -49,15 +49,16 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   const trendUp   = ema20 > ema40;
   const trendDown = ema20 < ema40;
 
+  const trendPercent = trendUp || trendDown ? 60 : 0;
+
   // ============================
-  // MS / ES (3 veles)
+  // MS / ES (FIAT TradingView)
   // ============================
-  const mses = detectMSES(candles, symbol, timeframe);
+  const mses = detectMSES(candles);
   const hasMS = mses?.type === "MS_LONG";
   const hasES = mses?.type === "MS_SHORT";
 
   const msPercent = hasMS || hasES ? 70 : 0;
-  const trendPercent = trendUp || trendDown ? 60 : 0;
 
   // ============================
   // Volum OK (igual que Pine)
@@ -73,7 +74,7 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   if (!trendAlive) return null;
 
   // ============================
-  // Retracement realista
+  // Retracement realista (FIAT)
   // ============================
   function isSmallRetrace(dirLong, o,h,l,c) {
     const body = Math.abs(c - o);
@@ -94,7 +95,7 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   const retraceLow  = Math.min(prev1.low, prev2.low);
 
   // ============================
-  // Breakout final
+  // Breakout final (FIAT)
   // ============================
   let type = null;
   let entry = null;
