@@ -178,7 +178,7 @@ export function detectMicroimpulseEarly(candles, symbol, timeframe) {
 
   console.log("EARLY DETECTED → Velas usadas:");
 console.log("Vela 0 (last):", {
-  date: new Date(last.timestamp).toLocaleString("es-ES"),
+  date: new Date(last.timestamp).toLocaleString("es-ES"), timestamp:last.timestamp,
   o: last.open, h: last.high, l: last.low, c: last.close
 });
 console.log("Vela 1 (prev1):", {
