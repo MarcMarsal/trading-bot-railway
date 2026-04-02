@@ -137,6 +137,7 @@ async function processSymbol(symbol, timeframe) {
     );
 
     if (!alreadyMSES) {
+      console.log(`MSES DETECTED: ${symbol} ${timeframe} → ${mses.type}`);
       await saveSignal2({
         symbol,
         timeframe,
@@ -148,7 +149,7 @@ async function processSymbol(symbol, timeframe) {
         status: "mses",
       });
 
-      console.log(`MSES DETECTED: ${symbol} ${timeframe} → ${mses.type}`);
+      
     }
   }
 }
