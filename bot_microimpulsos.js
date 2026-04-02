@@ -8,6 +8,8 @@ import { detectMicroimpulse } from "./core/microimpulse2.js";
 import { detectMicroimpulseEarly } from "./core/microimpulse2.js";
 import { detectMSES } from "./core/patterns.js";
 import { splitSpainDate } from "./core/utils.js";
+import { getDay } from "./core/utils.js";
+
 
 // IMPORTEM LA FUNCIÓ CORRECTA (sense duplicats)
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
@@ -54,8 +56,7 @@ async function processSymbol(symbol, timeframe) {
   const early = detectMicroimpulseEarly(candles, symbol, timeframe);
 
   if (early) {
-    const { date_es, hora_es } = splitSpainDate(early.timestamp);
-    const dateKey = `${date_es} ${hora_es}`;
+    const dateKey = getDay(early.timestamp);
 
     const alreadyEarly = await alreadySent2(
       symbol,
@@ -89,8 +90,7 @@ async function processSymbol(symbol, timeframe) {
   const micro = detectMicroimpulse(closedCandles, symbol, timeframe);
 
   if (micro) {
-    const { date_es, hora_es } = splitSpainDate(micro.timestamp);
-    const dateKey = `${date_es} ${hora_es}`;
+    const dateKey = getDay(micro.timestamp);
 
     const already = await alreadySent2(
       symbol,
@@ -121,8 +121,7 @@ async function processSymbol(symbol, timeframe) {
   const mses = detectMSES(candles, symbol, timeframe);
 
   if (mses) {
-    const { date_es, hora_es } = splitSpainDate(mses.timestamp);
-    const dateKey = `${date_es} ${hora_es}`;
+    const dateKey = getDay(mses.timestamp);
 
     const alreadyMSES = await alreadySent2(
       symbol,
