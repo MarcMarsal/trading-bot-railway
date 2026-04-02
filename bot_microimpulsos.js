@@ -24,8 +24,7 @@ const TIMEFRAMES = ["15m", "30m", "1H", "4H"];
 // GET CANDLES FROM DB (PG)
 // -------------------------------------------------------------
 async function getCandlesFromDB(symbol, timeframe, limit = 60) {
-  const res = await client.query(
-    `
+  const q = `
     SELECT symbol, timeframe, open, high, low, close, volume, timestamp
     FROM candles
     WHERE symbol = $1 AND timeframe = $2
@@ -33,7 +32,8 @@ async function getCandlesFromDB(symbol, timeframe, limit = 60) {
     LIMIT $3
     `,
     [symbol, timeframe, limit]
-  );
+   console.log(q);
+  const res = await client.query(q);
 
   return res.rows;
 }
