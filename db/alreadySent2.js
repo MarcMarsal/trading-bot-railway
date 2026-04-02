@@ -25,15 +25,6 @@ export async function alreadySent2(symbol, timeframe, type, entry, dayKey, statu
   }
 
   query += ` LIMIT 1`;
-
-  console.log("\n--- alreadySent2 DEBUG ---");
-  console.log("QUERY:", query.trim());
-  console.log("PARAMS:", params);
-
   const q = await client.query(query, params);
-
-  console.log("ROWCOUNT:", q.rowCount);
-  console.log("--------------------------\n");
-
   return q.rowCount > 0;
 }
