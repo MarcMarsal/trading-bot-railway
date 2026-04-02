@@ -31,7 +31,7 @@ async function getCandlesFromDB(symbol, timeframe, limit = 60) {
     ORDER BY timestamp ASC
     LIMIT $3
     `,
-    [symbol, timeframe, limit]
+    [symbol, timeframe, limit];
    console.log(q);
   const res = await client.query(q);
 
