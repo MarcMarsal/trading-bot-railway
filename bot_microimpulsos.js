@@ -6,6 +6,8 @@ import { alreadySent2 } from "./db/alreadySent2.js";
 import { saveSignal2 } from "./db/saveSignal2.js";
 import { detectMicroimpulse } from "./core/microimpulse2.js";
 import { detectMicroimpulseEarly } from "./core/microimpulse2.js";
+import { detectMSES } from "./core/patterns.js";
+
 
 
 // IMPORTEM LA FUNCIÓ CORRECTA (sense duplicats)
