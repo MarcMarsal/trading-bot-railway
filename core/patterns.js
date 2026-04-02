@@ -36,60 +36,67 @@ export function velaCompleta(v) {
 // MS / ES EXACTAMENT COM TRADINGVIEW
 // -------------------------------------------------------------
 export function detectMSES(candles, symbol, timeframe) {
-  if (!candles || candles.length < 4) return null;
+  if (!candles || candles.length < 5) return null;
 
   const n = candles.length;
-  const v1 = candles[n - 4];
-  const v2 = candles[n - 3];
-  const v3 = candles[n - 2];
 
-  if (!v1 || !v2 || !v3) return null;
+  // Assumim mateix criteri que detectMicroimpulse:
+  // last  = candles[n-2]  → vela actual tancada (equivalent a [0] a Pine)
+  // prev1 = candles[n-3]  → [1]
+  // prev2 = candles[n-4]  → [2]
+  // v1 per MS/ES ha de ser la vela anterior a prev2 → [3]
+  const last  = candles[n - 2];
+  const prev1 = candles[n - 3]; // [1]
+  const prev2 = candles[n - 4]; // [2]
+  const prev3 = candles[n - 5]; // [3]
 
-  const isBull = (v) => v.close > v.open;
-  const isBear = (v) => v.close < v.open;
+  if (!last || !prev1 || !prev2 || !prev3) return null;
 
-  const body = (v) => Math.abs(v.close - v.open);
-  const range = (v) => v.high - v.low;
+  const isBull = (o, c) => c > o;
+  const isBear = (o, c) => c < o;
 
-  const indecision = (v) => {
-    const r = range(v);
-    if (r === 0) return true;
-    return body(v) / r <= 0.3;
+  const body = (o, c) => Math.abs(c - o);
+  const range = (h, l) => h - l;
+
+  const indecision = (o2, h1, l1, c2) => {
+    const r1 = range(h1, l1);
+    if (r1 === 0) return true;
+    return body(o2, c2) < r1 * 0.3;
   };
 
-  const midpoint = (v1.open + v1.close) / 2;
+  const mid1 = (prev3.open + prev3.close) / 2;
 
-  const ms =
-    isBear(v1) &&
-    indecision(v2) &&
-    isBull(v3) &&
-    v3.close > midpoint;
+  const msCond =
+    isBear(prev3.open, prev3.close) &&
+    indecision(prev2.open, prev3.high, prev3.low, prev2.close) &&
+    isBull(prev1.open, prev1.close) &&
+    prev1.close > mid1;
 
-  const es =
-    isBull(v1) &&
-    indecision(v2) &&
-    isBear(v3) &&
-    v3.close < midpoint;
+  const esCond =
+    isBull(prev3.open, prev3.close) &&
+    indecision(prev2.open, prev3.high, prev3.low, prev2.close) &&
+    isBear(prev1.open, prev1.close) &&
+    prev1.close < mid1;
 
-  if (ms) {
+  if (msCond) {
     return {
       symbol,
       timeframe,
       type: "MS_LONG",
-      timestamp: v3.timestamp,
+      timestamp: prev1.timestamp, // acaba a [1]
       entry: null,
-      reason: "ms"
+      reason: "ms",
     };
   }
 
-  if (es) {
+  if (esCond) {
     return {
       symbol,
       timeframe,
       type: "MS_SHORT",
-      timestamp: v3.timestamp,
+      timestamp: prev1.timestamp,
       entry: null,
-      reason: "es"
+      reason: "es",
     };
   }
 
