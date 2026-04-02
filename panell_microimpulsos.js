@@ -5,21 +5,22 @@ import { initDB, client } from "./db/client.js";
 import { formatSpainTime } from "./core/utils.js";
 
 // -------------------------------------------------------------
-// LLEGIR ALERTES ACTIVES (NO CADUCADES)
+// LLEGIR ALERTES DELS ÚLTIMS 10 MINUTS
 // -------------------------------------------------------------
 async function getActiveSignals() {
   const nowMs = Date.now();
+  const tenMinAgo = nowMs - 10 * 60 * 1000; // 10 minuts
 
   const q = await client.query(
     `
     SELECT symbol, timeframe, type, entry,
            timestamp, timestamp_es, date_es, hora_es,
-           reason, sensitivity, expires_at, status
+           reason, sensitivity, created_at, status
     FROM signals2
-    WHERE expires_at > $1
-    ORDER BY timestamp DESC
+    WHERE created_at >= $1
+    ORDER BY created_at DESC
     `,
-    [nowMs]
+    [tenMinAgo]
   );
 
   return q.rows;
@@ -32,8 +33,6 @@ function renderActiveSignalsTable(signals) {
   let rows = "";
 
   for (const s of signals) {
-    const expiresInSec = Math.floor((s.expires_at - Date.now()) / 1000);
-
     rows += `
       <tr class="${s.status}">
         <td>${s.symbol}</td>
@@ -41,14 +40,13 @@ function renderActiveSignalsTable(signals) {
         <td>${s.type}</td>
         <td>${s.status}</td>
         <td>${s.entry ? s.entry.toFixed(4) : "-"}</td>
-        <td>${s.date_es} ${s.hora_es}</td>
-        <td>${expiresInSec}s</td>
+        <td>${formatSpainTime(s.created_at)}</td>
       </tr>
     `;
   }
 
   return `
-    <h2>Alertes Actives</h2>
+    <h2>Alertes Recents (últims 10 minuts)</h2>
     <table>
       <thead>
         <tr>
@@ -57,8 +55,7 @@ function renderActiveSignalsTable(signals) {
           <th>Tipus</th>
           <th>Status</th>
           <th>Entrada</th>
-          <th>Hora</th>
-          <th>Caduca en</th>
+          <th>Creat a</th>
         </tr>
       </thead>
       <tbody>
