@@ -36,49 +36,46 @@ export function velaCompleta(v) {
 // MS / ES EXACTAMENT COM TRADINGVIEW
 // -------------------------------------------------------------
 export function detectMSES(velas) {
-  if (!velas || velas.length < 4) return { ms: false, es: false };
+  if (!velas || velas.length < 4) return null;
 
   const n = velas.length;
   const v1 = velas[n - 4];
   const v2 = velas[n - 3];
   const v3 = velas[n - 2];
 
-  if (!v1 || !v2 || !v3) return { ms: false, es: false };
+  if (!v1 || !v2 || !v3) return null;
 
-  const strongBull = (v) => {
-    const body = Math.abs(v.close - v.open);
-    const range = v.high - v.low;
-    if (range === 0) return false;
-    return body / range >= 0.5 && v.close > v.open;
-  };
+  // Helpers iguals que TradingView
+  const isBull = (v) => v.close > v.open;
+  const isBear = (v) => v.close < v.open;
 
-  const strongBear = (v) => {
-    const body = Math.abs(v.close - v.open);
-    const range = v.high - v.low;
-    if (range === 0) return false;
-    return body / range >= 0.5 && v.close < v.open;
-  };
+  const body = (v) => Math.abs(v.close - v.open);
+  const range = (v) => v.high - v.low;
 
   const indecision = (v) => {
-    const body = Math.abs(v.close - v.open);
-    const range = v.high - v.low;
-    if (range === 0) return true;
-    return body / range <= 0.3;
+    const r = range(v);
+    if (r === 0) return true;
+    return body(v) / r <= 0.3;
   };
 
-  const midpoint = (v1.high + v1.low) / 2;
+  // Midpoint del COS (TradingView)
+  const midpoint = (v1.open + v1.close) / 2;
 
+  // MS (alcista)
   const ms =
-    strongBear(v1) &&
+    isBear(v1) &&
     indecision(v2) &&
-    strongBull(v3) &&
+    isBull(v3) &&
     v3.close > midpoint;
 
+  // ES (baixista)
   const es =
-    strongBull(v1) &&
+    isBull(v1) &&
     indecision(v2) &&
-    strongBear(v3) &&
+    isBear(v3) &&
     v3.close < midpoint;
 
-  return { ms, es };
+  if (ms) return { type: "MS_LONG" };
+  if (es) return { type: "MS_SHORT" };
+  return null;
 }
