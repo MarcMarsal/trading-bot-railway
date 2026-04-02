@@ -43,15 +43,34 @@ async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 120);
   if (!candles || candles.length < 60) return;
 
-  // JA NO CAL EVITAR INTRAVELA
-  // Perquè fetchcandles.js ja desa la vela tancada
+  // 1) ALERTA TEMPRANA (intravela)
+  const early = detectMicroimpulseEarly(candles, symbol, timeframe);
+  if (early) {
+    const tsSecEarly = Math.floor(early.timestamp / 1000);
+    const alreadyEarly = await alreadySent2(symbol, timeframe, early.type, tsSecEarly, "early");
+    if (!alreadyEarly) {
+      await saveSignal2({
+        symbol,
+        timeframe,
+        type: early.type,
+        entry: early.entry,
+        timestamp: early.timestamp,
+        reason: early.reason,
+        sensitivity: early.sensitivity,
+        status: "early",
+      });
+      console.log(`Microimpuls EARLY: ${symbol} ${timeframe} → ${early.type}`);
+    }
+  }
 
-  const micro = detectMicroimpulse(candles, symbol, timeframe);
+  // 2) CONFIRMAT (vela tancada)
+  if (candles.length < 61) return; // assegurem prou històric
+  const closedCandles = candles.slice(0, -1); // traiem la vela oberta
+  const micro = detectMicroimpulse(closedCandles, symbol, timeframe);
   if (!micro) return;
 
   const tsSec = Math.floor(micro.timestamp / 1000);
-
-  const already = await alreadySent2(symbol, timeframe, micro.type, tsSec);
+  const already = await alreadySent2(symbol, timeframe, micro.type, tsSec, "confirmed");
   if (already) return;
 
   await saveSignal2({
@@ -60,12 +79,14 @@ async function processSymbol(symbol, timeframe) {
     type: micro.type,
     entry: micro.entry,
     timestamp: micro.timestamp,
-    reason: "microimpulse",
-    sensitivity: micro.sensitivity ?? 40
+    reason: micro.reason,
+    sensitivity: micro.sensitivity,
+    status: "confirmed",
   });
 
-  console.log(`Microimpuls detectat: ${symbol} ${timeframe} → ${micro.type}`);
+  console.log(`Microimpuls CONFIRMED: ${symbol} ${timeframe} → ${micro.type}`);
 }
+
 
 // -------------------------------------------------------------
 // LOOP PRINCIPAL
