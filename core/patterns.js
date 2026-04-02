@@ -40,9 +40,9 @@ export function detectMSES(candles, symbol, timeframe) {
 
   const n = candles.length;
 
-  const prev3 = candles[n - 4]; // open[3]
-  const prev2 = candles[n - 3]; // open[2]
-  const prev1 = candles[n - 2]; // open[1]
+  const prev3 = candles[n - 3]; // open[3]
+  const prev2 = candles[n - 2]; // open[2]
+  const prev1 = candles[n - 1]; // open[1]
 
   if (!prev1 || !prev2 || !prev3) return null;
 
