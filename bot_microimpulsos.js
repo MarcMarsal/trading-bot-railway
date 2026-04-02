@@ -46,7 +46,7 @@ async function getCandlesFromDB(symbol, timeframe, limit = 60) {
 // MICROIMPULSOS FIAT
 // -------------------------------------------------------------
 async function processSymbol(symbol, timeframe) {
-  const candles = await getCandlesFromDB(symbol, timeframe, 120);
+  const candles = await getCandlesFromDB(symbol, timeframe, 60);
   if (!candles || candles.length < 60) return;
 
   // 1) ALERTA TEMPRANA (intravela)
