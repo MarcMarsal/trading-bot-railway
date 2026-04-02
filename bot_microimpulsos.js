@@ -51,6 +51,7 @@ async function processSymbol(symbol, timeframe) {
     const alreadyEarly = await alreadySent2(symbol, timeframe, early.type, tsSecEarly, "early");
 
     if (!alreadyEarly) {
+      console.log(`Microimpuls EARLY: ${symbol} ${timeframe} → ${early.type}`);
       await saveSignal2({
         symbol,
         timeframe,
@@ -76,6 +77,7 @@ async function processSymbol(symbol, timeframe) {
     const already = await alreadySent2(symbol, timeframe, micro.type, tsSec, "confirmed");
 
     if (!already) {
+      console.log(`Microimpuls CONFIRMED: ${symbol} ${timeframe} → ${micro.type}`);
       await saveSignal2({
         symbol,
         timeframe,
@@ -99,6 +101,7 @@ async function processSymbol(symbol, timeframe) {
     const alreadyMSES = await alreadySent2(symbol, timeframe, mses.type, tsSecMSES, "mses");
 
     if (!alreadyMSES) {
+      console.log(`MSES DETECTED: ${symbol} ${timeframe} → ${mses.type}`);
       await saveSignal2({
         symbol,
         timeframe,
