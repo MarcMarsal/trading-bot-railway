@@ -31,7 +31,17 @@ export function calcCloseTimestamp(openTs, timeframe) {
 }
 
 export function getDay(tsMs) {
-  const d = new Date(tsMs);
+  const ts = Number(tsMs);
+  if (!ts || isNaN(ts)) {
+    console.log("❌ getDay() ERROR — timestamp invalid:", tsMs);
+    return null;
+  }
+
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) {
+    console.log("❌ getDay() ERROR — Invalid Date:", tsMs);
+    return null;
+  }
 
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
