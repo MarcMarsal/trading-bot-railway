@@ -14,7 +14,7 @@ async function getActiveSignals() {
     `
     SELECT symbol, timeframe, type, entry,
            timestamp, timestamp_es, date_es, hora_es,
-           reason, sensitivity, expires_at
+           reason, sensitivity, expires_at, status
     FROM signals2
     WHERE expires_at > $1
     ORDER BY timestamp DESC
@@ -35,11 +35,12 @@ function renderActiveSignalsTable(signals) {
     const expiresInSec = Math.floor((s.expires_at - Date.now()) / 1000);
 
     rows += `
-      <tr>
+      <tr class="${s.status}">
         <td>${s.symbol}</td>
         <td>${s.timeframe}</td>
         <td>${s.type}</td>
-        <td>${s.entry.toFixed(4)}</td>
+        <td>${s.status}</td>
+        <td>${s.entry ? s.entry.toFixed(4) : "-"}</td>
         <td>${s.date_es} ${s.hora_es}</td>
         <td>${expiresInSec}s</td>
       </tr>
@@ -54,6 +55,7 @@ function renderActiveSignalsTable(signals) {
           <th>Symbol</th>
           <th>TF</th>
           <th>Tipus</th>
+          <th>Status</th>
           <th>Entrada</th>
           <th>Hora</th>
           <th>Caduca en</th>
@@ -102,6 +104,17 @@ async function startPanel() {
           }
           th {
             background-color: #003300;
+          }
+
+          /* STATUS COLORS */
+          tr.early td {
+            background-color: #333300; /* groc fosc */
+          }
+          tr.confirmed td {
+            background-color: #003300; /* verd fosc */
+          }
+          tr.invalidated td {
+            background-color: #333333; /* gris fosc */
           }
         </style>
       </head>
