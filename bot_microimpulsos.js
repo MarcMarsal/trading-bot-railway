@@ -26,7 +26,7 @@ async function getCandlesFromDB(symbol, timeframe, limit = 120) {
     `
     SELECT symbol, timeframe, open, high, low, close, volume, timestamp
     FROM candles
-    WHERE symbol = $1 AND interval = $2
+    WHERE symbol = $1 AND timeframe = $2
     ORDER BY timestamp DESC
     LIMIT $3
     `,
