@@ -9,7 +9,7 @@ function normalizeTimestamp(raw) {
   if (raw === undefined || raw === null) return null;
   if (typeof raw !== "number") return null;
   if (raw === 0) return null;
-  if (raw < 1000000000) return null;
+  if (raw < 1600000000000) return null; // <-- ÚNIC CANVI
   return raw; // ms
 }
 
@@ -50,12 +50,10 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   const trendShort = ema20 < ema40;
   if (!trendLong && !trendShort) return null;
 
-  // JA NO REQUERIM MS/ES PER MICROIMPULSOS
   let direction = null;
   if (trendLong) direction = "LONG";
   if (trendShort) direction = "SHORT";
 
-  // retracement
   const retraceHigh = Math.max(prev1.high, prev2.high);
   const retraceLow = Math.min(prev1.low, prev2.low);
 
@@ -63,7 +61,6 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   let type = null;
   let entry = null;
 
-  // BREAKOUT EXACTE COM TRADINGVIEW
   if (direction === "LONG") {
     if (last.close > retraceHigh) {
       confirmed = true;
