@@ -176,15 +176,6 @@ export function detectMicroimpulseEarly(candles, symbol, timeframe) {
 
   if (!type) return null;
 
-  const rawTs =
-    normalizeTimestamp(last.timestamp) ??
-    normalizeTimestamp(last.time) ??
-    normalizeTimestamp(last.openTime) ??
-    normalizeTimestamp(last.closeTime) ??
-    normalizeTimestamp(last.t) ??
-    normalizeTimestamp(last.ts) ??
-    Date.now();
-
   console.log("EARLY DETECTED → Velas usadas:");
 console.log("Vela 0 (last):", {
   date: new Date(last.timestamp).toLocaleString("es-ES"),
@@ -198,6 +189,16 @@ console.log("Vela 2 (prev2):", {
   date: new Date(prev2.timestamp).toLocaleString("es-ES"),
   o: prev2.open, h: prev2.high, l: prev2.low, c: prev2.close
 });
+  const rawTs =
+    normalizeTimestamp(last.timestamp) ??
+    normalizeTimestamp(last.time) ??
+    normalizeTimestamp(last.openTime) ??
+    normalizeTimestamp(last.closeTime) ??
+    normalizeTimestamp(last.t) ??
+    normalizeTimestamp(last.ts) ??
+    Date.now();
+
+  
 
   
   return {
