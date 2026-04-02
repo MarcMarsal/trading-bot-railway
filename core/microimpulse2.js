@@ -33,9 +33,10 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   if (!candles || candles.length < 30) return null;
 
   const n = candles.length;
-  const last  = candles[n - 2]; // última tancada
-  const prev1 = candles[n - 3];
-  const prev2 = candles[n - 4];
+  const last  = candles[n - 1]; // ✅ última tancada
+  const prev1 = candles[n - 2];
+  const prev2 = candles[n - 3];
+
   if (!last || !prev1 || !prev2) return null;
 
   const closes = candles.map(c => c.close);
@@ -176,19 +177,7 @@ export function detectMicroimpulseEarly(candles, symbol, timeframe) {
 
   if (!type) return null;
 
-  console.log("EARLY DETECTED → Velas usadas:");
-console.log("Vela 0 (last):", {
-  date: new Date(last.timestamp).toLocaleString("es-ES"), timestamp:last.timestamp,
-  o: last.open, h: last.high, l: last.low, c: last.close
-});
-console.log("Vela 1 (prev1):", {
-  date: new Date(prev1.timestamp).toLocaleString("es-ES"),
-  o: prev1.open, h: prev1.high, l: prev1.low, c: prev1.close
-});
-console.log("Vela 2 (prev2):", {
-  date: new Date(prev2.timestamp).toLocaleString("es-ES"),
-  o: prev2.open, h: prev2.high, l: prev2.low, c: prev2.close
-});
+  
   const rawTs =
     normalizeTimestamp(last.timestamp) ??
     normalizeTimestamp(last.time) ??
@@ -197,8 +186,6 @@ console.log("Vela 2 (prev2):", {
     normalizeTimestamp(last.t) ??
     normalizeTimestamp(last.ts) ??
     Date.now();
-
-  
 
   
   return {
