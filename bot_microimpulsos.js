@@ -7,6 +7,7 @@ import { saveSignal2 } from "./db/saveSignal2.js";
 import { detectMicroimpulse } from "./core/microimpulse2.js";
 import { detectMicroimpulseEarly } from "./core/microimpulse2.js";
 import { detectMSES } from "./core/patterns.js";
+import { splitSpainDate } from "./core/utils.js";
 
 // IMPORTEM LA FUNCIÓ CORRECTA (sense duplicats)
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
@@ -47,69 +48,97 @@ async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 62);
   if (!candles || candles.length < 60) return;
 
+  // -------------------------------------------------------------
   // 1) ALERTA TEMPRANA (intravela)
+  // -------------------------------------------------------------
   const early = detectMicroimpulseEarly(candles, symbol, timeframe);
+
   if (early) {
-    const tsSecEarly = Math.floor(early.timestamp / 1000);
-    const alreadyEarly = await alreadySent2(symbol, timeframe, early.type, tsSecEarly, "early");
+    const { date_es } = splitSpainDate(early.timestamp);
+
+    const alreadyEarly = await alreadySent2(
+      symbol,
+      timeframe,
+      early.type,
+      early.entry,
+      date_es,
+      "early"
+    );
 
     if (!alreadyEarly) {
       console.log(`Microimpuls EARLY: ${symbol} ${timeframe} → ${early.type}`);
+
       await saveSignal2({
         symbol,
         timeframe,
         type: early.type,
-        entry: early.entry,       // 🔥 price FIAT
+        entry: early.entry,
         timestamp: early.timestamp,
         reason: early.reason,
         sensitivity: early.sensitivity,
         status: "early",
       });
-
-      console.log(`Microimpuls EARLY: ${symbol} ${timeframe} → ${early.type}`);
     }
   }
 
+  // -------------------------------------------------------------
   // 2) CONFIRMAT (vela tancada)
+  // -------------------------------------------------------------
   if (candles.length < 61) return;
   const closedCandles = candles.slice(0, -1);
   const micro = detectMicroimpulse(closedCandles, symbol, timeframe);
 
   if (micro) {
-    const tsSec = Math.floor(micro.timestamp / 1000);
-    const already = await alreadySent2(symbol, timeframe, micro.type, tsSec, "confirmed");
+    const { date_es } = splitSpainDate(micro.timestamp);
+
+    const already = await alreadySent2(
+      symbol,
+      timeframe,
+      micro.type,
+      micro.entry,
+      date_es,
+      "confirmed"
+    );
 
     if (!already) {
       console.log(`Microimpuls CONFIRMED: ${symbol} ${timeframe} → ${micro.type}`);
+
       await saveSignal2({
         symbol,
         timeframe,
         type: micro.type,
-        entry: micro.entry,       // 🔥 price FIAT
+        entry: micro.entry,
         timestamp: micro.timestamp,
         reason: micro.reason,
         sensitivity: micro.sensitivity,
         status: "confirmed",
       });
-
-      console.log(`Microimpuls CONFIRMED: ${symbol} ${timeframe} → ${micro.type}`);
     }
   }
 
+  // -------------------------------------------------------------
   // 3) MS / ES (estructura de mercat)
+  // -------------------------------------------------------------
   const mses = detectMSES(candles, symbol, timeframe);
 
   if (mses) {
-    const tsSecMSES = Math.floor(mses.timestamp / 1000);
-    const alreadyMSES = await alreadySent2(symbol, timeframe, mses.type, tsSecMSES, "mses");
+    const { date_es } = splitSpainDate(mses.timestamp);
+
+    const alreadyMSES = await alreadySent2(
+      symbol,
+      timeframe,
+      mses.type,
+      mses.entry,
+      date_es,
+      "mses"
+    );
 
     if (!alreadyMSES) {
-     
       await saveSignal2({
         symbol,
         timeframe,
         type: mses.type,
-        entry: mses.entry,        // 🔥 price FIAT (mai null)
+        entry: mses.entry,
         timestamp: mses.timestamp,
         reason: mses.reason,
         sensitivity: 50,
