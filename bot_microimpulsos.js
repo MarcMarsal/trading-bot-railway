@@ -23,7 +23,7 @@ const TIMEFRAMES = ["15m", "30m", "1H", "4H"];
 // -------------------------------------------------------------
 // GET CANDLES FROM DB (PG)
 // -------------------------------------------------------------
-async function getCandlesFromDB(symbol, timeframe, limit = 60) {
+async function getCandlesFromDB(symbol, timeframe, limit) {
   const query = `
     SELECT symbol, timeframe, open, high, low, close, volume, timestamp
     FROM candles
@@ -46,7 +46,7 @@ async function getCandlesFromDB(symbol, timeframe, limit = 60) {
 // MICROIMPULSOS FIAT
 // -------------------------------------------------------------
 async function processSymbol(symbol, timeframe) {
-  const candles = await getCandlesFromDB(symbol, timeframe, 60);
+  const candles = await getCandlesFromDB(symbol, timeframe, 62);
   if (!candles || candles.length < 60) return;
 
   // 1) ALERTA TEMPRANA (intravela)
