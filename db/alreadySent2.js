@@ -1,36 +1,31 @@
 // db/alreadySent2.js
-// db/alreadySent2.js
+
 import { client } from "./client.js";
 
 export async function alreadySent2(symbol, timeframe, type, entry, dayKey, status = null) {
-  let query, params;
-
-  if (status) {
-    query = `
-      SELECT 1 FROM signals2
-      WHERE symbol = $1
-        AND timeframe = $2
-        AND type = $3
-        AND entry = $4
-        AND LEFT(date_es, 10) = $5
-        AND status = $6
-      LIMIT 1
-    `;
-    params = [symbol, timeframe, type, entry, dayKey, status];
-  } else {
-    query = `
-      SELECT 1 FROM signals2
-      WHERE symbol = $1
-        AND timeframe = $2
-        AND type = $3
-        AND entry = $4
-        AND LEFT(date_es, 10) = $5
-      LIMIT 1
-    `;
-    params = [symbol, timeframe, type, entry, dayKey];
+  if (!dayKey) {
+    console.log("❌ alreadySent2() ERROR — dayKey invalid:", dayKey);
+    return false;
   }
 
-  // 🔥 DEBUG: mostra la query i els valors
+  let query = `
+    SELECT 1 FROM signals2
+    WHERE symbol = $1
+      AND timeframe = $2
+      AND type = $3
+      AND entry = $4
+      AND LEFT(date_es, 10) = $5
+  `;
+
+  const params = [symbol, timeframe, type, entry, dayKey];
+
+  if (status) {
+    query += ` AND status = $6 `;
+    params.push(status);
+  }
+
+  query += ` LIMIT 1`;
+
   console.log("\n--- alreadySent2 DEBUG ---");
   console.log("QUERY:", query.trim());
   console.log("PARAMS:", params);
