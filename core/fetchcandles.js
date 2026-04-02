@@ -17,7 +17,7 @@ function normalizeTimestamp(raw) {
 // -------------------------------------------------------------
 export async function fetchAndStoreCandles(symbol, interval) {
   try {
-    const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=2`;
+    const url = `${API_URL}?instId=${symbol}&bar=${interval}&limit=10`;
 
     const res = await axios.get(url);
     const data = res.data.data;
@@ -27,8 +27,8 @@ export async function fetchAndStoreCandles(symbol, interval) {
     // Guardem les dues veles: actual i tancada
     for (const k of data) {
       const rawTs = normalizeTimestamp(parseInt(k[0])) ?? Date.now();
-      const timestamp = Math.floor(rawTs / 1000);
-
+      //const timestamp = Math.floor(rawTs / 1000);
+      const timestamp = rawTs;
       const open = parseFloat(k[1]);
       const high = parseFloat(k[2]);
       const low = parseFloat(k[3]);
