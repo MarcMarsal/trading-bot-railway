@@ -35,24 +35,10 @@ export function velaCompleta(v) {
 // -------------------------------------------------------------
 // MS / ES EXACTAMENT COM TRADINGVIEW
 // -------------------------------------------------------------
-// -------------------------------------------------------------
-// MS / ES EXACTAMENT COM TRADINGVIEW (CORREGIT)
-// -------------------------------------------------------------
 export function detectMSES(candles, symbol, timeframe) {
   if (!candles || candles.length < 5) return null;
 
   const n = candles.length;
-
-  // 🔥 Correcció d'índexs per coincidir EXACTAMENT amb TradingView:
-  // Pine:
-  //   o1 = open[3]
-  //   o2 = open[2]
-  //   o3 = open[1]
-  //
-  // Bot (ASC):
-  //   prev3 = candles[n-4] → open[3]
-  //   prev2 = candles[n-3] → open[2]
-  //   prev1 = candles[n-2] → open[1]
 
   const prev3 = candles[n - 4]; // open[3]
   const prev2 = candles[n - 3]; // open[2]
@@ -87,27 +73,26 @@ export function detectMSES(candles, symbol, timeframe) {
     prev1.close < mid1;
 
   if (msCond) {
-  return {
-    symbol,
-    timeframe,
-    type: "MS_LONG",
-    timestamp: prev1.timestamp,
-    entry: prev1.close,      // ✅ abans era null
-    reason: "ms",
-  };
-}
+    return {
+      symbol,
+      timeframe,
+      type: "MS_LONG",
+      timestamp: prev2.timestamp,   // 🔥 FIAT: la vela correcta
+      entry: prev1.close,
+      reason: "ms",
+    };
+  }
 
-if (esCond) {
-  return {
-    symbol,
-    timeframe,
-    type: "MS_SHORT",
-    timestamp: prev1.timestamp,
-    entry: prev1.close,      // ✅ abans era null
-    reason: "es",
-  };
-}
-
+  if (esCond) {
+    return {
+      symbol,
+      timeframe,
+      type: "MS_SHORT",
+      timestamp: prev2.timestamp,   // 🔥 FIAT: la vela correcta
+      entry: prev1.close,
+      reason: "es",
+    };
+  }
 
   return null;
 }
