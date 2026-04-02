@@ -8,8 +8,7 @@ import { formatSpainTime } from "./core/utils.js";
 // LLEGIR ALERTES DELS ÚLTIMS 10 MINUTS
 // -------------------------------------------------------------
 async function getActiveSignals() {
-  const nowMs = Date.now();
-  const tenMinAgo = nowMs - 10 * 60 * 1000; // 10 minuts
+  const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000); // Date, no ms!
 
   const q = await client.query(
     `
