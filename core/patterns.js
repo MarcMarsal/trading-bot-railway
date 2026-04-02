@@ -77,8 +77,8 @@ export function detectMSES(candles, symbol, timeframe) {
       symbol,
       timeframe,
       type: "MS_LONG",
-      timestamp: prev2.timestamp,   // 🔥 FIAT: la vela correcta
-      entry: prev1.close,
+      timestamp: prev2.timestamp,   // ✔️ la vela correcta
+      entry: prev2.close,           // ✔️ entrada estable
       reason: "ms",
     };
   }
@@ -88,8 +88,8 @@ export function detectMSES(candles, symbol, timeframe) {
       symbol,
       timeframe,
       type: "MS_SHORT",
-      timestamp: prev2.timestamp,   // 🔥 FIAT: la vela correcta
-      entry: prev1.close,
+      timestamp: prev2.timestamp,   // ✔️ la vela correcta
+      entry: prev2.close,           // ✔️ entrada estable
       reason: "es",
     };
   }
