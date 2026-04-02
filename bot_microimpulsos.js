@@ -44,8 +44,6 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
 // -------------------------------------------------------------
 // MICROIMPULSOS FIAT
 // -------------------------------------------------------------
-import { splitSpainDate } from "../core/utils.js";
-
 async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 62);
   if (!candles || candles.length < 60) return;
