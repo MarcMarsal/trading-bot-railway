@@ -24,7 +24,7 @@ const TIMEFRAMES = ["15m", "30m", "1H", "4H"];
 async function getCandlesFromDB(symbol, timeframe, limit = 120) {
   const res = await client.query(
     `
-    SELECT symbol, interval AS timeframe, open, high, low, close, volume, timestamp
+    SELECT symbol, timeframe, open, high, low, close, volume, timestamp
     FROM candles
     WHERE symbol = $1 AND interval = $2
     ORDER BY timestamp DESC
