@@ -35,22 +35,30 @@ export function velaCompleta(v) {
 // -------------------------------------------------------------
 // MS / ES EXACTAMENT COM TRADINGVIEW
 // -------------------------------------------------------------
+// -------------------------------------------------------------
+// MS / ES EXACTAMENT COM TRADINGVIEW (CORREGIT)
+// -------------------------------------------------------------
 export function detectMSES(candles, symbol, timeframe) {
   if (!candles || candles.length < 5) return null;
 
   const n = candles.length;
 
-  // Assumim mateix criteri que detectMicroimpulse:
-  // last  = candles[n-2]  → vela actual tancada (equivalent a [0] a Pine)
-  // prev1 = candles[n-3]  → [1]
-  // prev2 = candles[n-4]  → [2]
-  // v1 per MS/ES ha de ser la vela anterior a prev2 → [3]
-  const last  = candles[n - 2];
-  const prev1 = candles[n - 3]; // [1]
-  const prev2 = candles[n - 4]; // [2]
-  const prev3 = candles[n - 5]; // [3]
+  // 🔥 Correcció d'índexs per coincidir EXACTAMENT amb TradingView:
+  // Pine:
+  //   o1 = open[3]
+  //   o2 = open[2]
+  //   o3 = open[1]
+  //
+  // Bot (ASC):
+  //   prev3 = candles[n-4] → open[3]
+  //   prev2 = candles[n-3] → open[2]
+  //   prev1 = candles[n-2] → open[1]
 
-  if (!last || !prev1 || !prev2 || !prev3) return null;
+  const prev3 = candles[n - 4]; // open[3]
+  const prev2 = candles[n - 3]; // open[2]
+  const prev1 = candles[n - 2]; // open[1]
+
+  if (!prev1 || !prev2 || !prev3) return null;
 
   const isBull = (o, c) => c > o;
   const isBear = (o, c) => c < o;
@@ -83,7 +91,7 @@ export function detectMSES(candles, symbol, timeframe) {
       symbol,
       timeframe,
       type: "MS_LONG",
-      timestamp: prev1.timestamp, // acaba a [1]
+      timestamp: prev1.timestamp,
       entry: null,
       reason: "ms",
     };
