@@ -49,25 +49,24 @@ async function processSymbol(symbol, timeframe) {
   if (!candles || candles.length < 60) return;
 
   // -------------------------------------------------------------
-  // 1) ALERTA TEMPRANA (intravela)
+  // 1) EARLY
   // -------------------------------------------------------------
   const early = detectMicroimpulseEarly(candles, symbol, timeframe);
 
   if (early) {
-    const { date_es } = splitSpainDate(early.timestamp);
+    const { date_es, hora_es } = splitSpainDate(early.timestamp);
+    const dateKey = `${date_es} ${hora_es}`;
 
     const alreadyEarly = await alreadySent2(
       symbol,
       timeframe,
       early.type,
       early.entry,
-      date_es,
+      dateKey,
       "early"
     );
 
     if (!alreadyEarly) {
-      console.log(`Microimpuls EARLY: ${symbol} ${timeframe} → ${early.type}`);
-
       await saveSignal2({
         symbol,
         timeframe,
@@ -82,7 +81,7 @@ async function processSymbol(symbol, timeframe) {
   }
 
   // -------------------------------------------------------------
-  // 2) CONFIRMAT (vela tancada)
+  // 2) CONFIRMED
   // -------------------------------------------------------------
   if (candles.length < 61) return;
 
@@ -90,20 +89,19 @@ async function processSymbol(symbol, timeframe) {
   const micro = detectMicroimpulse(closedCandles, symbol, timeframe);
 
   if (micro) {
-    const { date_es } = splitSpainDate(micro.timestamp);
+    const { date_es, hora_es } = splitSpainDate(micro.timestamp);
+    const dateKey = `${date_es} ${hora_es}`;
 
     const already = await alreadySent2(
       symbol,
       timeframe,
       micro.type,
       micro.entry,
-      date_es,
+      dateKey,
       "confirmed"
     );
 
     if (!already) {
-      console.log(`Microimpuls CONFIRMED: ${symbol} ${timeframe} → ${micro.type}`);
-
       await saveSignal2({
         symbol,
         timeframe,
@@ -118,24 +116,24 @@ async function processSymbol(symbol, timeframe) {
   }
 
   // -------------------------------------------------------------
-  // 3) MS / ES (estructura de mercat)
+  // 3) MSES
   // -------------------------------------------------------------
   const mses = detectMSES(candles, symbol, timeframe);
 
   if (mses) {
-    const { date_es } = splitSpainDate(mses.timestamp);
+    const { date_es, hora_es } = splitSpainDate(mses.timestamp);
+    const dateKey = `${date_es} ${hora_es}`;
 
     const alreadyMSES = await alreadySent2(
       symbol,
       timeframe,
       mses.type,
       mses.entry,
-      date_es,
+      dateKey,
       "mses"
     );
 
     if (!alreadyMSES) {
-      console.log(`MSES DETECTED: ${symbol} ${timeframe} → ${mses.type}`);
       await saveSignal2({
         symbol,
         timeframe,
@@ -146,12 +144,9 @@ async function processSymbol(symbol, timeframe) {
         sensitivity: 50,
         status: "mses",
       });
-
-      
     }
   }
 }
-
 // -------------------------------------------------------------
 // LOOP PRINCIPAL
 // -------------------------------------------------------------
