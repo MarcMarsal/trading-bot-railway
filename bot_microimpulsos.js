@@ -73,24 +73,46 @@ async function processSymbol(symbol, timeframe) {
   if (candles.length < 61) return; // assegurem prou històric
   const closedCandles = candles.slice(0, -1); // traiem la vela oberta
   const micro = detectMicroimpulse(closedCandles, symbol, timeframe);
-  if (!micro) return;
+  if (micro) {
+    const tsSec = Math.floor(micro.timestamp / 1000);
+    const already = await alreadySent2(symbol, timeframe, micro.type, tsSec, "confirmed");
+    if (!already) {
+      await saveSignal2({
+        symbol,
+        timeframe,
+        type: micro.type,
+        entry: micro.entry,
+        timestamp: micro.timestamp,
+        reason: micro.reason,
+        sensitivity: micro.sensitivity,
+        status: "confirmed",
+      });
 
-  const tsSec = Math.floor(micro.timestamp / 1000);
-  const already = await alreadySent2(symbol, timeframe, micro.type, tsSec, "confirmed");
-  if (already) return;
+      console.log(`Microimpuls CONFIRMED: ${symbol} ${timeframe} → ${micro.type}`);
+    }
+  }
 
-  await saveSignal2({
-    symbol,
-    timeframe,
-    type: micro.type,
-    entry: micro.entry,
-    timestamp: micro.timestamp,
-    reason: micro.reason,
-    sensitivity: micro.sensitivity,
-    status: "confirmed",
-  });
+  // 3) MS / ES (estructura de mercat)
+  const mses = detectMSES(candles, symbol, timeframe);
+  if (mses) {
+    const tsSecMSES = Math.floor(mses.timestamp / 1000);
+    const alreadyMSES = await alreadySent2(symbol, timeframe, mses.type, tsSecMSES, "mses");
 
-  console.log(`Microimpuls CONFIRMED: ${symbol} ${timeframe} → ${micro.type}`);
+    if (!alreadyMSES) {
+      await saveSignal2({
+        symbol,
+        timeframe,
+        type: mses.type,
+        entry: null,
+        timestamp: mses.timestamp,
+        reason: mses.reason,
+        sensitivity: 50,
+        status: "mses",
+      });
+
+      console.log(`MSES DETECTED: ${symbol} ${timeframe} → ${mses.type}`);
+    }
+  }
 }
 
 
