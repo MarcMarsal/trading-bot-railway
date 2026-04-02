@@ -34,8 +34,8 @@ async function getCandlesFromDB(symbol, timeframe, limit = 60) {
 
   const params = [symbol, timeframe, limit];
 
-  console.log("QUERY:", query);
-  console.log("PARAMS:", params);
+  //console.log("QUERY:", query);
+  //console.log("PARAMS:", params);
 
   const res = await client.query(query, params);
   return res.rows;
