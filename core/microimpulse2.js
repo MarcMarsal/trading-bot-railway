@@ -33,14 +33,11 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   if (!candles || candles.length < 30) return null;
 
   const n = candles.length;
-  const last = candles[n - 2];   // última vela TANCADA
+  const last  = candles[n - 2]; // última tancada
   const prev1 = candles[n - 3];
   const prev2 = candles[n - 4];
   if (!last || !prev1 || !prev2) return null;
 
-  // ============================
-  // EMA20 / EMA40 com TradingView
-  // ============================
   const closes = candles.map(c => c.close);
   const ema20 = calcEMA(closes.slice(-80), 20);
   const ema40 = calcEMA(closes.slice(-80), 40);
@@ -48,34 +45,20 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
 
   const trendUp   = ema20 > ema40;
   const trendDown = ema20 < ema40;
-
   const trendPercent = trendUp || trendDown ? 60 : 0;
 
-  // ============================
-  // MS / ES (FIAT TradingView)
-  // ============================
-  const mses = detectMSES(candles);
+  const mses = detectMSES(candles, symbol, timeframe);
   const hasMS = mses?.type === "MS_LONG";
   const hasES = mses?.type === "MS_SHORT";
-
   const msPercent = hasMS || hasES ? 70 : 0;
 
-  // ============================
-  // Volum OK (igual que Pine)
-  // ============================
   const volumes = candles.map(c => c.volume);
   const smaVol20 = volumes.slice(-20).reduce((a,b)=>a+b,0) / 20;
   const volumeOK = last.volume > smaVol20;
 
-  // ============================
-  // TRENDALIVE (condició obligatòria)
-  // ============================
   const trendAlive = trendPercent >= 50 && msPercent < 50 && volumeOK;
   if (!trendAlive) return null;
 
-  // ============================
-  // Retracement realista (FIAT)
-  // ============================
   function isSmallRetrace(dirLong, o,h,l,c) {
     const body = Math.abs(c - o);
     const rng = h - l;
@@ -94,9 +77,6 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   const retraceHigh = Math.max(prev1.high, prev2.high);
   const retraceLow  = Math.min(prev1.low, prev2.low);
 
-  // ============================
-  // Breakout final (FIAT)
-  // ============================
   let type = null;
   let entry = null;
 
@@ -112,9 +92,6 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
 
   if (!type) return null;
 
-  // ============================
-  // Timestamp FIAT
-  // ============================
   const rawTs =
     normalizeTimestamp(last.timestamp) ??
     normalizeTimestamp(last.time) ??
@@ -131,10 +108,10 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
     entry,
     timestamp: rawTs,
     reason: "microimpulse",
-    sensitivity: 40
+    sensitivity: 40,
+    status: "confirmed",
   };
 }
-
 
 export function detectMicroimpulseEarly(candles, symbol, timeframe) {
   if (!candles || candles.length < 30) return null;
