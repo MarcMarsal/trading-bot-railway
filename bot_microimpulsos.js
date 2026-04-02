@@ -44,6 +44,8 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
 // -------------------------------------------------------------
 // MICROIMPULSOS FIAT
 // -------------------------------------------------------------
+import { splitSpainDate } from "../core/utils.js";
+
 async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 62);
   if (!candles || candles.length < 60) return;
@@ -85,6 +87,7 @@ async function processSymbol(symbol, timeframe) {
   // 2) CONFIRMAT (vela tancada)
   // -------------------------------------------------------------
   if (candles.length < 61) return;
+
   const closedCandles = candles.slice(0, -1);
   const micro = detectMicroimpulse(closedCandles, symbol, timeframe);
 
@@ -134,7 +137,6 @@ async function processSymbol(symbol, timeframe) {
     );
 
     if (!alreadyMSES) {
-      console.log(`MSES DETECTED: ${symbol} ${timeframe} → ${mses.type}`);
       await saveSignal2({
         symbol,
         timeframe,
@@ -146,7 +148,7 @@ async function processSymbol(symbol, timeframe) {
         status: "mses",
       });
 
-      
+      console.log(`MSES DETECTED: ${symbol} ${timeframe} → ${mses.type}`);
     }
   }
 }
