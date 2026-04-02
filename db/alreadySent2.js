@@ -1,4 +1,5 @@
 // db/alreadySent2.js
+// db/alreadySent2.js
 import { client } from "./client.js";
 
 export async function alreadySent2(symbol, timeframe, type, entry, dayKey, status = null) {
@@ -29,6 +30,15 @@ export async function alreadySent2(symbol, timeframe, type, entry, dayKey, statu
     params = [symbol, timeframe, type, entry, dayKey];
   }
 
+  // 🔥 DEBUG: mostra la query i els valors
+  console.log("\n--- alreadySent2 DEBUG ---");
+  console.log("QUERY:", query.trim());
+  console.log("PARAMS:", params);
+
   const q = await client.query(query, params);
+
+  console.log("ROWCOUNT:", q.rowCount);
+  console.log("--------------------------\n");
+
   return q.rowCount > 0;
 }
