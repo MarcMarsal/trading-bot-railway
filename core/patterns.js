@@ -87,26 +87,27 @@ export function detectMSES(candles, symbol, timeframe) {
     prev1.close < mid1;
 
   if (msCond) {
-    return {
-      symbol,
-      timeframe,
-      type: "MS_LONG",
-      timestamp: prev1.timestamp,
-      entry: null,
-      reason: "ms",
-    };
-  }
+  return {
+    symbol,
+    timeframe,
+    type: "MS_LONG",
+    timestamp: prev1.timestamp,
+    entry: prev1.close,      // ✅ abans era null
+    reason: "ms",
+  };
+}
 
-  if (esCond) {
-    return {
-      symbol,
-      timeframe,
-      type: "MS_SHORT",
-      timestamp: prev1.timestamp,
-      entry: null,
-      reason: "es",
-    };
-  }
+if (esCond) {
+  return {
+    symbol,
+    timeframe,
+    type: "MS_SHORT",
+    timestamp: prev1.timestamp,
+    entry: prev1.close,      // ✅ abans era null
+    reason: "es",
+  };
+}
+
 
   return null;
 }
