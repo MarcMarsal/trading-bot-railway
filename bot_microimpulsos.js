@@ -24,19 +24,23 @@ const TIMEFRAMES = ["15m", "30m", "1H", "4H"];
 // GET CANDLES FROM DB (PG)
 // -------------------------------------------------------------
 async function getCandlesFromDB(symbol, timeframe, limit = 60) {
-  const q = `
+  const query = `
     SELECT symbol, timeframe, open, high, low, close, volume, timestamp
     FROM candles
     WHERE symbol = $1 AND timeframe = $2
     ORDER BY timestamp ASC
     LIMIT $3
-    `,
-    [symbol, timeframe, limit];
-   console.log(q);
-  const res = await client.query(q);
+  `;
 
+  const params = [symbol, timeframe, limit];
+
+  console.log("QUERY:", query);
+  console.log("PARAMS:", params);
+
+  const res = await client.query(query, params);
   return res.rows;
 }
+
 
 // -------------------------------------------------------------
 // MICROIMPULSOS FIAT
