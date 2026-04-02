@@ -37,9 +37,9 @@ export async function fetchAndStoreCandles(symbol, interval) {
 
       await client.query(
         `
-        INSERT INTO candles (symbol, interval, timestamp, open, high, low, close, volume)
+        INSERT INTO candles (symbol, timeframe, timestamp, open, high, low, close, volume)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-        ON CONFLICT (symbol, interval, timestamp)
+        ON CONFLICT (symbol, timeframe, timestamp)
         DO UPDATE SET open=$4, high=$5, low=$6, close=$7, volume=$8;
         `,
         [symbol, interval, timestamp, open, high, low, close, volume]
