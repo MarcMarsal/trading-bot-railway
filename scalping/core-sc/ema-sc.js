@@ -1,14 +1,27 @@
-// ema-sc.js
-// Càlcul d'EMA incremental o simple
+// ema-sc.js (ESM)
+// Càlcul d'EMA simple i eficient
 
-function ema(values, length) {
-    if (values.length < length) return null;
-    const k = 2 / (length + 1);
-    let ema = values[0];
-    for (let i = 1; i < values.length; i++) {
-        ema = values[i] * k + ema * (1 - k);
+export function ema(values, period) {
+    if (!values || values.length < period) return [];
+
+    const k = 2 / (period + 1);
+    let emaArray = [];
+
+    // Primer valor = mitjana simple
+    let sum = 0;
+    for (let i = 0; i < period; i++) {
+        sum += values[i];
     }
-    return ema;
-}
 
-module.exports = { ema };
+    let prevEma = sum / period;
+    emaArray.push(prevEma);
+
+    // Resta de valors
+    for (let i = period; i < values.length; i++) {
+        const current = values[i] * k + prevEma * (1 - k);
+        emaArray.push(current);
+        prevEma = current;
+    }
+
+    return emaArray;
+}
