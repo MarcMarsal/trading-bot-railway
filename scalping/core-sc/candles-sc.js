@@ -17,7 +17,7 @@ function normalizeTimestamp(raw) {
 export async function getCandlesSc(symbol, timeframe = "5m", limit = 20) {
   try {
     const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=${limit}`;
-
+    console.log("URL final:", url);  
     const res = await axios.get(url);
     const data = res.data.data;
 
