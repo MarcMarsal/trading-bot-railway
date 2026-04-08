@@ -5,7 +5,6 @@ import { client, initDB } from "./db/client.js";
 import { alreadySent2 } from "./db/alreadySent2.js";
 import { saveSignal2 } from "./db/saveSignal2.js";
 import { detectMicroimpulse } from "./core/microimpulse2.js";
-import { detectMicroimpulseEarly } from "./core/microimpulse2.js";
 import { detectMSES } from "./core/patterns.js";
 import { splitSpainDate } from "./core/utils.js";
 import { getDay } from "./core/utils.js";
@@ -21,8 +20,7 @@ const SYMBOLS = [
   "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT"
 ];
 
-//const TIMEFRAMES = ["15m", "30m", "1H", "4H"];
-const TIMEFRAMES = [ "30m", "1H"];
+const TIMEFRAMES = [ "15m", "30m", "1H"];
 
 // -------------------------------------------------------------
 // GET CANDLES FROM DB (PG)
@@ -43,45 +41,12 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
   return res.rows.reverse();
 }
 
-
 // -------------------------------------------------------------
 // MICROIMPULSOS FIAT
 // -------------------------------------------------------------
 async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 62);
   if (!candles || candles.length < 60) return;
-
-  // -------------------------------------------------------------
-  // 1) EARLY
-  // -------------------------------------------------------------
-  const early = detectMicroimpulseEarly(candles, symbol, timeframe);
-
-  if (early) {
-    const dateKey = getDay(early.timestamp);
-
-    const alreadyEarly = await alreadySent2(
-      symbol,
-      timeframe,
-      early.type,
-      early.entry,
-      dateKey,
-      "early"
-    );
-
-    if (!alreadyEarly) {
-      await saveSignal2({
-        symbol,
-        timeframe,
-        type: early.type,
-        entry: early.entry,
-        timestamp: early.timestamp,
-        reason: early.reason,
-        sensitivity: early.sensitivity,
-        status: "early",
-      });
-    }
-  }
-
   // -------------------------------------------------------------
   // 2) CONFIRMED
   // -------------------------------------------------------------
