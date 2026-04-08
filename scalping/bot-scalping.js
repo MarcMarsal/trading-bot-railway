@@ -169,7 +169,7 @@ async function loop() {
           last &&
           last.symbol === symbol &&
           last.direction === signal.direction &&
-          Date.now() - last.time < 5000;
+          Date.now() - last.time < 60000;
 
         if (!isDuplicate) {
           lastSignals.push({
