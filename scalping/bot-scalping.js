@@ -12,26 +12,38 @@ const __dirname = path.dirname(__filename);
 
 console.log("🚀 Bot de Scalping iniciant...");
 
-// 🔹 Arrencar Express immediatament (abans de qualsevol await)
+// -----------------------------
+//  EXPRESS — ARRANCA IMMEDIATAMENT
+// -----------------------------
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 global.lastSignals = [];
 
-// Servir panell
+// Ruta absoluta a /public
 app.use(express.static(path.join(__dirname, "../public")));
-app.get("/signals", (req, res) => res.json(lastSignals));
 
-app.listen(PORT, () => {
-  console.log("🌐 Panell web actiu al port", PORT);
+app.get("/signals", (req, res) => {
+  res.json(lastSignals);
 });
 
-// 🔹 Connectar a la base de dades (si falla, no bloqueja Express)
+// 🔥 ARRANQUEM EXPRESS JA (Railway ho necessita)
+setImmediate(() => {
+  app.listen(PORT, () => {
+    console.log("🌐 Panell web actiu al port", PORT);
+  });
+});
+
+// -----------------------------
+//  BASE DE DADES (NO BLOQUEJA EXPRESS)
+// -----------------------------
 initDB()
   .then(() => console.log("🗄️ DB connectada"))
   .catch(err => console.log("❌ Error DB:", err.message));
 
-// 🔹 Loop principal
+// -----------------------------
+//  LOOP PRINCIPAL
+// -----------------------------
 async function loop() {
   console.log("⏳ Executant loop de scalping...");
 
@@ -40,13 +52,12 @@ async function loop() {
       const signal = await runScalping(client, symbol);
 
       if (signal) {
-        // Evitar duplicats: només afegir si és diferent de l’última
         const last = lastSignals[lastSignals.length - 1];
         const isDuplicate =
           last &&
           last.symbol === symbol &&
           last.direction === signal.direction &&
-          Date.now() - last.time < 5000; // 5 segons
+          Date.now() - last.time < 5000;
 
         if (!isDuplicate) {
           lastSignals.push({
@@ -67,8 +78,8 @@ async function loop() {
   }
 }
 
-// 🔹 Executar un cop al principi (evita duplicats)
+// Executar un cop al principi
 setTimeout(loop, 2000);
 
-// 🔹 Executar cada 60 segons
+// Executar cada 60 segons
 setInterval(loop, 60 * 1000);
