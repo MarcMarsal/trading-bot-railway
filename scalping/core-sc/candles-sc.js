@@ -37,6 +37,8 @@ export async function getCandlesSc(symbol, timeframe = "5m", limit = 20) {
       })
       .reverse(); // OKX envia DESC → ho invertim
 
+     // 🟩 IMPORTANT: eliminar la vela oberta
+    candles.pop();
     return candles;
 
   } catch (err) {
