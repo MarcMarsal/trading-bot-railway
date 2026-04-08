@@ -20,10 +20,20 @@ const PORT = process.env.PORT || 3000;
 
 global.lastSignals = [];
 
-// Ruta absoluta a /public
-
+// Servir carpeta public
 app.use(express.static(path.resolve("public")));
-app.get("/signals", async (req, res) => {
+
+// -----------------------------
+//  ENDPOINT HEALTHCHECK (SEGUR)
+// -----------------------------
+app.get("/signals", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+// -----------------------------
+//  ENDPOINT REAL QUE LLEGEIX LA BASE DE DADES
+// -----------------------------
+app.get("/signals/db", async (req, res) => {
   try {
     const result = await client.query(`
       SELECT 
