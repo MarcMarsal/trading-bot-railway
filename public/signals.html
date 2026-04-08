@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Scalping Signals</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #0f0; padding: 20px; }
+    pre { background: #000; padding: 20px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>📈 Senyals detectades</h1>
+  <pre id="panel">Carregant...</pre>
+
+  <script>
+    async function load() {
+      const res = await fetch("/signals");
+      const json = await res.json();
+      document.getElementById("panel").textContent =
+        JSON.stringify(json, null, 2);
+    }
+    setInterval(load, 2000);
+    load();
+  </script>
+</body>
+</html>
