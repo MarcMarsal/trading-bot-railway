@@ -56,6 +56,89 @@ app.get("/signals/db", async (req, res) => {
   }
 });
 
+app.get("/signals/view", async (req, res) => {
+  try {
+    const result = await client.query(`
+      SELECT 
+        symbol,
+        timeframe,
+        tipo AS direction,
+        entry,
+        timestamp,
+        timestamp_es
+      FROM signals
+      ORDER BY timestamp DESC
+      LIMIT 50
+    `);
+
+    const rows = result.rows;
+
+    const html = `
+      <html>
+      <head>
+        <meta http-equiv="refresh" content="5">
+        <style>
+          body {
+            background: #000;
+            color: #0f0;
+            font-family: Consolas, monospace;
+            padding: 20px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+          }
+          th, td {
+            border: 1px solid #0f0;
+            padding: 8px;
+            text-align: left;
+          }
+          th {
+            background: #003300;
+          }
+          tr:nth-child(even) {
+            background: #001a00;
+          }
+          tr:nth-child(odd) {
+            background: #000;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>📡 Senyals del Bot (últimes 50)</h1>
+        <table>
+          <tr>
+            <th>Symbol</th>
+            <th>Timeframe</th>
+            <th>Direcció</th>
+            <th>Entry</th>
+            <th>Timestamp</th>
+            <th>Timestamp ES</th>
+          </tr>
+          ${rows.map(r => `
+            <tr>
+              <td>${r.symbol}</td>
+              <td>${r.timeframe}</td>
+              <td>${r.direction}</td>
+              <td>${r.entry}</td>
+              <td>${r.timestamp}</td>
+              <td>${r.timestamp_es}</td>
+            </tr>
+          `).join("")}
+        </table>
+      </body>
+      </html>
+    `;
+
+    res.send(html);
+
+  } catch (err) {
+    console.error("❌ Error carregant senyals:", err.message);
+    res.status(500).send("Error carregant senyals");
+  }
+});
+
 // 🔥 ARRANQUEM EXPRESS JA (Railway ho necessita)
 setImmediate(() => {
   app.listen(PORT, () => {
