@@ -1,12 +1,12 @@
-// runner-sc.js
+// runner-sc.js (ESM)
 // Llegeix veles, calcula EMA, detecta senyal i la guarda
 
-const { getCandlesSc } = require('./candles-sc');
-const { ema } = require('./ema-sc');
-const { detectMicroImpulse } = require('./logic-sc');
-const { saveSignal } = require('./signals-sc');
+import { getCandlesSc } from './candles-sc.js';
+import { ema } from './ema-sc.js';
+import { detectMicroImpulse } from './logic-sc.js';
+import { saveSignal } from './signals-sc.js';
 
-async function runScalping(db, symbol) {
+export async function runScalping(db, symbol) {
     const candles = await getCandlesSc(symbol, '5m', 20);
     if (candles.length < 20) return;
 
@@ -22,5 +22,3 @@ async function runScalping(db, symbol) {
         await saveSignal(db, { ...signal, symbol, timeframe: '5m' });
     }
 }
-
-module.exports = { runScalping };
