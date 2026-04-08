@@ -14,7 +14,7 @@ function normalizeTimestamp(raw) {
 // -------------------------------------------------------------
 // FETCH CANDLES (sense guardar a DB, només retornem)
 // -------------------------------------------------------------
-export async function getCandlesSc(symbol, timeframe = "5m", limit = 20) {
+export async function getCandlesSc(symbol, timeframe = "5m", limit = 21) {
   try {
     const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=${limit}`; 
     const res = await axios.get(url);
