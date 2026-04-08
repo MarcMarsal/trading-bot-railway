@@ -21,8 +21,8 @@ const PORT = process.env.PORT || 3000;
 global.lastSignals = [];
 
 // Ruta absoluta a /public
-app.use(express.static(path.join(__dirname, "../public")));
 
+app.use(express.static(path.resolve("public")));
 app.get("/signals", (req, res) => {
   res.json(lastSignals);
 });
