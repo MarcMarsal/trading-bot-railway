@@ -1,15 +1,20 @@
-// retracement-sc.js
-// Retracement petit (mateix criteri que TradingView)
+// retracement-sc.js (ESM)
+// Valida si una vela és un retracement petit dins la tendència
 
-function isSmallRetrace({ dirLong, candle, emaFast, distPctMax }) {
-    const body = Math.abs(candle.close - candle.open);
-    const range = candle.high - candle.low;
-    const bodyPct = range > 0 ? (body / range) * 100 : 100;
-    const colorOK = dirLong ? candle.close < candle.open : candle.close > candle.open;
-    const mid = (candle.high + candle.low) / 2;
-    const distPct = Math.abs((mid - emaFast) / emaFast) * 100;
+export function isSmallRetrace({ dirLong, candle, emaFast, distPctMax }) {
+    const close = candle.close;
+    const emaVal = emaFast[emaFast.length - 1];
 
-    return bodyPct < 40 && colorOK && distPct < distPctMax;
+    const distPct = Math.abs((close - emaVal) / emaVal) * 100;
+
+    // Si està massa lluny de l'EMA → no és retracement
+    if (distPct > distPctMax) return false;
+
+    // Retracement LONG
+    if (dirLong && close >= emaVal) return true;
+
+    // Retracement SHORT
+    if (!dirLong && close <= emaVal) return true;
+
+    return false;
 }
-
-module.exports = { isSmallRetrace };
