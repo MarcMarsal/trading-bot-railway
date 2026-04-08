@@ -1,11 +1,11 @@
-// bot-scalping.js
-// Punt d'entrada del bot de scalping
-
-const { runScalping } = require('./scalping/core-sc/runner-sc');
+const pairs = require('./core-sc/pairs-sc');
+const { runScalping } = require('./core-sc/runner-sc');
 const db = require('../core/db');
 
 async function loop() {
-    await runScalping(db, 'BTC-USDT');
+    for (const symbol of pairs) {
+        await runScalping(db, symbol);
+    }
 }
 
 setInterval(loop, 60 * 1000);
