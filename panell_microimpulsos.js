@@ -5,28 +5,25 @@ import { initDB, client } from "./db/client.js";
 import { formatSpainTime } from "./core/utils.js";
 
 // -------------------------------------------------------------
-// LLEGIR ALERTES DELS ÚLTIMS 10 MINUTS
+// LLEGIR LES ÚLTIMES 20 ALERTES
 // -------------------------------------------------------------
 async function getActiveSignals() {
-  const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000); // Date, no ms!
-
   const q = await client.query(
     `
     SELECT symbol, timeframe, type, entry,
            timestamp, timestamp_es, date_es, hora_es,
            reason, sensitivity, created_at, status
     FROM signals2
-    WHERE created_at >= $1
     ORDER BY created_at DESC
-    `,
-    [tenMinAgo]
+    LIMIT 20
+    `
   );
 
   return q.rows;
 }
 
 // -------------------------------------------------------------
-// GENERAR TAULA D’ALERTES ACTIVES
+// GENERAR TAULA D’ALERTES
 // -------------------------------------------------------------
 function renderActiveSignalsTable(signals) {
   let rows = "";
@@ -45,7 +42,7 @@ function renderActiveSignalsTable(signals) {
   }
 
   return `
-    <h2>Alertes Recents (últims 10 minuts)</h2>
+    <h2>Últimes 20 alertes</h2>
     <table>
       <thead>
         <tr>
@@ -103,14 +100,11 @@ async function startPanel() {
           }
 
           /* STATUS COLORS */
-          tr.early td {
-            background-color: #333300; /* groc fosc */
-          }
           tr.confirmed td {
-            background-color: #003300; /* verd fosc */
+            background-color: #003300;
           }
-          tr.invalidated td {
-            background-color: #333333; /* gris fosc */
+          tr.mses td {
+            background-color: #002244;
           }
         </style>
       </head>
