@@ -1,19 +1,16 @@
-// trend-sc.js
-// Tendència immediata real (mateixa lògica que TradingView)
+// trend-sc.js (ESM)
+// Detecta tendència immediata segons les últimes veles
 
-function getTrendImmediate(candles) {
-    const c0 = candles[candles.length - 1].close;
-    const c1 = candles[candles.length - 2].close;
-    const c2 = candles[candles.length - 3].close;
+export function getTrendImmediate(candles) {
+    if (candles.length < 3) {
+        return { trendUp: false, trendDown: false };
+    }
 
-    const trendUp = c0 > c1 && c1 >= c2;
-    const trendDown = c0 < c1 && c1 <= c2;
+    const last = candles[candles.length - 1];
+    const prev = candles[candles.length - 2];
 
-    return {
-        trendUp,
-        trendDown,
-        trendNeutral: !trendUp && !trendDown
-    };
+    const trendUp = last.close > prev.close;
+    const trendDown = last.close < prev.close;
+
+    return { trendUp, trendDown };
 }
-
-module.exports = { getTrendImmediate };
