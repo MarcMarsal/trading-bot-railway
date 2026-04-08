@@ -4,6 +4,12 @@ import { client, initDB } from "../db/client.js";
 import pairs from "./core-sc/pairs-sc.js";
 import { runScalping } from "./core-sc/runner-sc.js";
 
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 console.log("🚀 Bot de Scalping iniciant...");
 
 // 🔹 Arrencar Express immediatament (abans de qualsevol await)
@@ -13,7 +19,7 @@ const PORT = process.env.PORT || 3000;
 global.lastSignals = [];
 
 // Servir panell
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "../public")));
 app.get("/signals", (req, res) => res.json(lastSignals));
 
 app.listen(PORT, () => {
