@@ -23,8 +23,27 @@ global.lastSignals = [];
 // Ruta absoluta a /public
 
 app.use(express.static(path.resolve("public")));
-app.get("/signals", (req, res) => {
-  res.json(lastSignals);
+app.get("/signals", async (req, res) => {
+  try {
+    const result = await client.query(`
+      SELECT 
+        "Az symbol" AS symbol,
+        "Az timeframe" AS timeframe,
+        "Az tipo" AS direction,
+        "l23 entry" AS entry,
+        "l23 timestamp" AS timestamp,
+        "Az timestamp_es" AS timestamp_es
+      FROM signals
+      ORDER BY "l23 timestamp" DESC
+      LIMIT 50
+    `);
+
+    res.json(result.rows);
+
+  } catch (err) {
+    console.error("❌ Error carregant senyals:", err.message);
+    res.status(500).json({ error: "DB error" });
+  }
 });
 
 // 🔥 ARRANQUEM EXPRESS JA (Railway ho necessita)
