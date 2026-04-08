@@ -41,7 +41,7 @@ export async function getCandlesSc(symbol, timeframe = "5m", limit = 20) {
     return candles;
 
   } catch (err) {
-    console.log("❌ Error descarregant veles:", symbol, timeframe, err.message);
+    console.log("❌ Error descarregant veles:",url, symbol, timeframe, err.message);
     return [];
   }
 }
