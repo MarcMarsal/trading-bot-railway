@@ -9,7 +9,6 @@ import { detectMSES } from "./core/patterns.js";
 import { splitSpainDate } from "./core/utils.js";
 import { getDay } from "./core/utils.js";
 
-
 // IMPORTEM LA FUNCIÓ CORRECTA (sense duplicats)
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
 
@@ -20,7 +19,7 @@ const SYMBOLS = [
   "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT"
 ];
 
-const TIMEFRAMES = [ "15m", "30m", "1H"];
+const TIMEFRAMES = ["15m", "30m", "1H"];
 
 // -------------------------------------------------------------
 // GET CANDLES FROM DB (PG)
@@ -30,14 +29,13 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
     SELECT symbol, timeframe, open, high, low, close, volume, timestamp
     FROM candles
     WHERE symbol = $1 AND timeframe = $2
-    ORDER BY timestamp DESC     -- ✅ agafem les més recents
+    ORDER BY timestamp DESC
     LIMIT $3
   `;
 
   const params = [symbol, timeframe, limit];
   const res = await client.query(query, params);
 
-  // les hem demanat DESC, les tornem a posar en ordre cronològic
   return res.rows.reverse();
 }
 
@@ -47,11 +45,10 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
 async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 62);
   if (!candles || candles.length < 60) return;
-  // -------------------------------------------------------------
-  // 2) CONFIRMED
-  // -------------------------------------------------------------
-  if (candles.length < 61) return;
 
+  // -------------------------------------------------------------
+  // 1) CONFIRMED (només veles tancades)
+  // -------------------------------------------------------------
   const closedCandles = candles.slice(0, -1);
   const micro = detectMicroimpulse(closedCandles, symbol, timeframe);
 
@@ -82,7 +79,7 @@ async function processSymbol(symbol, timeframe) {
   }
 
   // -------------------------------------------------------------
-  // 3) MSES
+  // 2) MSES
   // -------------------------------------------------------------
   const mses = detectMSES(candles, symbol, timeframe);
 
@@ -112,18 +109,17 @@ async function processSymbol(symbol, timeframe) {
     }
   }
 }
+
 // -------------------------------------------------------------
 // LOOP PRINCIPAL
 // -------------------------------------------------------------
 async function mainLoop() {
-  // 1) Descarregar i guardar veles
   for (const symbol of SYMBOLS) {
     for (const timeframe of TIMEFRAMES) {
       await fetchAndStoreCandles(symbol, timeframe);
     }
   }
 
-  // 2) Processar microimpulsos
   for (const symbol of SYMBOLS) {
     for (const timeframe of TIMEFRAMES) {
       try {
