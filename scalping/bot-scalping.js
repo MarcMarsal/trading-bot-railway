@@ -37,14 +37,14 @@ app.get("/signals/db", async (req, res) => {
   try {
     const result = await client.query(`
       SELECT 
-        "Az symbol" AS symbol,
-        "Az timeframe" AS timeframe,
-        "Az tipo" AS direction,
-        "l23 entry" AS entry,
-        "l23 timestamp" AS timestamp,
-        "Az timestamp_es" AS timestamp_es
+        "symbol" AS symbol,
+        "timeframe" AS timeframe,
+        "tipo" AS direction,
+        "entry" AS entry,
+        "timestamp" AS timestamp,
+        "timestamp_es" AS timestamp_es
       FROM signals
-      ORDER BY "l23 timestamp" DESC
+      ORDER BY "timestamp" DESC
       LIMIT 50
     `);
 
