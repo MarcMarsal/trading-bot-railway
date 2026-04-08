@@ -7,7 +7,7 @@ import { detectMicroImpulse } from './logic-sc.js';
 import { saveSignal } from './signals-sc.js';
 
 export async function runScalping(db, symbol) {
-    const candles = await getCandlesSc(symbol, '5m', 20);
+    const candles = await getCandlesSc(symbol, '5m', 21);
     if (candles.length < 20) return;
 
     const closes = candles.map(c => c.close);
