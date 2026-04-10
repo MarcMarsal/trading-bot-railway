@@ -49,7 +49,8 @@ async function processSymbol(symbol, timeframe) {
   // -------------------------------------------------------------
   // 1) CONFIRMED (només veles tancades)
   // -------------------------------------------------------------
-  const closedCandles = candles.slice(0, -1);
+  //const closedCandles = candles.slice(0, -1);
+  const closedCandles = candles;
   const micro = detectMicroimpulse(closedCandles, symbol, timeframe);
 
   if (micro) {
