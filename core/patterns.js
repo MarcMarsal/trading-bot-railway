@@ -33,22 +33,23 @@ export function velaCompleta(v) {
 }
 
 // -------------------------------------------------------------
-// MS / ES EXACTAMENT COM TRADINGVIEW
+// MS / ES EXACTAMENT COM TRADINGVIEW (CORREGIT)
 // -------------------------------------------------------------
 export function detectMSES(candles, symbol, timeframe) {
   if (!candles || candles.length < 5) return null;
 
   const n = candles.length;
 
-  const prev3 = candles[n - 3]; // open[3]
-  const prev2 = candles[n - 2]; // open[2]
-  const prev1 = candles[n - 1]; // open[1]
+  // ✔️ Índexos corregits per coincidir amb open[3], open[2], open[1]
+  const prev3 = candles[n - 4]; // open[3]
+  const prev2 = candles[n - 3]; // open[2]
+  const prev1 = candles[n - 2]; // open[1]
+  const current = candles[n - 1]; // vela actual (només per pintar)
 
   if (!prev1 || !prev2 || !prev3) return null;
 
   const isBull = (o, c) => c > o;
   const isBear = (o, c) => c < o;
-
   const body = (o, c) => Math.abs(c - o);
   const range = (h, l) => h - l;
 
@@ -77,8 +78,8 @@ export function detectMSES(candles, symbol, timeframe) {
       symbol,
       timeframe,
       type: "MS_LONG",
-      timestamp: prev2.timestamp,   // ✔️ la vela correcta
-      entry: prev2.close,           // ✔️ entrada estable
+      timestamp: prev1.timestamp, // ✔️ la vela on TradingView pinta la M
+      entry: prev1.close,
       reason: "ms",
     };
   }
@@ -88,11 +89,15 @@ export function detectMSES(candles, symbol, timeframe) {
       symbol,
       timeframe,
       type: "MS_SHORT",
-      timestamp: prev2.timestamp,   // ✔️ la vela correcta
-      entry: prev2.close,           // ✔️ entrada estable
+      timestamp: prev1.timestamp, // ✔️ la vela on TradingView pinta la E
+      entry: prev1.close,
       reason: "es",
     };
   }
+
+  return null;
+}
+
 
   return null;
 }
