@@ -41,10 +41,10 @@ export function detectMSES(candles, symbol, timeframe) {
   const n = candles.length;
 
   // ✔️ Índexos corregits per coincidir amb open[3], open[2], open[1]
-  const prev3 = candles[n - 4]; // open[3]
-  const prev2 = candles[n - 3]; // open[2]
-  const prev1 = candles[n - 2]; // open[1]
-  const current = candles[n - 1]; // vela actual (només per pintar)
+  const prev3 = candles[n - 3]; // open[3]
+  const prev2 = candles[n - 2]; // open[2]
+  const prev1 = candles[n - 1]; // open[1]
+  //const current = candles[n - 1]; // vela actual (només per pintar)
 
   if (!prev1 || !prev2 || !prev3) return null;
 
