@@ -99,5 +99,3 @@ export function detectMSES(candles, symbol, timeframe) {
 }
 
 
-  return null;
-}
