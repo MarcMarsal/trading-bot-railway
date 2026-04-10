@@ -27,46 +27,36 @@ function calcEMA(values, period) {
 }
 
 // -------------------------------------------------------------
-// MICROIMPULSE EXACTE COM TRADINGVIEW
+// MICROIMPULSE EXACTE COM TRADINGVIEW (CORREGIT)
 // -------------------------------------------------------------
 export function detectMicroimpulse(candles, symbol, timeframe) {
   if (!candles || candles.length < 30) return null;
 
   const n = candles.length;
-  const last  = candles[n - 1]; // ✅ última tancada
+
+  const last  = candles[n - 1]; // última tancada
   const prev1 = candles[n - 2];
   const prev2 = candles[n - 3];
 
   if (!last || !prev1 || !prev2) return null;
 
+  // ✔️ EMA20 com al Pine
   const closes = candles.map(c => c.close);
   const ema20 = calcEMA(closes.slice(-80), 20);
-  const ema40 = calcEMA(closes.slice(-80), 40);
-  if (!ema20 || !ema40) return null;
+  if (!ema20) return null;
 
-  const trendUp   = ema20 > ema40;
-  const trendDown = ema20 < ema40;
-  const trendPercent = trendUp || trendDown ? 60 : 0;
+  // ✔️ Tendència EXACTA com al Pine
+  const trendUp   = last.close > prev1.close && prev1.close >= prev2.close;
+  const trendDown = last.close < prev1.close && prev1.close <= prev2.close;
 
-  const mses = detectMSES(candles, symbol, timeframe);
-  const hasMS = mses?.type === "MS_LONG";
-  const hasES = mses?.type === "MS_SHORT";
-  const msPercent = hasMS || hasES ? 70 : 0;
-
-  const volumes = candles.map(c => c.volume);
-  const smaVol20 = volumes.slice(-20).reduce((a,b)=>a+b,0) / 20;
-  const volumeOK = last.volume > smaVol20;
-
-  const trendAlive = trendPercent >= 50 && msPercent < 50 && volumeOK;
-  if (!trendAlive) return null;
-
+  // ✔️ Retrace EXACTE com al Pine
   function isSmallRetrace(dirLong, o,h,l,c) {
     const body = Math.abs(c - o);
     const rng = h - l;
     const bodyPct = rng > 0 ? (body / rng) * 100 : 100;
     const colorOK = dirLong ? c < o : c > o;
     const distPct = Math.abs(((h + l) / 2 - ema20) / ema20) * 100;
-    return bodyPct < 40 && colorOK && distPct < 0.5;
+    return bodyPct < 40 && colorOK && distPct < 0.5; // 0.5% = distPctMax
   }
 
   const dirLong = trendUp;
@@ -81,6 +71,7 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
   let type = null;
   let entry = null;
 
+  // ✔️ Breakout EXACTE com al Pine
   if (trendUp && last.high > retraceHigh && last.close > retraceHigh) {
     type = "MICRO_LONG";
     entry = last.close;
@@ -93,24 +84,14 @@ export function detectMicroimpulse(candles, symbol, timeframe) {
 
   if (!type) return null;
 
-  const rawTs =
-    normalizeTimestamp(last.timestamp) ??
-    normalizeTimestamp(last.time) ??
-    normalizeTimestamp(last.openTime) ??
-    normalizeTimestamp(last.closeTime) ??
-    normalizeTimestamp(last.t) ??
-    normalizeTimestamp(last.ts) ??
-    Date.now();
-
   return {
     symbol,
     timeframe,
     type,
     entry,
-    timestamp: rawTs,
+    timestamp: last.timestamp, // ✔️ la vela tancada actual
     reason: "microimpulse",
     sensitivity: 40,
     status: "confirmed",
   };
 }
-
