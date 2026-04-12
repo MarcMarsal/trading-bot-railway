@@ -33,20 +33,23 @@ export function velaCompleta(v) {
 }
 
 // -------------------------------------------------------------
-// MS / ES EXACTAMENT COM TRADINGVIEW (CORREGIT)
+// MS / ES EXACTAMENT COM TRADINGVIEW (VERSIÓ CORRECTA)
 // -------------------------------------------------------------
-export function detectMSES(candles, symbol, timeframe) {
-  if (!candles || candles.length < 5) return null;
+export function detectMSES(candles, symbol, timeframe, prevState = {}) {
+  if (!candles || candles.length < 5) {
+    return { signal: null, state: prevState };
+  }
 
+  // Ordenem per seguretat
+  candles = [...candles].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
-  // ✔️ Índexos corregits per coincidir amb open[3], open[2], open[1]
-  const prev3 = candles[n - 3]; // open[3]
-  const prev2 = candles[n - 2]; // open[2]
-  const prev1 = candles[n - 1]; // open[1]
-  //const current = candles[n - 1]; // vela actual (només per pintar)
-
-  if (!prev1 || !prev2 || !prev3) return null;
+  // Pine:
+  // o1 = open[3], o2 = open[2], o3 = open[1]
+  const c1 = candles[n - 4]; // [3]
+  const c2 = candles[n - 3]; // [2]
+  const c3 = candles[n - 2]; // [1]
+  const curr = candles[n - 1]; // [0]
 
   const isBull = (o, c) => c > o;
   const isBear = (o, c) => c < o;
@@ -55,47 +58,66 @@ export function detectMSES(candles, symbol, timeframe) {
 
   const indecision = (o2, h1, l1, c2) => {
     const r1 = range(h1, l1);
-    if (r1 === 0) return true;
-    return body(o2, c2) < r1 * 0.3;
+    return r1 === 0 ? true : body(o2, c2) < r1 * 0.3;
   };
 
-  const mid1 = (prev3.open + prev3.close) / 2;
-
   const msCond =
-    isBear(prev3.open, prev3.close) &&
-    indecision(prev2.open, prev3.high, prev3.low, prev2.close) &&
-    isBull(prev1.open, prev1.close) &&
-    prev1.close > mid1;
+    isBear(c1.open, c1.close) &&
+    indecision(c2.open, c1.high, c1.low, c2.close) &&
+    isBull(c3.open, c3.close);
 
   const esCond =
-    isBull(prev3.open, prev3.close) &&
-    indecision(prev2.open, prev3.high, prev3.low, prev2.close) &&
-    isBear(prev1.open, prev1.close) &&
-    prev1.close < mid1;
+    isBull(c1.open, c1.close) &&
+    indecision(c2.open, c1.high, c1.low, c2.close) &&
+    isBear(c3.open, c3.close);
 
-  if (msCond) {
-    return {
+  // Tendència immediata (Pine)
+  const trendUp =
+    curr.close > candles[n - 2].close &&
+    candles[n - 2].close >= candles[n - 3].close;
+
+  const trendDown =
+    curr.close < candles[n - 2].close &&
+    candles[n - 2].close <= candles[n - 3].close;
+
+  const trendNeutral = !trendUp && !trendDown;
+
+  const msValid = msCond && (trendUp || trendNeutral);
+  const esValid = esCond && (trendDown || trendNeutral);
+
+  // Equivalent a not msCond[1]
+  const prevMsCond = prevState.prevMsCond ?? false;
+  const prevEsCond = prevState.prevEsCond ?? false;
+
+  let signal = null;
+
+  if (msValid && !prevMsCond) {
+    signal = {
       symbol,
       timeframe,
       type: "MS_LONG",
-      timestamp: prev1.timestamp, // ✔️ la vela on TradingView pinta la M
-      entry: prev1.close,
+      timestamp: c3.timestamp, // bar_index[1]
+      entry: c3.close,
       reason: "ms",
     };
   }
 
-  if (esCond) {
-    return {
+  if (esValid && !prevEsCond) {
+    signal = {
       symbol,
       timeframe,
       type: "MS_SHORT",
-      timestamp: prev1.timestamp, // ✔️ la vela on TradingView pinta la E
-      entry: prev1.close,
+      timestamp: c3.timestamp, // bar_index[1]
+      entry: c3.close,
       reason: "es",
     };
   }
 
-  return null;
+  return {
+    signal,
+    state: {
+      prevMsCond: msCond,
+      prevEsCond: esCond,
+    },
+  };
 }
-
-
