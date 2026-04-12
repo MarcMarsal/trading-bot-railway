@@ -1,8 +1,9 @@
-import { client, initDB } from "./db/client.js";
-import { detectMicroimpulse } from "./core/microimpulse2.js";
-import { detectMSES } from "./core/patterns.js";
-import { saveSignal2 } from "./db/saveSignal2.js";
-import { alreadySent2 } from "./db/alreadySent2.js";
+import { client, initDB } from "../../db/client.js";
+import { detectMicroimpulse } from "../../core/microimpulse2.js";
+import { detectMSES } from "../../core/patterns.js";
+import { saveSignal2 } from "../../db/saveSignal2.js";
+import { alreadySent2 } from "../../db/alreadySent2.js";
+
 
 const SYMBOLS = [
   "BTC-USDT", "SUI-USDT", "SOL-USDT", "XRP-USDT", "AVAX-USDT",
