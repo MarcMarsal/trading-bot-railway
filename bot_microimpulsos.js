@@ -19,7 +19,7 @@ const SYMBOLS = [
   "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT"
 ];
 
-const TIMEFRAMES = ["30m", "1H"];
+const TIMEFRAMES = ["1H"];
 
 // -------------------------------------------------------------
 // GET CANDLES FROM DB (PG)
