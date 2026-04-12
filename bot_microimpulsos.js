@@ -6,10 +6,7 @@ import { alreadySent2 } from "./db/alreadySent2.js";
 import { saveSignal2 } from "./db/saveSignal2.js";
 import { detectMicroimpulse } from "./core/microimpulse2.js";
 import { detectMSES } from "./core/patterns.js";
-import { splitSpainDate } from "./core/utils.js";
 import { getDay } from "./core/utils.js";
-
-// IMPORTEM LA FUNCIÓ CORRECTA (sense duplicats)
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
 
 const SYMBOLS = [
@@ -22,7 +19,33 @@ const SYMBOLS = [
 const TIMEFRAMES = ["1H"];
 
 // -------------------------------------------------------------
-// GET CANDLES FROM DB (PG)
+// ESTAT GLOBAL PER MICROIMPULSOS I MSES
+// -------------------------------------------------------------
+const microStates = {}; // { "BCH-USDT-1H": { prevMicroLong, prevMicroShort } }
+const msesStates  = {}; // { "BCH-USDT-1H": { prevMsCond, prevEsCond } }
+
+function key(symbol, timeframe) {
+  return `${symbol}-${timeframe}`;
+}
+
+function getMicroState(symbol, timeframe) {
+  return microStates[key(symbol, timeframe)] || {};
+}
+
+function setMicroState(symbol, timeframe, state) {
+  microStates[key(symbol, timeframe)] = state || {};
+}
+
+function getMsesState(symbol, timeframe) {
+  return msesStates[key(symbol, timeframe)] || {};
+}
+
+function setMsesState(symbol, timeframe, state) {
+  msesStates[key(symbol, timeframe)] = state || {};
+}
+
+// -------------------------------------------------------------
+// GET CANDLES FROM DB
 // -------------------------------------------------------------
 async function getCandlesFromDB(symbol, timeframe, limit) {
   const query = `
@@ -33,77 +56,89 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
     LIMIT $3
   `;
 
-  const params = [symbol, timeframe, limit];
-  const res = await client.query(query, params);
-
-  return res.rows.reverse();
+  const res = await client.query(query, [symbol, timeframe, limit]);
+  return res.rows.reverse(); // més antigues → més noves
 }
 
 // -------------------------------------------------------------
-// MICROIMPULSOS FIAT
+// PROCESS SYMBOL (temps real)
 // -------------------------------------------------------------
 async function processSymbol(symbol, timeframe) {
-  const candles = await getCandlesFromDB(symbol, timeframe, 62);
-  if (!candles || candles.length < 60) return;
+  const candles = await getCandlesFromDB(symbol, timeframe, 80);
+  if (!candles || candles.length < 30) return;
 
-  // -------------------------------------------------------------
-  // 1) CONFIRMED (només veles tancades)
-  // -------------------------------------------------------------
-  //const closedCandles = candles.slice(0, -1);
-  const closedCandles = candles;
-  const micro = detectMicroimpulse(closedCandles, symbol, timeframe);
+  candles.sort((a, b) => a.timestamp - b.timestamp);
 
-  if (micro) {
-    const dateKey = getDay(micro.timestamp);
+  // -------------------------
+  // MICROIMPULSE
+  // -------------------------
+  let microState = getMicroState(symbol, timeframe);
 
-    const already = await alreadySent2(
+  const { signal: microSignal, state: newMicroState } =
+    detectMicroimpulse(candles, symbol, timeframe, microState);
+
+  setMicroState(symbol, timeframe, newMicroState);
+
+  if (microSignal) {
+    const dateKey = getDay(microSignal.timestamp);
+
+    const exists = await alreadySent2(
       symbol,
       timeframe,
-      micro.type,
-      micro.entry,
+      microSignal.type,
+      microSignal.entry,
       dateKey,
       "confirmed"
     );
 
-    if (!already) {
+    if (!exists) {
+      console.log("[MICRO]", symbol, timeframe, microSignal.type, microSignal.timestamp);
+
       await saveSignal2({
         symbol,
         timeframe,
-        type: micro.type,
-        entry: micro.entry,
-        timestamp: micro.timestamp,
-        reason: micro.reason,
-        sensitivity: micro.sensitivity,
+        type: microSignal.type,
+        entry: microSignal.entry,
+        timestamp: microSignal.timestamp,
+        reason: microSignal.reason,
+        sensitivity: microSignal.sensitivity,
         status: "confirmed",
       });
     }
   }
 
-  // -------------------------------------------------------------
-  // 2) MSES
-  // -------------------------------------------------------------
-  const mses = detectMSES(candles, symbol, timeframe);
+  // -------------------------
+  // MS / ES
+  // -------------------------
+  let msesState = getMsesState(symbol, timeframe);
 
-  if (mses) {
-    const dateKey = getDay(mses.timestamp);
+  const { signal: msesSignal, state: newMsesState } =
+    detectMSES(candles, symbol, timeframe, msesState);
 
-    const alreadyMSES = await alreadySent2(
+  setMsesState(symbol, timeframe, newMsesState);
+
+  if (msesSignal) {
+    const dateKey = getDay(msesSignal.timestamp);
+
+    const exists = await alreadySent2(
       symbol,
       timeframe,
-      mses.type,
-      mses.entry,
+      msesSignal.type,
+      msesSignal.entry,
       dateKey,
       "mses"
     );
 
-    if (!alreadyMSES) {
+    if (!exists) {
+      console.log("[MSES]", symbol, timeframe, msesSignal.type, msesSignal.timestamp);
+
       await saveSignal2({
         symbol,
         timeframe,
-        type: mses.type,
-        entry: mses.entry,
-        timestamp: mses.timestamp,
-        reason: mses.reason,
+        type: msesSignal.type,
+        entry: msesSignal.entry,
+        timestamp: msesSignal.timestamp,
+        reason: msesSignal.reason,
         sensitivity: 50,
         status: "mses",
       });
@@ -115,12 +150,14 @@ async function processSymbol(symbol, timeframe) {
 // LOOP PRINCIPAL
 // -------------------------------------------------------------
 async function mainLoop() {
+  // 1) Actualitzar candles
   for (const symbol of SYMBOLS) {
     for (const timeframe of TIMEFRAMES) {
       await fetchAndStoreCandles(symbol, timeframe);
     }
   }
 
+  // 2) Processar senyals
   for (const symbol of SYMBOLS) {
     for (const timeframe of TIMEFRAMES) {
       try {
@@ -142,3 +179,4 @@ async function startBot() {
 }
 
 startBot();
+
