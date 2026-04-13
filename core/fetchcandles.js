@@ -13,7 +13,7 @@ function normalizeTimestamp(raw) {
 }
 
 // -------------------------------------------------------------
-// FETCH + STORE CANDLES (limit=3, eliminant la vela oberta)
+// FETCH + STORE CANDLES (sense intravela, només veles tancades)
 // -------------------------------------------------------------
 export async function fetchAndStoreCandles(symbol, timeframe) {
   try {
@@ -25,22 +25,30 @@ export async function fetchAndStoreCandles(symbol, timeframe) {
     if (!data || data.length === 0) return;
 
     // -------------------------------------------------------------
-    // 1) Treure sempre la vela oberta (OKX sempre la posa última)
+    // 1) Timeframe en ms
     // -------------------------------------------------------------
-    data.pop();
+    const timeframeMs = {
+      "15m": 15 * 60 * 1000,
+      "30m": 30 * 60 * 1000,
+      "1H": 60 * 60 * 1000
+    }[timeframe];
+
+    const now = Date.now();
 
     // -------------------------------------------------------------
     // 2) Processar només veles TANCADES
+    //    (timestamp + timeframeMs <= now)
     // -------------------------------------------------------------
-    const now = Date.now();
-
     for (const k of data) {
-      const rawTs = normalizeTimestamp(parseInt(k[0])) ?? Date.now();
+      const rawTs = normalizeTimestamp(parseInt(k[0]));
+      if (!rawTs) continue;
+
       const timestamp = rawTs;
 
-      // ❗ NOMÉS descartar veles FUTURES
-      if (timestamp >= now) continue;
+      // ❗ Vela oberta → descartar
+      if (timestamp + timeframeMs > now) continue;
 
+      // Ara sí: és una vela tancada
       const open = parseFloat(k[1]);
       const high = parseFloat(k[2]);
       const low = parseFloat(k[3]);
