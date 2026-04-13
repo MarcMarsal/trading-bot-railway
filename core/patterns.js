@@ -33,22 +33,20 @@ export function velaCompleta(v) {
 }
 
 // -------------------------------------------------------------
-// MS / ES EXACTAMENT COM TRADINGVIEW (VERSIÓ CORRECTA)
+// MS / ES EXACTAMENT COM TRADINGVIEW (VERSIÓ BLINDADA)
 // -------------------------------------------------------------
 export function detectMSES(candles, symbol, timeframe, prevState = {}) {
   if (!candles || candles.length < 5) {
     return { signal: null, state: prevState };
   }
 
-  // Ordenem per seguretat
   candles = [...candles].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
-  // curr = vela en formació (NO participa en condicions)
-  const curr = candles[n - 1];
+  const curr = candles[n - 1]; // vela en formació → NOMÉS timestamp
 
-  // 3 veles tancades
-  const c3 = candles[n - 2]; // última tancada
+  // 3 veles TANCADES
+  const c3 = candles[n - 2];
   const c2 = candles[n - 3];
   const c1 = candles[n - 4];
 
@@ -66,7 +64,7 @@ export function detectMSES(candles, symbol, timeframe, prevState = {}) {
     return r1 === 0 ? true : body(o2, c2) < r1 * 0.3;
   };
 
-  // Condicions MS / ES (només veles tancades)
+  // MS / ES (només veles tancades)
   const msCond =
     isBear(c1.open, c1.close) &&
     indecision(c2.open, c1.high, c1.low, c2.close) &&
@@ -77,7 +75,7 @@ export function detectMSES(candles, symbol, timeframe, prevState = {}) {
     indecision(c2.open, c1.high, c1.low, c2.close) &&
     isBear(c3.open, c3.close);
 
-  // Tendència immediata (com TradingView) — només veles tancades
+  // Tendència (només veles tancades)
   const trendUp =
     c3.close > c2.close &&
     c2.close >= c1.close;
@@ -91,20 +89,18 @@ export function detectMSES(candles, symbol, timeframe, prevState = {}) {
   const msValid = msCond && (trendUp || trendNeutral);
   const esValid = esCond && (trendDown || trendNeutral);
 
-  // Equivalent a not msCond[1]
   const prevMsCond = prevState.prevMsCond ?? false;
   const prevEsCond = prevState.prevEsCond ?? false;
 
   let signal = null;
 
-  // IMPORTANT:
-  // TradingView genera la senyal a l'obertura de la vela nova → curr.timestamp
+  // Timestamp = curr.timestamp (obertura de la nova vela)
   if (msValid && !prevMsCond) {
     signal = {
       symbol,
       timeframe,
       type: "MS_LONG",
-      timestamp: curr.timestamp, // CORRECTE
+      timestamp: curr.timestamp,
       entry: c3.close,
       reason: "ms",
     };
@@ -115,7 +111,7 @@ export function detectMSES(candles, symbol, timeframe, prevState = {}) {
       symbol,
       timeframe,
       type: "MS_SHORT",
-      timestamp: curr.timestamp, // CORRECTE
+      timestamp: curr.timestamp,
       entry: c3.close,
       reason: "es",
     };
