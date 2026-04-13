@@ -13,11 +13,11 @@ function normalizeTimestamp(raw) {
 }
 
 // -------------------------------------------------------------
-// FETCH + STORE CANDLES (sense intravela, només veles tancades)
+// FETCH + STORE CANDLES (inclou la vela en formació com a última)
 // -------------------------------------------------------------
 export async function fetchAndStoreCandles(symbol, timeframe) {
   try {
-    const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=3`;
+    const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=4`;
 
     const res = await axios.get(url);
     let data = res.data.data;
@@ -33,22 +33,15 @@ export async function fetchAndStoreCandles(symbol, timeframe) {
       "1H": 60 * 60 * 1000
     }[timeframe];
 
-    const now = Date.now();
-
-    // -------------------------------------------------------------
-    // 2) Processar només veles TANCADES
-    //    (timestamp + timeframeMs <= now)
-    // -------------------------------------------------------------
     for (const k of data) {
       const rawTs = normalizeTimestamp(parseInt(k[0]));
       if (!rawTs) continue;
 
       const timestamp = rawTs;
 
-      // ❗ Vela oberta → descartar
-      if (timestamp + timeframeMs > now) continue;
-
-      // Ara sí: és una vela tancada
+      // -------------------------------------------------------------
+      // 2) Parsejar OHLCV (tant si està tancada com si està en formació)
+      // -------------------------------------------------------------
       const open = parseFloat(k[1]);
       const high = parseFloat(k[2]);
       const low = parseFloat(k[3]);
@@ -74,6 +67,9 @@ export async function fetchAndStoreCandles(symbol, timeframe) {
 
       // -------------------------------------------------------------
       // 3) INSERT / UPDATE
+      //    Guardem TOTES les veles:
+      //    - tancades
+      //    - en formació (última)
       // -------------------------------------------------------------
       await client.query(
         `
