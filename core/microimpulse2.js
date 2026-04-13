@@ -27,22 +27,20 @@ function calcEMA(values, period) {
 }
 
 // -------------------------------------------------------------
-// MICROIMPULSE EXACTAMENT COM TRADINGVIEW (VERSIÓ CORRECTA)
+// MICROIMPULSE EXACTAMENT COM TRADINGVIEW (VERSIÓ BLINDADA)
 // -------------------------------------------------------------
 export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
   if (!candles || candles.length < 30) {
     return { signal: null, state: prevState };
   }
 
-  // Ordenem per seguretat
   candles = [...candles].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
-  // curr = vela en formació (NO s'usa per condicions)
-  const curr  = candles[n - 1];
+  const curr  = candles[n - 1]; // en formació → NOMÉS timestamp
 
   // 3 veles tancades
-  const last  = candles[n - 2]; // última tancada
+  const last  = candles[n - 2];
   const prev1 = candles[n - 3];
   const prev2 = candles[n - 4];
 
@@ -50,14 +48,11 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
     return { signal: null, state: prevState };
   }
 
-  // EMA EXACTA com Pine
-  const closes = candles.slice(0, n - 1).map(c => c.close); // només tancades
+  // EMA només amb veles tancades
+  const closes = candles.slice(0, n - 1).map(c => c.close);
   const ema20 = calcEMA(closes, 20);
-  if (!ema20) {
-    return { signal: null, state: prevState };
-  }
+  if (!ema20) return { signal: null, state: prevState };
 
-  // Tendència immediata (Pine) — només veles tancades
   const trendUp =
     last.close > prev1.close &&
     prev1.close >= prev2.close;
@@ -66,7 +61,6 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
     last.close < prev1.close &&
     prev1.close <= prev2.close;
 
-  // Retrace EXACTE com Pine — només veles tancades
   function isSmallRetrace(dirLong, o, h, l, c) {
     const body = Math.abs(c - o);
     const rng = h - l;
@@ -82,14 +76,11 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
   const r2 = isSmallRetrace(dirLong, prev2.open, prev2.high, prev2.low, prev2.close);
 
   const retrace = r1 || r2;
-  if (!retrace) {
-    return { signal: null, state: prevState };
-  }
+  if (!retrace) return { signal: null, state: prevState };
 
   const retraceHigh = Math.max(prev1.high, prev2.high);
   const retraceLow  = Math.min(prev1.low, prev2.low);
 
-  // Breakout — només veles tancades
   const microLong =
     trendUp &&
     retrace &&
@@ -102,14 +93,11 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
     last.low < retraceLow &&
     last.close < retraceLow;
 
-  // Equivalent a not microLong[1]
   const prevMicroLong  = prevState.prevMicroLong ?? false;
   const prevMicroShort = prevState.prevMicroShort ?? false;
 
   let signal = null;
 
-  // IMPORTANT:
-  // timestamp = curr.timestamp → obertura de la vela nova (com TradingView)
   if (microLong && !prevMicroLong) {
     signal = {
       symbol,
