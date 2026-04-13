@@ -44,12 +44,11 @@ export function detectMSES(candles, symbol, timeframe, prevState = {}) {
   candles = [...candles].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
-  // Pine:
-  // o1 = open[3], o2 = open[2], o3 = open[1]
-  const c1 = candles[n - 4]; // [3]
-  const c2 = candles[n - 3]; // [2]
-  const c3 = candles[n - 2]; // [1]
-  const curr = candles[n - 1]; // [0]
+  // c1 = [3], c2 = [2], c3 = [1], curr = [0]
+  const c1 = candles[n - 4];
+  const c2 = candles[n - 3];
+  const c3 = candles[n - 2];
+  const curr = candles[n - 1]; // vela nova → moment en què TradingView genera la senyal
 
   const isBull = (o, c) => c > o;
   const isBear = (o, c) => c < o;
@@ -61,6 +60,7 @@ export function detectMSES(candles, symbol, timeframe, prevState = {}) {
     return r1 === 0 ? true : body(o2, c2) < r1 * 0.3;
   };
 
+  // Condicions MS / ES
   const msCond =
     isBear(c1.open, c1.close) &&
     indecision(c2.open, c1.high, c1.low, c2.close) &&
@@ -71,14 +71,14 @@ export function detectMSES(candles, symbol, timeframe, prevState = {}) {
     indecision(c2.open, c1.high, c1.low, c2.close) &&
     isBear(c3.open, c3.close);
 
-  // Tendència immediata (Pine)
+  // Tendència immediata (com TradingView)
   const trendUp =
-    curr.close > candles[n - 2].close &&
-    candles[n - 2].close >= candles[n - 3].close;
+    curr.close > c3.close &&
+    c3.close >= c2.close;
 
   const trendDown =
-    curr.close < candles[n - 2].close &&
-    candles[n - 2].close <= candles[n - 3].close;
+    curr.close < c3.close &&
+    c3.close <= c2.close;
 
   const trendNeutral = !trendUp && !trendDown;
 
@@ -91,12 +91,14 @@ export function detectMSES(candles, symbol, timeframe, prevState = {}) {
 
   let signal = null;
 
+  // IMPORTANT:
+  // TradingView genera la senyal a l'obertura de la vela nova → curr.timestamp
   if (msValid && !prevMsCond) {
     signal = {
       symbol,
       timeframe,
       type: "MS_LONG",
-      timestamp: c3.timestamp, // bar_index[1]
+      timestamp: curr.timestamp, // CORRECTE: timestamp de la vela nova
       entry: c3.close,
       reason: "ms",
     };
@@ -107,7 +109,7 @@ export function detectMSES(candles, symbol, timeframe, prevState = {}) {
       symbol,
       timeframe,
       type: "MS_SHORT",
-      timestamp: c3.timestamp, // bar_index[1]
+      timestamp: curr.timestamp, // CORRECTE: timestamp de la vela nova
       entry: c3.close,
       reason: "es",
     };
