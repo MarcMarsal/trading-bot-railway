@@ -30,26 +30,16 @@ export async function fetchAndStoreCandles(symbol, timeframe) {
     data.pop();
 
     // -------------------------------------------------------------
-    // 2) Calcular timeframe en ms per validar timestamps
+    // 2) Processar només veles TANCADES
     // -------------------------------------------------------------
-    const timeframeMs = {
-      "15m": 15 * 60 * 1000,
-      "30m": 30 * 60 * 1000,
-      "1H": 60 * 60 * 1000
-    }[timeframe];
-
     const now = Date.now();
 
-    // -------------------------------------------------------------
-    // 3) Processar només veles TANCADES i amb timestamp vàlid
-    // -------------------------------------------------------------
     for (const k of data) {
       const rawTs = normalizeTimestamp(parseInt(k[0])) ?? Date.now();
       const timestamp = rawTs;
 
-      // ❗ Saltar veles obertes o corruptes
-      if (timestamp > now - timeframeMs) continue;
-      if (timestamp % timeframeMs !== 0) continue;
+      // ❗ NOMÉS descartar veles FUTURES
+      if (timestamp >= now) continue;
 
       const open = parseFloat(k[1]);
       const high = parseFloat(k[2]);
@@ -75,7 +65,7 @@ export async function fetchAndStoreCandles(symbol, timeframe) {
       }).replace(",", "");
 
       // -------------------------------------------------------------
-      // 4) INSERT / UPDATE FIAT
+      // 3) INSERT / UPDATE
       // -------------------------------------------------------------
       await client.query(
         `
