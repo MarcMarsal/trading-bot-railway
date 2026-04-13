@@ -38,22 +38,26 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
   candles = [...candles].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
-  const last  = candles[n - 1]; // [0]
-  const prev1 = candles[n - 2]; // [1]
-  const prev2 = candles[n - 3]; // [2]
+  // curr = vela en formació (NO s'usa per condicions)
+  const curr  = candles[n - 1];
 
-  if (!last || !prev1 || !prev2) {
+  // 3 veles tancades
+  const last  = candles[n - 2]; // última tancada
+  const prev1 = candles[n - 3];
+  const prev2 = candles[n - 4];
+
+  if (!curr || !last || !prev1 || !prev2) {
     return { signal: null, state: prevState };
   }
 
-  // EMA EXACTA com Pine (sense slice)
-  const closes = candles.map(c => c.close);
+  // EMA EXACTA com Pine
+  const closes = candles.slice(0, n - 1).map(c => c.close); // només tancades
   const ema20 = calcEMA(closes, 20);
   if (!ema20) {
     return { signal: null, state: prevState };
   }
 
-  // Tendència immediata (Pine)
+  // Tendència immediata (Pine) — només veles tancades
   const trendUp =
     last.close > prev1.close &&
     prev1.close >= prev2.close;
@@ -62,7 +66,7 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
     last.close < prev1.close &&
     prev1.close <= prev2.close;
 
-  // Retrace EXACTE com Pine
+  // Retrace EXACTE com Pine — només veles tancades
   function isSmallRetrace(dirLong, o, h, l, c) {
     const body = Math.abs(c - o);
     const rng = h - l;
@@ -85,6 +89,7 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
   const retraceHigh = Math.max(prev1.high, prev2.high);
   const retraceLow  = Math.min(prev1.low, prev2.low);
 
+  // Breakout — només veles tancades
   const microLong =
     trendUp &&
     retrace &&
@@ -103,13 +108,15 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
 
   let signal = null;
 
+  // IMPORTANT:
+  // timestamp = curr.timestamp → obertura de la vela nova (com TradingView)
   if (microLong && !prevMicroLong) {
     signal = {
       symbol,
       timeframe,
       type: "MICRO_LONG",
       entry: last.close,
-      timestamp: last.timestamp,
+      timestamp: curr.timestamp,
       reason: "microimpulse",
       sensitivity: 40,
       status: "confirmed",
@@ -122,7 +129,7 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
       timeframe,
       type: "MICRO_SHORT",
       entry: last.close,
-      timestamp: last.timestamp,
+      timestamp: curr.timestamp,
       reason: "microimpulse",
       sensitivity: 40,
       status: "confirmed",
