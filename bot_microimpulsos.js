@@ -16,7 +16,7 @@ const SYMBOLS = [
   "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT"
 ];
 
-const TIMEFRAMES = ["1H"];
+const TIMEFRAMES = ["1H","4H"];
 
 // -------------------------------------------------------------
 // ESTAT GLOBAL PER MICROIMPULSOS I MSES
