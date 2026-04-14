@@ -4,20 +4,19 @@ import axios from "axios";
 import crypto from "crypto";
 import { client } from "../db/client.js";
 
-const API_URL = process.env.API_URL; // https://api.bitunix.com/api/v1/market/kline
 const BITUNIX_API_KEY = process.env.BITUNIX_API_KEY;
 const BITUNIX_SECRET = process.env.BITUNIX_SECRET;
 
-// Normalització del timestamp OKX (igual que abans)
+// Normalització del timestamp
 function normalizeTimestamp(raw) {
   if (!raw || typeof raw !== "number") return null;
   if (raw < 1600000000000) return null;
   return raw;
 }
 
-// Funció per signar peticions Bitunix
-function signRequest(timestamp, method, path, queryString) {
-  const preSign = timestamp + method + path + queryString;
+// Funció de signatura Bitunix
+function signRequest(timestamp, method, pathWithQuery) {
+  const preSign = timestamp + method + pathWithQuery;
   return crypto
     .createHmac("sha256", BITUNIX_SECRET)
     .update(preSign)
@@ -26,17 +25,17 @@ function signRequest(timestamp, method, path, queryString) {
 
 export async function fetchAndStoreCandles2(symbol, timeframe) {
   try {
-    // Bitunix usa intervals: 1m, 5m, 15m, 1h, 4h, 1d...
+    // Bitunix intervals: 1m, 5m, 15m, 1h, 4h, 1d...
     const interval = timeframe.toLowerCase(); // "1H" → "1h"
 
-    const path = "/api/v1/market/kline";
     const queryString = `symbol=${symbol}&interval=${interval}&limit=4`;
-    const url = `${API_URL}?${queryString}`;
+    const pathWithQuery = `/api/v1/market/kline?${queryString}`;
+    const url = `https://api.bitunix.com${pathWithQuery}`;
 
     const timestamp = Date.now().toString();
     const method = "GET";
 
-    const signature = signRequest(timestamp, method, path, queryString);
+    const signature = signRequest(timestamp, method, pathWithQuery);
 
     const headers = {
       "X-Bitunix-ApiKey": BITUNIX_API_KEY,
