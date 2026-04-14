@@ -37,8 +37,11 @@ function renderActiveSignalsTable(signals) {
   let rows = "";
 
   for (const s of signals) {
-    const symbolClean = s.symbol.replace("-USDT", "").toLowerCase();
-    const bitunixUrl = `https://www.bitunix.com/en-US/futures/${symbolClean}usdt`;
+    // Convertir BTC-USDT → BTCUSDT
+    const symbolClean = s.symbol.replace("-", "").toUpperCase();
+
+    // URL correcta Bitunix
+    const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${symbolClean}`;
 
     rows += `
       <tr>
@@ -134,7 +137,20 @@ async function startPanel() {
         <script>
           function openBitunix(url, entryr) {
             navigator.clipboard.writeText(entryr);
-            window.open(url, "_blank");
+
+            const screenWidth = window.screen.width;
+            const screenHeight = window.screen.height;
+
+            const width = Math.floor(screenWidth / 2);
+            const height = screenHeight;
+            const left = screenWidth - width;
+            const top = 0;
+
+            window.open(
+              url,
+              "_blank",
+              "width=" + width + ",height=" + height + ",left=" + left + ",top=" + top
+            );
           }
         </script>
 
