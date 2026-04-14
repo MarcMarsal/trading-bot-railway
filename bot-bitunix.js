@@ -1,8 +1,15 @@
 import { fetchAndStoreCandles2 } from "./core/fetchCandlesBitunix.js";
-import { symbols } from "./config/symbols.js"; // mateix fitxer que OKX
 import "./db/client.js";
 
 console.log("Bot Bitunix (fase 1) en marxa — OKX → candles2");
+
+const SYMBOLS = [
+  "BTC-USDT", "SUI-USDT", "SOL-USDT", "XRP-USDT", "AVAX-USDT",
+  "APT-USDT", "INJ-USDT", "SEI-USDT", "ADA-USDT", "LINK-USDT",
+  "BNB-USDT", "ETH-USDT", "NEAR-USDT", "HBAR-USDT", "RENDER-USDT",
+  "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT"
+];
+
 
 async function loop() {
   for (const s of symbols) {
