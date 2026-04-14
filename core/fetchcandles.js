@@ -1,47 +1,28 @@
-import axios from "axios";
-import { client } from "../db/client.js";
-
-const API_URL = process.env.API_URL;
-
-// Validació robusta del timestamp (en mil·lisegons)
-function normalizeTimestamp(raw) {
-  if (raw === undefined || raw === null) return null;
-  if (typeof raw !== "number") return null;
-  if (raw === 0) return null;
-  if (raw < 1600000000000) return null; // ms (2020+)
-  return raw;
-}
-
-// -------------------------------------------------------------
-// FETCH + STORE CANDLES (inclou la vela en formació com a última)
-// -------------------------------------------------------------
 export async function fetchAndStoreCandles(symbol, timeframe) {
   try {
-    const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=4`;
+    // Bitunix usa intervals en minúscules: 1h, 4h, 1d
+    const interval = timeframe.toLowerCase();
+
+    // API_URL ve de Railway i ara serà: https://api.bitunix.com/api/v1/market/kline
+    const url = `${API_URL}?symbol=${symbol}&interval=${interval}&limit=4`;
 
     const res = await axios.get(url);
-    let data = res.data.data;
 
-    if (!data || data.length === 0) return;
+    if (!res.data || !res.data.data || res.data.data.length === 0) {
+      console.log("⚠️ Bitunix no ha retornat dades");
+      return;
+    }
 
-    // -------------------------------------------------------------
-    // 1) Timeframe en ms
-    // -------------------------------------------------------------
-    const timeframeMs = {
-      "15m": 15 * 60 * 1000,
-      "30m": 30 * 60 * 1000,
-      "1H": 60 * 60 * 1000
-    }[timeframe];
+    const data = res.data.data;
 
     for (const k of data) {
+      // Format Bitunix:
+      // [0]=timestamp(ms), [1]=open, [2]=high, [3]=low, [4]=close, [5]=volume
       const rawTs = normalizeTimestamp(parseInt(k[0]));
       if (!rawTs) continue;
 
       const timestamp = rawTs;
 
-      // -------------------------------------------------------------
-      // 2) Parsejar OHLCV (tant si està tancada com si està en formació)
-      // -------------------------------------------------------------
       const open = parseFloat(k[1]);
       const high = parseFloat(k[2]);
       const low = parseFloat(k[3]);
@@ -65,12 +46,6 @@ export async function fetchAndStoreCandles(symbol, timeframe) {
         minute: "2-digit"
       }).replace(",", "");
 
-      // -------------------------------------------------------------
-      // 3) INSERT / UPDATE
-      //    Guardem TOTES les veles:
-      //    - tancades
-      //    - en formació (última)
-      // -------------------------------------------------------------
       await client.query(
         `
         INSERT INTO candles (symbol, timeframe, timestamp, open, high, low, close, volume, timestamp_es, date_es)
@@ -95,7 +70,9 @@ export async function fetchAndStoreCandles(symbol, timeframe) {
       );
     }
 
+    console.log(`✔ Candles Bitunix guardades: ${symbol} ${timeframe}`);
+
   } catch (err) {
-    console.log("Error descarregant vela:", symbol, timeframe, err.message);
+    console.log("❌ Error descarregant vela Bitunix:", symbol, timeframe, err.message);
   }
 }
