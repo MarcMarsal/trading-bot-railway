@@ -7,10 +7,13 @@ export async function saveSignal2({
   timeframe,
   type,
   entry,
+  entryr,     // 👈 AFEGIT
+  tp,         // 👈 AFEGIT
+  sl,         // 👈 AFEGIT
   timestamp,   // ms
   reason = "",
   sensitivity = null,
-  status = "confirmed"   // 👈 nou camp
+  status = "confirmed"
 }) {
   const tsMs = Number(timestamp);          // ms
   const tsSec = Math.floor(tsMs / 1000);   // segons
@@ -22,13 +25,15 @@ export async function saveSignal2({
   await client.query(
     `
     INSERT INTO signals2
-      (symbol, timeframe, type, entry, timestamp,
-       timestamp_es, date_es, hora_es,
+      (symbol, timeframe, type,
+       entry, entryr, tp, sl,
+       timestamp, timestamp_es, date_es, hora_es,
        reason, sensitivity, expires_at, status)
     VALUES
-      ($1,$2,$3,$4,$5,
-       $6,$7,$8,
-       $9,$10,$11,$12)
+      ($1,$2,$3,
+       $4,$5,$6,$7,
+       $8,$9,$10,$11,
+       $12,$13,$14,$15)
     ON CONFLICT DO NOTHING
     `,
     [
@@ -36,14 +41,17 @@ export async function saveSignal2({
       timeframe,
       type,
       entry,
-      tsSec,        // seconds
-      tsMs,         // ms
+      entryr,
+      tp,
+      sl,
+      tsSec,
+      tsMs,
       date_es,
       hora_es,
       reason,
       sensitivity,
       expiresAt,
-      status        // 👈 nou valor
+      status
     ]
   );
 }
