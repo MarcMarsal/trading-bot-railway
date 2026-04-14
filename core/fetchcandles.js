@@ -13,6 +13,7 @@ function normalizeTimestamp(raw) {
 }
 
 
+
 export async function fetchAndStoreCandles(symbol, timeframe) {
   try {
     // Bitunix usa intervals en minúscules: 1h, 4h, 1d
@@ -21,7 +22,12 @@ export async function fetchAndStoreCandles(symbol, timeframe) {
     // API_URL ve de Railway i ara serà: https://api.bitunix.com/api/v1/market/kline
     const url = `${API_URL}?symbol=${symbol}&interval=${interval}&limit=4`;
 
-    const res = await axios.get(url);
+    const res = await axios.get(url, {
+  headers: {
+    "User-Agent": "Mozilla/5.0 (compatible; TradingBot/1.0; +https://railway.app)",
+    "Accept": "application/json"
+  }
+});
 
     if (!res.data || !res.data.data || res.data.data.length === 0) {
       console.log("⚠️ Bitunix no ha retornat dades");
