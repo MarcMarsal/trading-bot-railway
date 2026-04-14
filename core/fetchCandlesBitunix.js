@@ -1,11 +1,10 @@
 // fetchCandlesBitunix.js
 
 import axios from "axios";
-import crypto from "crypto";
 import { client } from "../db/client.js";
 
-const BITUNIX_API_KEY = process.env.BITUNIX_API_KEY;
-const BITUNIX_SECRET = process.env.BITUNIX_SECRET;
+const API_URL = process.env.API_URL; 
+// A Railway tens: https://api.bitunix.com/api/v1/market/kline
 
 // Normalització del timestamp
 function normalizeTimestamp(raw) {
@@ -14,37 +13,13 @@ function normalizeTimestamp(raw) {
   return raw;
 }
 
-// Funció de signatura Bitunix
-function signRequest(timestamp, method, pathWithQuery) {
-  const preSign = timestamp + method + pathWithQuery;
-  return crypto
-    .createHmac("sha256", BITUNIX_SECRET)
-    .update(preSign)
-    .digest("hex");
-}
-
 export async function fetchAndStoreCandles2(symbol, timeframe) {
   try {
-    // Bitunix intervals: 1m, 5m, 15m, 1h, 4h, 1d...
     const interval = timeframe.toLowerCase(); // "1H" → "1h"
+    const url = `${API_URL}?symbol=${symbol}&interval=${interval}&limit=4`;
 
-    const queryString = `symbol=${symbol}&interval=${interval}&limit=4`;
-    const pathWithQuery = `/api/v1/market/kline?${queryString}`;
-    const url = `https://api.bitunix.com${pathWithQuery}`;
-
-    const timestamp = Date.now().toString();
-    const method = "GET";
-
-    const signature = signRequest(timestamp, method, pathWithQuery);
-
-    const headers = {
-      "X-Bitunix-ApiKey": BITUNIX_API_KEY,
-      "X-Bitunix-Sign": signature,
-      "X-Bitunix-Timestamp": timestamp,
-      "Accept": "application/json"
-    };
-
-    const res = await axios.get(url, { headers });
+    // IMPORTANT: Sense headers, sense API Key, sense signatura
+    const res = await axios.get(url);
 
     if (!res.data || !res.data.data || res.data.data.length === 0) {
       console.log("⚠️ Bitunix no ha retornat dades");
@@ -57,7 +32,7 @@ export async function fetchAndStoreCandles2(symbol, timeframe) {
       const rawTs = normalizeTimestamp(parseInt(k[0]));
       if (!rawTs) continue;
 
-      const timestampMs = rawTs;
+      const timestamp = rawTs;
       const open = parseFloat(k[1]);
       const high = parseFloat(k[2]);
       const low = parseFloat(k[3]);
@@ -65,12 +40,12 @@ export async function fetchAndStoreCandles2(symbol, timeframe) {
       const volume = parseFloat(k[5]);
 
       const timestamp_es = new Date(
-        new Date(timestampMs).toLocaleString("en-US", {
+        new Date(timestamp).toLocaleString("en-US", {
           timeZone: "Europe/Madrid"
         })
       ).getTime();
 
-      const date_es = new Date(timestampMs).toLocaleString("es-ES", {
+      const date_es = new Date(timestamp).toLocaleString("es-ES", {
         timeZone: "Europe/Madrid",
         year: "numeric",
         month: "2-digit",
@@ -91,7 +66,7 @@ export async function fetchAndStoreCandles2(symbol, timeframe) {
         [
           symbol,
           timeframe,
-          timestampMs,
+          timestamp,
           open,
           high,
           low,
@@ -103,9 +78,9 @@ export async function fetchAndStoreCandles2(symbol, timeframe) {
       );
     }
 
-    console.log(`✔ Candles Bitunix guardades a candles2: ${symbol} ${timeframe}`);
+    console.log(`✔ Candles Bitunix SPOT guardades: ${symbol} ${timeframe}`);
 
   } catch (err) {
-    console.log("❌ Error descarregant vela Bitunix:", symbol, timeframe, err.message);
+    console.log("❌ Error descarregant vela Bitunix SPOT:", symbol, timeframe, err.message);
   }
 }
