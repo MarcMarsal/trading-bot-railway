@@ -12,33 +12,20 @@ function normalizeTimestamp(raw) {
   return raw;
 }
 
-
-
+// -------------------------------------------------------------
+// FETCH + STORE CANDLES (inclou la vela en formació com a última)
+// -------------------------------------------------------------
 export async function fetchAndStoreCandles(symbol, timeframe) {
   try {
-    // Bitunix usa intervals en minúscules: 1h, 4h, 1d
-    const interval = timeframe.toLowerCase();
+    // OKX usa: ?instId=BTC-USDT&bar=1H&limit=4
+    const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=4`;
 
-    // API_URL ve de Railway i ara serà: https://api.bitunix.com/api/v1/market/kline
-    const url = `${API_URL}?symbol=${symbol}&interval=${interval}&limit=4`;
+    const res = await axios.get(url);
+    let data = res.data.data;
 
-    const res = await axios.get(url, {
-  headers: {
-    "User-Agent": "Mozilla/5.0 (compatible; TradingBot/1.0; +https://railway.app)",
-    "Accept": "application/json"
-  }
-});
-
-    if (!res.data || !res.data.data || res.data.data.length === 0) {
-      console.log("⚠️ Bitunix no ha retornat dades");
-      return;
-    }
-
-    const data = res.data.data;
+    if (!data || data.length === 0) return;
 
     for (const k of data) {
-      // Format Bitunix:
-      // [0]=timestamp(ms), [1]=open, [2]=high, [3]=low, [4]=close, [5]=volume
       const rawTs = normalizeTimestamp(parseInt(k[0]));
       if (!rawTs) continue;
 
@@ -91,9 +78,9 @@ export async function fetchAndStoreCandles(symbol, timeframe) {
       );
     }
 
-    console.log(`✔ Candles Bitunix guardades: ${symbol} ${timeframe}`);
+    console.log(`✔ Candles OKX guardades: ${symbol} ${timeframe}`);
 
   } catch (err) {
-    console.log("❌ Error descarregant vela Bitunix:", symbol, timeframe, err.message);
+    console.log("❌ Error descarregant vela OKX:", symbol, timeframe, err.message);
   }
 }
