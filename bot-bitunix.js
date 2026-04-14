@@ -10,9 +10,8 @@ const SYMBOLS = [
   "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT"
 ];
 
-
 async function loop() {
-  for (const s of symbols) {
+  for (const s of SYMBOLS) {
     await fetchAndStoreCandles2(s, "1H");
   }
 }
