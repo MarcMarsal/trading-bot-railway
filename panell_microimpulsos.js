@@ -37,17 +37,24 @@ function renderActiveSignalsTable(signals) {
   let rows = "";
 
   for (const s of signals) {
+    const symbolClean = s.symbol.replace("-USDT", "").toLowerCase();
+    const bitunixUrl = `https://www.bitunix.com/en-US/futures/${symbolClean}usdt`;
+
     rows += `
-      <tr class="${s.status}">
+      <tr>
         <td>${s.symbol}</td>
         <td>${s.timeframe}</td>
         <td>${s.type}</td>
-        <td>${s.status}</td>
         <td>${fmt(s.entry)}</td>
         <td>${fmt(s.entryr)}</td>
         <td>${fmt(s.tp)}</td>
         <td>${fmt(s.sl)}</td>
         <td>${formatSpainTime(s.created_at)}</td>
+        <td>
+          <button onclick="openBitunix('${bitunixUrl}', '${fmt(s.entryr)}')">
+            Obrir Bitunix
+          </button>
+        </td>
       </tr>
     `;
   }
@@ -60,12 +67,12 @@ function renderActiveSignalsTable(signals) {
           <th>Symbol</th>
           <th>TF</th>
           <th>Tipus</th>
-          <th>Status</th>
           <th>Entrada</th>
           <th>Entrada (retroces)</th>
           <th>TP</th>
           <th>SL</th>
           <th>Creat a</th>
+          <th>Acció</th>
         </tr>
       </thead>
       <tbody>
@@ -112,15 +119,25 @@ async function startPanel() {
           th {
             background-color: #003300;
           }
-
-          /* STATUS COLORS */
-          tr.confirmed td {
-            background-color: #003300;
+          button {
+            background-color: #004400;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 4px 8px;
+            cursor: pointer;
           }
-          tr.mses td {
-            background-color: #002244;
+          button:hover {
+            background-color: #006600;
           }
         </style>
+
+        <script>
+          function openBitunix(url, entryr) {
+            navigator.clipboard.writeText(entryr);
+            window.open(url, "_blank");
+          }
+        </script>
+
       </head>
       <body>
         <h1>Panell Microimpulsos FIAT</h1>
