@@ -1,53 +1,77 @@
 // fetchCandlesBitunix.js
 
 import axios from "axios";
+import crypto from "crypto";
 import { client } from "../db/client.js";
 
-const API_URL = process.env.API_URL;
+const API_URL = process.env.API_URL; // https://api.bitunix.com/api/v1/market/kline
+const BITUNIX_API_KEY = process.env.BITUNIX_API_KEY;
+const BITUNIX_SECRET = process.env.BITUNIX_SECRET;
 
-// Validació robusta del timestamp (en mil·lisegons)
+// Normalització del timestamp OKX (igual que abans)
 function normalizeTimestamp(raw) {
-  if (raw === undefined || raw === null) return null;
-  if (typeof raw !== "number") return null;
-  if (raw === 0) return null;
-  if (raw < 1600000000000) return null; // ms (2020+)
+  if (!raw || typeof raw !== "number") return null;
+  if (raw < 1600000000000) return null;
   return raw;
 }
 
-// -------------------------------------------------------------
-// FETCH + STORE CANDLES2 (OKX → taula candles2)
-// -------------------------------------------------------------
+// Funció per signar peticions Bitunix
+function signRequest(timestamp, method, path, queryString) {
+  const preSign = timestamp + method + path + queryString;
+  return crypto
+    .createHmac("sha256", BITUNIX_SECRET)
+    .update(preSign)
+    .digest("hex");
+}
+
 export async function fetchAndStoreCandles2(symbol, timeframe) {
   try {
-    // OKX usa: ?instId=BTC-USDT&bar=1H&limit=4
-    const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=4`;
+    // Bitunix usa intervals: 1m, 5m, 15m, 1h, 4h, 1d...
+    const interval = timeframe.toLowerCase(); // "1H" → "1h"
 
-    const res = await axios.get(url);
-    let data = res.data.data;
+    const path = "/api/v1/market/kline";
+    const queryString = `symbol=${symbol}&interval=${interval}&limit=4`;
+    const url = `${API_URL}?${queryString}`;
 
-    if (!data || data.length === 0) return;
+    const timestamp = Date.now().toString();
+    const method = "GET";
+
+    const signature = signRequest(timestamp, method, path, queryString);
+
+    const headers = {
+      "X-Bitunix-ApiKey": BITUNIX_API_KEY,
+      "X-Bitunix-Sign": signature,
+      "X-Bitunix-Timestamp": timestamp,
+      "Accept": "application/json"
+    };
+
+    const res = await axios.get(url, { headers });
+
+    if (!res.data || !res.data.data || res.data.data.length === 0) {
+      console.log("⚠️ Bitunix no ha retornat dades");
+      return;
+    }
+
+    const data = res.data.data;
 
     for (const k of data) {
       const rawTs = normalizeTimestamp(parseInt(k[0]));
       if (!rawTs) continue;
 
-      const timestamp = rawTs;
-
+      const timestampMs = rawTs;
       const open = parseFloat(k[1]);
       const high = parseFloat(k[2]);
       const low = parseFloat(k[3]);
       const close = parseFloat(k[4]);
       const volume = parseFloat(k[5]);
 
-      // Timestamp en hora espanyola
       const timestamp_es = new Date(
-        new Date(timestamp).toLocaleString("en-US", {
+        new Date(timestampMs).toLocaleString("en-US", {
           timeZone: "Europe/Madrid"
         })
       ).getTime();
 
-      // Data humana en hora espanyola
-      const date_es = new Date(timestamp).toLocaleString("es-ES", {
+      const date_es = new Date(timestampMs).toLocaleString("es-ES", {
         timeZone: "Europe/Madrid",
         year: "numeric",
         month: "2-digit",
@@ -68,7 +92,7 @@ export async function fetchAndStoreCandles2(symbol, timeframe) {
         [
           symbol,
           timeframe,
-          timestamp,
+          timestampMs,
           open,
           high,
           low,
@@ -80,9 +104,9 @@ export async function fetchAndStoreCandles2(symbol, timeframe) {
       );
     }
 
-    console.log(`✔ Candles2 OKX guardades: ${symbol} ${timeframe}`);
+    console.log(`✔ Candles Bitunix guardades a candles2: ${symbol} ${timeframe}`);
 
   } catch (err) {
-    console.log("❌ Error descarregant vela OKX (candles2):", symbol, timeframe, err.message);
+    console.log("❌ Error descarregant vela Bitunix:", symbol, timeframe, err.message);
   }
 }
