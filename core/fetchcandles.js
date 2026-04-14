@@ -1,3 +1,18 @@
+import axios from "axios";
+import { client } from "../db/client.js";
+
+const API_URL = process.env.API_URL;
+
+// Validació robusta del timestamp (en mil·lisegons)
+function normalizeTimestamp(raw) {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "number") return null;
+  if (raw === 0) return null;
+  if (raw < 1600000000000) return null; // ms (2020+)
+  return raw;
+}
+
+
 export async function fetchAndStoreCandles(symbol, timeframe) {
   try {
     // Bitunix usa intervals en minúscules: 1h, 4h, 1d
