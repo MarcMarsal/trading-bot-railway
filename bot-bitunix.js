@@ -1,4 +1,4 @@
-import { fetchAndStoreCandles2 } from "./services/candles2.js";
+import { fetchAndStoreCandles2 } from "./core/fetchCandlesBitunix.js";
 import { symbols } from "./config/symbols.js"; // mateix fitxer que OKX
 import "./db/client.js";
 
