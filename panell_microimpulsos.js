@@ -5,12 +5,20 @@ import { initDB, client } from "./db/client.js";
 import { formatSpainTime } from "./core/utils.js";
 
 // -------------------------------------------------------------
+// FORMATADOR NUMÈRIC
+// -------------------------------------------------------------
+function fmt(n) {
+  return n !== null && n !== undefined ? Number(n).toFixed(4) : "-";
+}
+
+// -------------------------------------------------------------
 // LLEGIR LES ÚLTIMES 20 ALERTES
 // -------------------------------------------------------------
 async function getActiveSignals() {
   const q = await client.query(
     `
-    SELECT symbol, timeframe, type, entry,
+    SELECT symbol, timeframe, type,
+           entry, entryr, tp, sl,
            timestamp, timestamp_es, date_es, hora_es,
            reason, sensitivity, created_at, status
     FROM signals2
@@ -35,7 +43,10 @@ function renderActiveSignalsTable(signals) {
         <td>${s.timeframe}</td>
         <td>${s.type}</td>
         <td>${s.status}</td>
-        <td>${s.entry ? s.entry.toFixed(4) : "-"}</td>
+        <td>${fmt(s.entry)}</td>
+        <td>${fmt(s.entryr)}</td>
+        <td>${fmt(s.tp)}</td>
+        <td>${fmt(s.sl)}</td>
         <td>${formatSpainTime(s.created_at)}</td>
       </tr>
     `;
@@ -51,6 +62,9 @@ function renderActiveSignalsTable(signals) {
           <th>Tipus</th>
           <th>Status</th>
           <th>Entrada</th>
+          <th>Entrada (retroces)</th>
+          <th>TP</th>
+          <th>SL</th>
           <th>Creat a</th>
         </tr>
       </thead>
