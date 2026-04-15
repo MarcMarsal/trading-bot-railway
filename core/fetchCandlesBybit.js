@@ -3,19 +3,22 @@
 import axios from "axios";
 import { client } from "../db/client.js";
 
-const BYBIT_URL = process.env.BYBIT_URL;   // 🔥 igual que API_URL
+const BYBIT_URL = process.env.BYBIT_URL;
 console.log(">>> BYBIT_URL utilitzada:", BYBIT_URL);
-
 
 export async function fetchAndStoreCandlesBybit(symbol, timeframe) {
   const cleanSymbol = symbol.replace("-", "").toUpperCase();
 
   try {
     const res = await axios.get(BYBIT_URL, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json, text/plain, */*"
+      },
       params: {
         symbol: cleanSymbol,
         interval: "60",
-        limit: 200
+        limit: 3   // 🔥 NOMÉS LES 3 ÚLTIMES VELES
       },
       timeout: 8000
     });
@@ -34,7 +37,7 @@ export async function fetchAndStoreCandlesBybit(symbol, timeframe) {
       low: Number(c[3]),
       close: Number(c[4]),
       volume: Number(c[5]),
-    })).reverse();
+    })).reverse(); // 🔥 ordre cronològic
 
     for (const c of candles) {
       await client.query(
