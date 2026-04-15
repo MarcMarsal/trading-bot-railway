@@ -5,24 +5,14 @@ import axios from "axios";
 export async function fetchCandlesBybit(symbol) {
   const cleanSymbol = symbol.replace("-", "").toUpperCase();
 
-  //const url = "https://api.bybit.com/v5/market/kline";
   const url = "https://api.bybitglobal.com/v5/market/kline";
-
 
   const res = await axios.get(url, {
     params: {
       category: "linear",
       symbol: cleanSymbol,
-      interval: "60",   // 1H
-      limit: 3          // només 3 veles
-    },
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      "Accept": "application/json,text/plain,*/*",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Cache-Control": "no-cache",
-      "Pragma": "no-cache",
-      "Connection": "keep-alive"
+      interval: "60",
+      limit: 3
     },
     timeout: 8000
   });
@@ -40,5 +30,5 @@ export async function fetchCandlesBybit(symbol) {
     low: Number(c[3]),
     close: Number(c[4]),
     volume: Number(c[5]),
-  })).reverse(); // més antigues → més noves
+  })).reverse();
 }
