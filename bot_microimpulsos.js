@@ -98,7 +98,37 @@ function calcTargets(type, entry, thirdCandle) {
 
   return { entryr, tp, sl };
 }
+// -------------------------------------------------------------
+// FUNCIÓ DE CÀLCUL ENTRYR / TP / SL microimpulsos
+// -------------------------------------------------------------
+function calcTargetsMicro(type, entryBase, breakoutCandle) {
+  const { open, close, high, low } = breakoutCandle;
+  const cos = Math.abs(close - open);
 
+  const factor = 0.30;
+  const minBuffer = cos * 0.20;
+
+  let entryr, tp, sl;
+
+  if (type.includes("LONG")) {
+    let retr = entryBase - cos * factor;
+    if (retr < low + minBuffer) retr = low + minBuffer;
+
+    entryr = retr;
+    tp = entryr * 1.003;
+    sl = entryr * 0.997;
+
+  } else {
+    let retr = entryBase + cos * factor;
+    if (retr > high - minBuffer) retr = high - minBuffer;
+
+    entryr = retr;
+    tp = entryr * 0.997;
+    sl = entryr * 1.003;
+  }
+
+  return { entryr, tp, sl };
+}
 
 // -------------------------------------------------------------
 // PROCESS SYMBOL
@@ -118,46 +148,47 @@ async function processSymbol(symbol, timeframe) {
     detectMicroimpulse(candles, symbol, timeframe, microState);
 
   setMicroState(symbol, timeframe, newMicroState);
-
+  
+  //
   if (microSignal) {
-    const dateKey = getDay(microSignal.timestamp);
+  const dateKey = getDay(microSignal.timestamp);
 
-    const exists = await alreadySent2(
-      symbol,
-      timeframe,
+  const exists = await alreadySent2(
+    symbol,
+    timeframe,
+    microSignal.type,
+    microSignal.entryBase,
+    dateKey,
+    "confirmed"
+  );
+
+  if (!exists) {
+    console.log("[MICRO]", symbol, timeframe, microSignal.type, microSignal.timestamp);
+
+    const { entryr, tp, sl } = calcTargetsMicro(
       microSignal.type,
-      microSignal.entry,
-      dateKey,
-      "confirmed"
+      microSignal.entryBase,
+      microSignal.breakoutCandle
     );
 
-    if (!exists) {
-      console.log("[MICRO]", symbol, timeframe, microSignal.type, microSignal.timestamp);
-
-      //const { entryr, tp, sl } = calcTargets(microSignal.type, microSignal.entry);
-      const { entryr, tp, sl } = calcTargets(
-        msesSignal.type,
-        msesSignal.entry,
-        msesSignal.thirdCandle
-      );
-
-
-      await saveSignal2({
-        symbol,
-        timeframe,
-        type: microSignal.type,
-        entry: microSignal.entry,
-        entryr,
-        tp,
-        sl,
-        timestamp: microSignal.timestamp,
-        reason: microSignal.reason,
-        sensitivity: microSignal.sensitivity,
-        status: "confirmed",
-      });
-    }
+    await saveSignal2({
+      symbol,
+      timeframe,
+      type: microSignal.type,
+      entry: microSignal.entryBase,
+      entryr,
+      tp,
+      sl,
+      timestamp: microSignal.timestamp,
+      reason: microSignal.reason,
+      sensitivity: microSignal.sensitivity,
+      status: "confirmed",
+    });
   }
+}
 
+//
+  
   // -------------------------
   // MS / ES
   // -------------------------
