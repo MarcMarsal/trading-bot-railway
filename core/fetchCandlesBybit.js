@@ -1,12 +1,13 @@
 import axios from "axios";
 import { client } from "../db/client.js";
 
+const BYBIT_URL = process.env.BYBIT_URL;   // 🔥 igual que API_URL
+
 export async function fetchAndStoreCandlesBybit(symbol, timeframe) {
   const cleanSymbol = symbol.replace("-", "").toUpperCase();
-  const url = "https://bybit-proxy-18mg.onrender.com";
 
   try {
-    const res = await axios.get(url, {
+    const res = await axios.get(BYBIT_URL, {
       params: {
         symbol: cleanSymbol,
         interval: "60",
