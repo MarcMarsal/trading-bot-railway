@@ -11,11 +11,12 @@ export async function fetchCandlesBybit(symbol) {
 
   const res = await axios.get(url, {
     params: {
-      category: "linear",
-      symbol: cleanSymbol,
-      interval: "60",
-      limit: 3
-    },
+  symbol: cleanSymbol,
+  interval: "60",
+  limit: 3
+}
+
+    ,
     timeout: 8000
   });
 
