@@ -8,6 +8,7 @@ export async function fetchCandlesBybit(symbol) {
   //const url = "https://api.bybitglobal.com/v5/market/kline";
   const url = "https://rapid-truth-481a.marc-marsal.workers.dev";
 
+console.log("URL utilitzada:", url);
 
   const res = await axios.get(url, {
     params: {
