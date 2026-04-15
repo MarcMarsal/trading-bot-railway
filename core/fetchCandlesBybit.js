@@ -5,7 +5,9 @@ import axios from "axios";
 export async function fetchCandlesBybit(symbol) {
   const cleanSymbol = symbol.replace("-", "").toUpperCase();
 
-  const url = "https://api.bybit.com/v5/market/kline";
+  //const url = "https://api.bybit.com/v5/market/kline";
+  const url = "https://api.bybitglobal.com/v5/market/kline";
+
 
   const res = await axios.get(url, {
     params: {
