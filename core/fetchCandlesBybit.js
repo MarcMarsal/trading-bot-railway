@@ -18,13 +18,14 @@ export async function fetchAndStoreCandlesBybit(symbol, timeframe) {
       params: {
         symbol: cleanSymbol,
         interval: "60",
-        limit: 3   // 🔥 NOMÉS LES 3 ÚLTIMES VELES
+        limit: 3
       },
       timeout: 8000
     });
 
     if (!res.data?.result?.list) {
       console.log(`❌ Resposta incorrecta per ${symbol}`);
+      console.log("Resposta rebuda:", res.data);
       return;
     }
 
@@ -37,7 +38,7 @@ export async function fetchAndStoreCandlesBybit(symbol, timeframe) {
       low: Number(c[3]),
       close: Number(c[4]),
       volume: Number(c[5]),
-    })).reverse(); // 🔥 ordre cronològic
+    })).reverse();
 
     for (const c of candles) {
       await client.query(
@@ -61,7 +62,17 @@ export async function fetchAndStoreCandlesBybit(symbol, timeframe) {
     }
 
     console.log(`✔ ${symbol} → ${candles.length} veles guardades`);
+
   } catch (err) {
     console.log(`❌ Error Bybit ${symbol}:`, err.message);
+
+    // 🔥 MOSTREM EL COS DE LA RESPOSTA DEL SERVIDOR
+    if (err.response) {
+      console.log("Status:", err.response.status);
+      console.log("Headers:", err.response.headers);
+      console.log("Data:", err.response.data);
+    } else {
+      console.log("Error sense resposta:", err);
+    }
   }
 }
