@@ -5,23 +5,21 @@ import axios from "axios";
 export async function fetchCandlesBybit(symbol) {
   const cleanSymbol = symbol.replace("-", "").toUpperCase();
 
-  //const url = "https://api.bybitglobal.com/v5/market/kline";
-  //const url = "https://rapid-truth-481a.marc-marsal.workers.dev";
-const url = "https://perceptive-nourishment-production-a767.up.railway.app";
+  // Proxy Render
+  const url = "https://bybit-proxy-18mg.onrender.com";
 
-console.log("URL utilitzada:", url);
+  console.log("URL utilitzada:", url);
 
   const res = await axios.get(url, {
     params: {
-  symbol: cleanSymbol,
-  interval: "60",
-  limit: 3
-}
-
-    ,
+      symbol: cleanSymbol,
+      interval: "60",
+      limit: 3
+    },
     timeout: 8000
   });
-console.log("Resposta del Worker:", JSON.stringify(res.data, null, 2));
+
+  console.log("Resposta del Proxy:", JSON.stringify(res.data, null, 2));
 
   if (!res.data?.result?.list) {
     throw new Error("Resposta Bybit incorrecta");
