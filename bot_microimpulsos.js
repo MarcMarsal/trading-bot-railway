@@ -76,21 +76,41 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
 // -------------------------------------------------------------
 // FUNCIÓ DE CÀLCUL ENTRYR / TP / SL
 // -------------------------------------------------------------
-function calcTargets(type, entry) {
+function calcTargets(type, entry, thirdCandle) {
+  const { open, close, high, low } = thirdCandle;
+  const cos = Math.abs(close - open);
+
+  const factor = 0.30;      // intensitat del retrocés
+  const minBuffer = cos * 0.20;
+
   let entryr, tp, sl;
 
   if (type.includes("LONG")) {
-    entryr = entry * 0.998;      // -0.2%
-    tp     = entryr * 1.003;     // +0.3%
-    sl     = entryr * 0.997;     // -0.3%
+    let retr = entry - cos * factor;
+
+    if (retr < low + minBuffer) {
+      retr = low + minBuffer;
+    }
+
+    entryr = retr;
+    tp = entryr * 1.003;
+    sl = entryr * 0.997;
+
   } else {
-    entryr = entry * 1.002;      // +0.2%
-    tp     = entryr * 0.997;     // -0.3%
-    sl     = entryr * 1.003;     // +0.3%
+    let retr = entry + cos * factor;
+
+    if (retr > high - minBuffer) {
+      retr = high - minBuffer;
+    }
+
+    entryr = retr;
+    tp = entryr * 0.997;
+    sl = entryr * 1.003;
   }
 
   return { entryr, tp, sl };
 }
+
 
 // -------------------------------------------------------------
 // PROCESS SYMBOL
