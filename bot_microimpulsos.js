@@ -9,11 +9,10 @@ import { detectMSES } from "./core/patterns.js";
 import { getDay } from "./core/utils.js";
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
 import axios from "axios";
+
 // -------------------------------------------------------------
 // MOSTRAR IP PÚBLICA DEL SERVIDOR (Railway)
 // -------------------------------------------------------------
-
-
 async function mostrarIPRailway() {
   try {
     const res = await axios.get("https://api.ipify.org?format=json");
@@ -35,8 +34,8 @@ const TIMEFRAMES = ["1H"];
 // -------------------------------------------------------------
 // ESTAT GLOBAL PER MICROIMPULSOS I MSES
 // -------------------------------------------------------------
-const microStates = {}; // { "BCH-USDT-1H": { prevMicroLong, prevMicroShort } }
-const msesStates  = {}; // { "BCH-USDT-1H": { prevMsCond, prevEsCond } }
+const microStates = {};
+const msesStates  = {};
 
 function key(symbol, timeframe) {
   return `${symbol}-${timeframe}`;
@@ -71,11 +70,30 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
   `;
 
   const res = await client.query(query, [symbol, timeframe, limit]);
-  return res.rows.reverse(); // més antigues → més noves
+  return res.rows.reverse();
 }
 
 // -------------------------------------------------------------
-// PROCESS SYMBOL (temps real)
+// FUNCIÓ DE CÀLCUL ENTRYR / TP / SL
+// -------------------------------------------------------------
+function calcTargets(type, entry) {
+  let entryr, tp, sl;
+
+  if (type.includes("LONG")) {
+    entryr = entry * 0.998;      // -0.2%
+    tp     = entryr * 1.003;     // +0.3%
+    sl     = entryr * 0.997;     // -0.3%
+  } else {
+    entryr = entry * 1.002;      // +0.2%
+    tp     = entryr * 0.997;     // -0.3%
+    sl     = entryr * 1.003;     // +0.3%
+  }
+
+  return { entryr, tp, sl };
+}
+
+// -------------------------------------------------------------
+// PROCESS SYMBOL
 // -------------------------------------------------------------
 async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 80);
@@ -108,11 +126,16 @@ async function processSymbol(symbol, timeframe) {
     if (!exists) {
       console.log("[MICRO]", symbol, timeframe, microSignal.type, microSignal.timestamp);
 
+      const { entryr, tp, sl } = calcTargets(microSignal.type, microSignal.entry);
+
       await saveSignal2({
         symbol,
         timeframe,
         type: microSignal.type,
         entry: microSignal.entry,
+        entryr,
+        tp,
+        sl,
         timestamp: microSignal.timestamp,
         reason: microSignal.reason,
         sensitivity: microSignal.sensitivity,
@@ -146,11 +169,16 @@ async function processSymbol(symbol, timeframe) {
     if (!exists) {
       console.log("[MSES]", symbol, timeframe, msesSignal.type, msesSignal.timestamp);
 
+      const { entryr, tp, sl } = calcTargets(msesSignal.type, msesSignal.entry);
+
       await saveSignal2({
         symbol,
         timeframe,
         type: msesSignal.type,
         entry: msesSignal.entry,
+        entryr,
+        tp,
+        sl,
         timestamp: msesSignal.timestamp,
         reason: msesSignal.reason,
         sensitivity: 50,
@@ -164,14 +192,12 @@ async function processSymbol(symbol, timeframe) {
 // LOOP PRINCIPAL
 // -------------------------------------------------------------
 async function mainLoop() {
-  // 1) Actualitzar candles
   for (const symbol of SYMBOLS) {
     for (const timeframe of TIMEFRAMES) {
       await fetchAndStoreCandles(symbol, timeframe);
     }
   }
 
-  // 2) Processar senyals
   for (const symbol of SYMBOLS) {
     for (const timeframe of TIMEFRAMES) {
       try {
@@ -186,14 +212,11 @@ async function mainLoop() {
 // -------------------------------------------------------------
 // START BOT
 // -------------------------------------------------------------
-// -------------------------------------------------------------
-// START BOT
-// -------------------------------------------------------------
 async function startBot() {
   await initDB();
   console.log("Bot Microimpulsos FIAT en marxa");
 
-  await mostrarIPRailway();   // 👈 AFEGIT
+  await mostrarIPRailway();
 
   cron.schedule("* * * * *", mainLoop);
 }
