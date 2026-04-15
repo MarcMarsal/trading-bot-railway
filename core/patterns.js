@@ -32,9 +32,6 @@ export function velaCompleta(v) {
   );
 }
 
-// -------------------------------------------------------------
-// MS / ES EXACTAMENT COM TRADINGVIEW (VERSIÓ BLINDADA)
-// -------------------------------------------------------------
 export function detectMSES(candles, symbol, timeframe, prevState = {}) {
   if (!candles || candles.length < 5) {
     return { signal: null, state: prevState };
@@ -103,6 +100,12 @@ export function detectMSES(candles, symbol, timeframe, prevState = {}) {
       timestamp: curr.timestamp,
       entry: c3.close,
       reason: "ms",
+      thirdCandle: {
+        open: c3.open,
+        close: c3.close,
+        high: c3.high,
+        low: c3.low
+      }
     };
   }
 
@@ -114,6 +117,12 @@ export function detectMSES(candles, symbol, timeframe, prevState = {}) {
       timestamp: curr.timestamp,
       entry: c3.close,
       reason: "es",
+      thirdCandle: {
+        open: c3.open,
+        close: c3.close,
+        high: c3.high,
+        low: c3.low
+      }
     };
   }
 
