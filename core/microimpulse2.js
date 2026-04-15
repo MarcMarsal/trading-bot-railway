@@ -1,18 +1,5 @@
 // core/microimpulse2.js
 
-import { detectMSES } from "./patterns.js";
-
-// -------------------------------------------------------------
-// VALIDACIÓ DE TIMESTAMP
-// -------------------------------------------------------------
-function normalizeTimestamp(raw) {
-  if (raw === undefined || raw === null) return null;
-  if (typeof raw !== "number") return null;
-  if (raw === 0) return null;
-  if (raw < 1600000000000) return null; // <-- ÚNIC CANVI
-  return raw; // ms
-}
-
 // -------------------------------------------------------------
 // EMA
 // -------------------------------------------------------------
@@ -27,7 +14,7 @@ function calcEMA(values, period) {
 }
 
 // -------------------------------------------------------------
-// MICROIMPULSE EXACTAMENT COM TRADINGVIEW (VERSIÓ BLINDADA)
+// MICROIMPULSE EXACTAMENT COM TRADINGVIEW (VERSIÓ ESTRUCTURAL)
 // -------------------------------------------------------------
 export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
   if (!candles || candles.length < 30) {
@@ -40,7 +27,7 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
   const curr  = candles[n - 1]; // en formació → NOMÉS timestamp
 
   // 3 veles tancades
-  const last  = candles[n - 2];
+  const last  = candles[n - 2]; // breakout candle
   const prev1 = candles[n - 3];
   const prev2 = candles[n - 4];
 
@@ -53,6 +40,7 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
   const ema20 = calcEMA(closes, 20);
   if (!ema20) return { signal: null, state: prevState };
 
+  // Tendència
   const trendUp =
     last.close > prev1.close &&
     prev1.close >= prev2.close;
@@ -103,11 +91,16 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
       symbol,
       timeframe,
       type: "MICRO_LONG",
-      entry: last.close,
+      entryBase: retraceHigh,        // 🔵 entrada base (com TradingView)
+      breakoutCandle: {              // 🔥 necessari per retrocés estructural
+        open: last.open,
+        close: last.close,
+        high: last.high,
+        low: last.low
+      },
       timestamp: curr.timestamp,
       reason: "microimpulse",
       sensitivity: 40,
-      status: "confirmed",
     };
   }
 
@@ -116,11 +109,16 @@ export function detectMicroimpulse(candles, symbol, timeframe, prevState = {}) {
       symbol,
       timeframe,
       type: "MICRO_SHORT",
-      entry: last.close,
+      entryBase: retraceLow,
+      breakoutCandle: {
+        open: last.open,
+        close: last.close,
+        high: last.high,
+        low: last.low
+      },
       timestamp: curr.timestamp,
       reason: "microimpulse",
       sensitivity: 40,
-      status: "confirmed",
     };
   }
 
