@@ -4,6 +4,8 @@ import axios from "axios";
 import { client } from "../db/client.js";
 
 const BYBIT_URL = process.env.BYBIT_URL;   // 🔥 igual que API_URL
+console.log(">>> BYBIT_URL utilitzada:", BYBIT_URL);
+
 
 export async function fetchAndStoreCandlesBybit(symbol, timeframe) {
   const cleanSymbol = symbol.replace("-", "").toUpperCase();
