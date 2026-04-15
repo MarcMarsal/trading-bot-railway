@@ -20,6 +20,7 @@ console.log("URL utilitzada:", url);
     ,
     timeout: 8000
   });
+console.log("Resposta del Worker:", JSON.stringify(res.data, null, 2));
 
   if (!res.data?.result?.list) {
     throw new Error("Resposta Bybit incorrecta");
