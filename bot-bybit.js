@@ -11,9 +11,10 @@ import { fetchAndStoreCandlesBybit } from "./core/fetchCandlesBybit.js";
 const SYMBOLS = [
   "BTC-USDT", "SUI-USDT", "SOL-USDT", "XRP-USDT", "AVAX-USDT",
   "APT-USDT", "INJ-USDT", "SEI-USDT", "ADA-USDT", "LINK-USDT",
-  "BNB-USDT", "ETH-USDT", "NEAR-USDT", "HBAR-USDT", "RENDER-USDT",
-  "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT"
+  "BNB-USDT", "ETH-USDT", "NEAR-USDT", "RNDR-USDT", "ASTR-USDT",
+  "BCH-USDT", "VIRTUALUSDT"
 ];
+
 
 const TIMEFRAMES = ["1H"];
 
