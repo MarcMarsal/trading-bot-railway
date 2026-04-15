@@ -146,7 +146,13 @@ async function processSymbol(symbol, timeframe) {
     if (!exists) {
       console.log("[MICRO]", symbol, timeframe, microSignal.type, microSignal.timestamp);
 
-      const { entryr, tp, sl } = calcTargets(microSignal.type, microSignal.entry);
+      //const { entryr, tp, sl } = calcTargets(microSignal.type, microSignal.entry);
+      const { entryr, tp, sl } = calcTargets(
+        msesSignal.type,
+        msesSignal.entry,
+        msesSignal.thirdCandle
+      );
+
 
       await saveSignal2({
         symbol,
@@ -189,7 +195,12 @@ async function processSymbol(symbol, timeframe) {
     if (!exists) {
       console.log("[MSES]", symbol, timeframe, msesSignal.type, msesSignal.timestamp);
 
-      const { entryr, tp, sl } = calcTargets(msesSignal.type, msesSignal.entry);
+      //const { entryr, tp, sl } = calcTargets(msesSignal.type, msesSignal.entry);
+    const { entryr, tp, sl } = calcTargets(
+      msesSignal.type,
+      msesSignal.entry,
+      msesSignal.thirdCandle
+    );
 
       await saveSignal2({
         symbol,
