@@ -10,18 +10,6 @@ import { getDay } from "./core/utils.js";
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
 import axios from "axios";
 
-// -------------------------------------------------------------
-// MOSTRAR IP PÚBLICA DEL SERVIDOR (Railway)
-// -------------------------------------------------------------
-async function mostrarIPRailway() {
-  try {
-    const res = await axios.get("https://api.ipify.org?format=json");
-    console.log("🌍 IP pública del servidor Railway:", res.data.ip);
-  } catch (err) {
-    console.log("❌ No s'ha pogut obtenir la IP pública:", err.message);
-  }
-}
-
 const SYMBOLS = [
   "BTC-USDT", "SUI-USDT", "SOL-USDT", "XRP-USDT", "AVAX-USDT",
   "APT-USDT", "INJ-USDT", "SEI-USDT", "ADA-USDT", "LINK-USDT",
@@ -246,8 +234,6 @@ async function mainLoop() {
 async function startBot() {
   await initDB();
   console.log("Bot Microimpulsos FIAT en marxa");
-
-  await mostrarIPRailway();
 
   cron.schedule("* * * * *", mainLoop);
 }
