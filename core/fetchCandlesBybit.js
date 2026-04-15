@@ -13,7 +13,16 @@ export async function fetchCandlesBybit(symbol) {
       symbol: cleanSymbol,
       interval: "60",   // 1H
       limit: 3          // només 3 veles
-    }
+    },
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+      "Accept": "application/json,text/plain,*/*",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache",
+      "Connection": "keep-alive"
+    },
+    timeout: 8000
   });
 
   if (!res.data?.result?.list) {
