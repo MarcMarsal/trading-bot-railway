@@ -6,7 +6,8 @@ export async function fetchCandlesBybit(symbol) {
   const cleanSymbol = symbol.replace("-", "").toUpperCase();
 
   //const url = "https://api.bybitglobal.com/v5/market/kline";
-  const url = "https://rapid-truth-481a.marc-marsal.workers.dev";
+  //const url = "https://rapid-truth-481a.marc-marsal.workers.dev";
+const url = "https://perceptive-nourishment-production-a767.up.railway.app";
 
 console.log("URL utilitzada:", url);
 
