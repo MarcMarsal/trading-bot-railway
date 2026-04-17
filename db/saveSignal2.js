@@ -1,22 +1,24 @@
 // db/saveSignal2.js
+
 import { client } from "./client.js";
 import { splitSpainDate } from "../core/utils.js";
+import { sendTelegram } from "../telegram/send.js";
 
 export async function saveSignal2({
   symbol,
   timeframe,
   type,
   entry,
-  entryr,     // 👈 AFEGIT
-  tp,         // 👈 AFEGIT
-  sl,         // 👈 AFEGIT
-  timestamp,   // ms
+  entryr,
+  tp,
+  sl,
+  timestamp,
   reason = "",
   sensitivity = null,
   status = "confirmed"
 }) {
-  const tsMs = Number(timestamp);          // ms
-  const tsSec = Math.floor(tsMs / 1000);   // segons
+  const tsMs = Number(timestamp);
+  const tsSec = Math.floor(tsMs / 1000);
 
   const { date_es, hora_es, timestamp_es } = splitSpainDate(tsMs);
 
@@ -54,4 +56,13 @@ export async function saveSignal2({
       status
     ]
   );
+
+  // 🔔 Enviar alerta Telegram
+  await sendTelegram({
+    symbol,
+    signalType: type,
+    entry,
+    tp,
+    sl
+  });
 }
