@@ -2,36 +2,21 @@
 import axios from "axios";
 
 export async function sendTelegram({
-  title = "",
-  direction = "",
+  symbol = "",
+  signalType = "",
   entry = "",
   tp = "",
-  sl = "",
-  trendPercent = null,
-  msPercent = null,
-  contextLabel = "",
-  extra = ""
+  sl = ""
 }) {
   const url = `https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`;
 
   let message = "";
 
-  if (title) message += `<b>${title}</b>\n`;
-  if (direction) message += `Direcció: <b>${direction}</b>\n`;
+  if (symbol) message += `<b>${symbol}</b>\n`;
+  if (signalType) message += `Tipus: <b>${signalType}</b>\n`;
   if (entry) message += `Entrada: <b>${entry}</b>\n`;
   if (tp) message += `TP: <b>${tp}</b>\n`;
   if (sl) message += `SL: <b>${sl}</b>\n`;
-
-  if (trendPercent !== null)
-    message += `\nFiabilitat Tendència: <b>${trendPercent}%</b>`;
-  if (msPercent !== null)
-    message += `\nFiabilitat MS/ES: <b>${msPercent}%</b>`;
-
-  if (contextLabel)
-    message += `\nContext: <b>${contextLabel}</b>`;
-
-  if (extra)
-    message += `\n\n${extra}`;
 
   const payload = {
     chat_id: process.env.TELEGRAM_CHAT_ID,
