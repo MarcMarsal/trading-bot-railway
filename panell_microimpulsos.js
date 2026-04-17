@@ -12,7 +12,7 @@ function fmt(n) {
 }
 
 // -------------------------------------------------------------
-// LLEGIR LES ÚLTIMES 20 ALERTES
+// LLEGIR LES ÚLTIMES 20 ALERTES (ordenades per timestamp real)
 // -------------------------------------------------------------
 async function getActiveSignals() {
   const q = await client.query(
@@ -22,7 +22,7 @@ async function getActiveSignals() {
            timestamp, timestamp_es, date_es, hora_es,
            reason, sensitivity, created_at, status
     FROM signals2
-    ORDER BY created_at DESC
+    ORDER BY timestamp DESC
     LIMIT 20
     `
   );
@@ -43,16 +43,26 @@ function renderActiveSignalsTable(signals) {
     // URL correcta Bitunix
     const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${symbolClean}`;
 
+    // Classes de color segons tipus
+    let rowClass = "";
+    if (s.type === "MS (UP)") rowClass = "ms-up";
+    if (s.type === "MS (DOWN)") rowClass = "ms-down";
+    if (s.type === "CLUSTER (UP)") rowClass = "cluster-up";
+    if (s.type === "CLUSTER (DOWN)") rowClass = "cluster-down";
+
+    // SL manual per clústers
+    const slDisplay = s.type.includes("CLUSTER") ? "manual" : fmt(s.sl);
+
     rows += `
-      <tr>
+      <tr class="${rowClass}">
         <td>${s.symbol}</td>
         <td>${s.timeframe}</td>
         <td>${s.type}</td>
         <td>${fmt(s.entry)}</td>
         <td>${fmt(s.entryr)}</td>
         <td>${fmt(s.tp)}</td>
-        <td>${fmt(s.sl)}</td>
-        <td>${formatSpainTime(s.created_at)}</td>
+        <td>${slDisplay}</td>
+        <td>${formatSpainTime(s.timestamp * 1000)}</td>
         <td>
           <button onclick="openBitunix('${bitunixUrl}', '${fmt(s.entryr)}')">
             Obrir Bitunix
@@ -132,6 +142,13 @@ async function startPanel() {
           button:hover {
             background-color: #006600;
           }
+
+          /* Colors per tipus de senyal */
+          .ms-up { color: #00ff00; }
+          .ms-down { color: #ff4444; }
+          .cluster-up { color: #00ff88; font-weight: bold; }
+          .cluster-down { color: #ff6666; font-weight: bold; }
+
         </style>
 
         <script>
