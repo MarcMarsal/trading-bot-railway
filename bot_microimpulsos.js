@@ -1,14 +1,12 @@
-// bot_microimpulsos.js
+// bot_microimpulsos.js (versió neta sense microimpulsos)
 
 import cron from "node-cron";
 import { client, initDB } from "./db/client.js";
 import { alreadySent2 } from "./db/alreadySent2.js";
 import { saveSignal2 } from "./db/saveSignal2.js";
-import { detectMicroimpulse } from "./core/microimpulse2.js";
 import { detectMSES } from "./core/patterns.js";
 import { getDay } from "./core/utils.js";
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
-import axios from "axios";
 
 const SYMBOLS = [
   "BTC-USDT", "SUI-USDT", "SOL-USDT", "XRP-USDT", "AVAX-USDT",
@@ -20,21 +18,12 @@ const SYMBOLS = [
 const TIMEFRAMES = ["1H"];
 
 // -------------------------------------------------------------
-// ESTAT GLOBAL PER MICROIMPULSOS I MSES
+// ESTAT GLOBAL NOMÉS PER MSES
 // -------------------------------------------------------------
-const microStates = {};
-const msesStates  = {};
+const msesStates = {};
 
 function key(symbol, timeframe) {
   return `${symbol}-${timeframe}`;
-}
-
-function getMicroState(symbol, timeframe) {
-  return microStates[key(symbol, timeframe)] || {};
-}
-
-function setMicroState(symbol, timeframe, state) {
-  microStates[key(symbol, timeframe)] = state || {};
 }
 
 function getMsesState(symbol, timeframe) {
@@ -62,69 +51,59 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
 }
 
 // -------------------------------------------------------------
-// FUNCIÓ DE CÀLCUL ENTRYR / TP / SL
+// FUNCIÓ DE CÀLCUL ENTRYR / TP / SL PER MS I CLÚSTER
 // -------------------------------------------------------------
 function calcTargets(type, entry, thirdCandle) {
   const { open, close, high, low } = thirdCandle;
-  const cos = Math.abs(close - open);
+  const body = Math.abs(close - open);
 
-  const factor = 0.30;      // intensitat del retrocés
-  const minBuffer = cos * 0.20;
+  // Retroces MS = 15% del cos
+  const retrFactor = 0.15;
 
   let entryr, tp, sl;
 
-  if (type.includes("LONG")) {
-    let retr = entry - cos * factor;
+  // ---------------------------------------------------------
+  // MS (UP)
+  // ---------------------------------------------------------
+  if (type === "MS (UP)") {
+    entryr = entry - body * retrFactor;
 
-    if (retr < low + minBuffer) {
-      retr = low + minBuffer;
-    }
+    // SL = mínim entre 2a i 3a vela → ja ve donat per thirdCandle
+    sl = Math.min(low, open, close);
 
-    entryr = retr;
-    tp = entryr * 1.003;
-    sl = entryr * 0.997;
-
-  } else {
-    let retr = entry + cos * factor;
-
-    if (retr > high - minBuffer) {
-      retr = high - minBuffer;
-    }
-
-    entryr = retr;
-    tp = entryr * 0.997;
-    sl = entryr * 1.003;
+    // TP = RR 1.5
+    const risk = entryr - sl;
+    tp = entryr + risk * 1.5;
   }
 
-  return { entryr, tp, sl };
-}
-// -------------------------------------------------------------
-// FUNCIÓ DE CÀLCUL ENTRYR / TP / SL microimpulsos
-// -------------------------------------------------------------
-function calcTargetsMicro(type, entryBase, breakoutCandle) {
-  const { open, close, high, low } = breakoutCandle;
-  const cos = Math.abs(close - open);
+  // ---------------------------------------------------------
+  // MS (DOWN)
+  // ---------------------------------------------------------
+  else if (type === "MS (DOWN)") {
+    entryr = entry + body * retrFactor;
 
-  const factor = 0.30;
-  const minBuffer = cos * 0.20;
+    sl = Math.max(high, open, close);
 
-  let entryr, tp, sl;
+    const risk = sl - entryr;
+    tp = entryr - risk * 1.5;
+  }
 
-  if (type.includes("LONG")) {
-    let retr = entryBase - cos * factor;
-    if (retr < low + minBuffer) retr = low + minBuffer;
+  // ---------------------------------------------------------
+  // CLÚSTER (UP)
+  // ---------------------------------------------------------
+  else if (type === "CLUSTER (UP)") {
+    entryr = entry; // entrada immediata
+    sl = null;      // manual
+    tp = entry + (entry * 0.025); // RR 2.5 aproximat
+  }
 
-    entryr = retr;
-    tp = entryr * 1.003;
-    sl = entryr * 0.997;
-
-  } else {
-    let retr = entryBase + cos * factor;
-    if (retr > high - minBuffer) retr = high - minBuffer;
-
-    entryr = retr;
-    tp = entryr * 0.997;
-    sl = entryr * 1.003;
+  // ---------------------------------------------------------
+  // CLÚSTER (DOWN)
+  // ---------------------------------------------------------
+  else if (type === "CLUSTER (DOWN)") {
+    entryr = entry;
+    sl = null;
+    tp = entry - (entry * 0.025);
   }
 
   return { entryr, tp, sl };
@@ -140,62 +119,12 @@ async function processSymbol(symbol, timeframe) {
   candles.sort((a, b) => a.timestamp - b.timestamp);
 
   // -------------------------
-  // MICROIMPULSE
-  // -------------------------
-  let microState = getMicroState(symbol, timeframe);
-
-  const { signal: microSignal, state: newMicroState } =
-    detectMicroimpulse(candles, symbol, timeframe, microState);
-
-  setMicroState(symbol, timeframe, newMicroState);
-  
-  //
-  if (microSignal) {
-  const dateKey = getDay(microSignal.timestamp);
-
-  const exists = await alreadySent2(
-    symbol,
-    timeframe,
-    microSignal.type,
-    microSignal.entryBase,
-    dateKey,
-    "confirmed"
-  );
-
-  if (!exists) {
-    console.log("[MICRO]", symbol, timeframe, microSignal.type, microSignal.timestamp);
-
-    const { entryr, tp, sl } = calcTargetsMicro(
-      microSignal.type,
-      microSignal.entryBase,
-      microSignal.breakoutCandle
-    );
-
-    await saveSignal2({
-      symbol,
-      timeframe,
-      type: microSignal.type,
-      entry: microSignal.entryBase,
-      entryr,
-      tp,
-      sl,
-      timestamp: microSignal.timestamp,
-      reason: microSignal.reason,
-      sensitivity: microSignal.sensitivity,
-      status: "confirmed",
-    });
-  }
-}
-
-//
-  
-  // -------------------------
-  // MS / ES
+  // MS / ES / CLÚSTER
   // -------------------------
   let msesState = getMsesState(symbol, timeframe);
 
   const { signal: msesSignal, state: newMsesState } =
-    detectMSES(candles, symbol, timeframe, msesState);
+    await detectMSES(candles, symbol, timeframe, msesState);
 
   setMsesState(symbol, timeframe, newMsesState);
 
@@ -214,12 +143,11 @@ async function processSymbol(symbol, timeframe) {
     if (!exists) {
       console.log("[MSES]", symbol, timeframe, msesSignal.type, msesSignal.timestamp);
 
-      //const { entryr, tp, sl } = calcTargets(msesSignal.type, msesSignal.entry);
-    const { entryr, tp, sl } = calcTargets(
-      msesSignal.type,
-      msesSignal.entry,
-      msesSignal.thirdCandle
-    );
+      const { entryr, tp, sl } = calcTargets(
+        msesSignal.type,
+        msesSignal.entry,
+        msesSignal.thirdCandle
+      );
 
       await saveSignal2({
         symbol,
@@ -264,7 +192,7 @@ async function mainLoop() {
 // -------------------------------------------------------------
 async function startBot() {
   await initDB();
-  console.log("Bot Microimpulsos FIAT en marxa");
+  console.log("Bot MS/ES/CLÚSTER FIAT en marxa");
 
   cron.schedule("* * * * *", mainLoop);
 }
