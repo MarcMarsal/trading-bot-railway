@@ -18,7 +18,7 @@ function normalizeTimestamp(raw) {
 export async function fetchAndStoreCandles(symbol, timeframe) {
   try {
     // OKX usa: ?instId=BTC-USDT&bar=1H&limit=4
-    const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=60`;
+    const url = `${API_URL}?instId=${symbol}&bar=${timeframe}&limit=4`;
 
     const res = await axios.get(url);
     let data = res.data.data;
