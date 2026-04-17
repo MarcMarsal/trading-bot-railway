@@ -57,53 +57,44 @@ function calcTargets(type, entry, thirdCandle) {
   const { open, close, high, low } = thirdCandle;
   const body = Math.abs(close - open);
 
-  // Retroces MS = 15% del cos
-  const retrFactor = 0.15;
-
   let entryr, tp, sl;
 
-  // ---------------------------------------------------------
+  // ============================
   // MS (UP)
-  // ---------------------------------------------------------
+  // ============================
   if (type === "MS (UP)") {
-    entryr = entry - body * retrFactor;
-
-    // SL = mínim entre 2a i 3a vela → ja ve donat per thirdCandle
-    sl = Math.min(low, open, close);
-
-    // TP = RR 1.5
+    entryr = entry - body * 0.15;     // retrocés 15%
+    sl = low;                         // SL sota la 3a vela
     const risk = entryr - sl;
-    tp = entryr + risk * 1.5;
+    tp = entryr + risk * 1.5;         // RR 1.5
   }
 
-  // ---------------------------------------------------------
+  // ============================
   // MS (DOWN)
-  // ---------------------------------------------------------
+  // ============================
   else if (type === "MS (DOWN)") {
-    entryr = entry + body * retrFactor;
-
-    sl = Math.max(high, open, close);
-
+    entryr = entry + body * 0.15;     // retrocés 15%
+    sl = high;                        // SL sobre la 3a vela
     const risk = sl - entryr;
-    tp = entryr - risk * 1.5;
+    tp = entryr - risk * 1.5;         // RR 1.5
   }
 
-  // ---------------------------------------------------------
-  // CLÚSTER (UP)
-  // ---------------------------------------------------------
+  // ============================
+  // CLUSTER (UP)
+  // ============================
   else if (type === "CLUSTER (UP)") {
-    entryr = entry; // entrada immediata
-    sl = null;      // manual
-    tp = entry + (entry * 0.025); // RR 2.5 aproximat
+    entryr = entry;                   // entrada immediata
+    sl = null;                        // SL manual
+    tp = entry + entry * 0.025;       // RR 2.5 aproximat
   }
 
-  // ---------------------------------------------------------
-  // CLÚSTER (DOWN)
-  // ---------------------------------------------------------
+  // ============================
+  // CLUSTER (DOWN)
+  // ============================
   else if (type === "CLUSTER (DOWN)") {
     entryr = entry;
     sl = null;
-    tp = entry - (entry * 0.025);
+    tp = entry - entry * 0.025;
   }
 
   return { entryr, tp, sl };
