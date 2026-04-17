@@ -64,7 +64,7 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   const useMagnitudeFilter = cfg.cfgmagnitude;
   const useVolatilityFilter = cfg.cfgvol;
   const window = cfg.cfgwindow;
-  const distPctMax = cfg.cfgdistpct;
+  const distPctMax = cfg.cfgdistpct; // reservat per si el fem servir més endavant
 
   // -------------------------
   // SORT CANDLES
@@ -84,9 +84,9 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   // -------------------------
   // BASE MS / ES CONDITIONS
   // -------------------------
-  const indecision = (o2, h1, l1, c2) => {
+  const indecision = (o2, h1, l1, c2close) => {
     const r1 = range(h1, l1);
-    return r1 === 0 ? true : body(o2, c2) < r1 * 0.3;
+    return r1 === 0 ? true : body(o2, c2close) < r1 * 0.3;
   };
 
   const msCond =
@@ -190,55 +190,59 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   // -------------------------
   let signal = null;
 
-  // MS normal
+  // MS normal (alcista)
   if (msFiltered && !state.prevMsFiltered) {
     signal = {
       symbol,
       timeframe,
-      type: "MS_LONG",
+      type: "MS (UP)",
       timestamp: curr.timestamp,
       entry: c3.close,
       reason: "ms",
-      thirdCandle: c3
+      thirdCandle: c3,
+      secondCandle: c2
     };
   }
 
-  // ES normal
+  // ES normal (baixista)
   if (esFiltered && !state.prevEsFiltered) {
     signal = {
       symbol,
       timeframe,
-      type: "MS_SHORT",
+      type: "MS (DOWN)",
       timestamp: curr.timestamp,
       entry: c3.close,
       reason: "es",
-      thirdCandle: c3
+      thirdCandle: c3,
+      secondCandle: c2
     };
   }
 
-  // MS CLUSTER
+  // MS CLUSTER (alcista)
   if (msCluster) {
     signal = {
       symbol,
       timeframe,
-      type: "MS_CLUSTER_LONG",
+      type: "CLUSTER (UP)",
       timestamp: curr.timestamp,
       entry: c3.close,
       reason: "cluster",
-      thirdCandle: c3
+      thirdCandle: c3,
+      secondCandle: c2
     };
   }
 
-  // ES CLUSTER
+  // ES CLUSTER (baixista)
   if (esCluster) {
     signal = {
       symbol,
       timeframe,
-      type: "MS_CLUSTER_SHORT",
+      type: "CLUSTER (DOWN)",
       timestamp: curr.timestamp,
       entry: c3.close,
       reason: "cluster",
-      thirdCandle: c3
+      thirdCandle: c3,
+      secondCandle: c2
     };
   }
 
