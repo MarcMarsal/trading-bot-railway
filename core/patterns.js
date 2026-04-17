@@ -85,7 +85,7 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   const useMagnitudeFilter = cfg.cfgmagnitude;
   const useVolatilityFilter = cfg.cfgvol;
   const window             = cfg.cfgwindow;
-  const distPctMax         = cfg.cfgdistpct; // igual que a l'indicador (per microimpulsos)
+  const distPctMax         = cfg.cfgdistpct;
 
   // -------------------------
   // SORT CANDLES
@@ -93,8 +93,8 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   candles = [...candles].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
-  const curr = candles[n - 1]; // equivalent a la vela actual
-  const c3   = candles[n - 2]; // tercera vela (última tancada)
+  const curr = candles[n - 1];
+  const c3   = candles[n - 2];
   const c2   = candles[n - 3];
   const c1   = candles[n - 4];
 
@@ -103,8 +103,8 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   }
 
   // -------------------------
-  // BASE MS / ES CONDITIONS (IDÈNTIC A L'INDICADOR)
-// -------------------------
+  // BASE MS / ES CONDITIONS
+  // -------------------------
   const indecision = (o2, h1, l1, c2close) => {
     const r1 = range(h1, l1);
     return r1 === 0 ? true : body(o2, c2close) < r1 * 0.3;
@@ -121,8 +121,8 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
     isBear(c3.open, c3.close);
 
   // -------------------------
-  // TREND (IDÈNTIC A L'INDICADOR)
-// -------------------------
+  // TREND
+  // -------------------------
   const trendUp =
     c3.close > c2.close &&
     c2.close >= c1.close;
@@ -137,16 +137,16 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   let esFiltered = esCond && (trendDown || trendNeutral);
 
   // -------------------------
-  // ATR / VOLATILITY (MATEIX CONCEPTE QUE TA.ATR + TA.SMA)
-// -------------------------
+  // ATR / VOLATILITY
+  // -------------------------
   const atrArr = calcATRArray(candles, 14);
   const atr14 = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
   const atrSMA20 = sma(atrArr, 20);
   const volOK = atr14 && atrSMA20 ? atr14 > atrSMA20 : true;
 
   // -------------------------
-  // EMA20 + SLOPE (IDÈNTIC CONCEPTE A L'INDICADOR)
-// -------------------------
+  // EMA20 + SLOPE
+  // -------------------------
   const closes = candles.map(c => c.close);
   const ema20Arr = ema(closes, 20);
   const ema20Last = ema20Arr[ema20Arr.length - 1];
@@ -154,8 +154,8 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   const emaSlope = ema20Last - ema20Prev;
 
   // -------------------------
-  // APPLY FILTERS (MATEIXOS QUE L'INDICADOR)
-// -------------------------
+  // APPLY FILTERS
+  // -------------------------
   if (useSlopeFilterMS) {
     msFiltered = msFiltered && emaSlope > 0;
   }
@@ -165,8 +165,6 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   }
 
   if (useTrendFilterES) {
-    // A l'indicador: esFiltered := esFiltered and close < ema20 and emaSlope < 0
-    // Aquí fem servir curr.close com a "close" actual
     esFiltered = esFiltered && curr.close < ema20Last && emaSlope < 0;
   }
 
@@ -181,21 +179,32 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   }
 
   // -------------------------
-  // CLUSTERS (MATEIX CONCEPTE QUE TA.SMA * WINDOW)
-// -------------------------
+  // CLUSTERS — 100% TradingView logic
+  // -------------------------
   const state = { ...prevState };
 
-  if (!state.msHistory) state.msHistory = [];
-  if (!state.esHistory) state.esHistory = [];
+  if (!state.msFlags) state.msFlags = [];
+  if (!state.esFlags) state.esFlags = [];
 
-  state.msHistory.push(msFiltered ? 1 : 0);
-  if (state.msHistory.length > window) state.msHistory.shift();
+  state.msFlags.push(msFiltered);
+  state.esFlags.push(esFiltered);
 
-  state.esHistory.push(esFiltered ? 1 : 0);
-  if (state.esHistory.length > window) state.esHistory.shift();
+  if (state.msFlags.length > window) state.msFlags.shift();
+  if (state.esFlags.length > window) state.esFlags.shift();
 
-  const msCount = state.msHistory.reduce((a, b) => a + b, 0);
-  const esCount = state.esHistory.reduce((a, b) => a + b, 0);
+  // Comptar bars consecutius MS
+  let msCount = 0;
+  for (let i = state.msFlags.length - 1; i >= 0; i--) {
+    if (state.msFlags[i]) msCount++;
+    else break;
+  }
+
+  // Comptar bars consecutius ES
+  let esCount = 0;
+  for (let i = state.esFlags.length - 1; i >= 0; i--) {
+    if (state.esFlags[i]) esCount++;
+    else break;
+  }
 
   const msCluster =
     msCount >= 3 &&
@@ -208,11 +217,10 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
     !state.prevEsFiltered;
 
   // -------------------------
-  // BUILD SIGNAL (MATEIX TIPUS QUE L'INDICADOR)
-// -------------------------
+  // BUILD SIGNAL
+  // -------------------------
   let signal = null;
 
-  // MS normal (alcista)
   if (msFiltered && !state.prevMsFiltered) {
     signal = {
       symbol,
@@ -226,7 +234,6 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
     };
   }
 
-  // ES normal (baixista)
   if (esFiltered && !state.prevEsFiltered) {
     signal = {
       symbol,
@@ -240,7 +247,6 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
     };
   }
 
-  // MS CLUSTER (alcista)
   if (msCluster) {
     signal = {
       symbol,
@@ -254,7 +260,6 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
     };
   }
 
-  // ES CLUSTER (baixista)
   if (esCluster) {
     signal = {
       symbol,
