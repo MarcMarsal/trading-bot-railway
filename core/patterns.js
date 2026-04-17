@@ -9,12 +9,11 @@ function isBear(o, c) { return c < o; }
 function body(o, c) { return Math.abs(c - o); }
 function range(h, l) { return h - l; }
 
-// ATR (simple version)
-function calcATR(candles, period = 14) {
-  if (candles.length < period + 1) return null;
-
-  let trs = [];
-  for (let i = candles.length - period - 1; i < candles.length - 1; i++) {
+// ATR array (equivalent ta.atr(14))
+function calcATRArray(candles, period = 14) {
+  if (candles.length < period + 1) return [];
+  const atrs = [];
+  for (let i = 1; i < candles.length; i++) {
     const h = candles[i].high;
     const l = candles[i].low;
     const pc = candles[i - 1].close;
@@ -23,16 +22,38 @@ function calcATR(candles, period = 14) {
       Math.abs(h - pc),
       Math.abs(l - pc)
     );
-    trs.push(tr);
+    if (i >= period) {
+      const slice = atrs.slice(- (period - 1));
+      const prevTRs = [...slice, tr];
+      const atr = prevTRs.reduce((a, b) => a + b, 0) / prevTRs.length;
+      atrs.push(atr);
+    } else {
+      atrs.push(tr);
+    }
   }
-  return trs.reduce((a, b) => a + b, 0) / trs.length;
+  return atrs;
 }
 
 // SMA
 function sma(arr, period) {
-  if (arr.length < period) return null;
+  if (!arr || arr.length < period) return null;
   const slice = arr.slice(arr.length - period);
   return slice.reduce((a, b) => a + b, 0) / period;
+}
+
+// SIMPLE EMA (per ema20)
+function ema(values, period) {
+  const k = 2 / (period + 1);
+  let emaArr = [];
+  let prev = values[0];
+  emaArr.push(prev);
+
+  for (let i = 1; i < values.length; i++) {
+    const v = values[i] * k + prev * (1 - k);
+    emaArr.push(v);
+    prev = v;
+  }
+  return emaArr;
 }
 
 // =========================
@@ -58,13 +79,13 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
 
   const cfg = cfgRes.rows[0];
 
-  const useSlopeFilterMS = cfg.cfgslopems;
-  const useSlopeFilterES = cfg.cfgslopes;
-  const useTrendFilterES = cfg.cfgtrendes;
+  const useSlopeFilterMS   = cfg.cfgslopems;
+  const useSlopeFilterES   = cfg.cfgslopes;
+  const useTrendFilterES   = cfg.cfgtrendes;
   const useMagnitudeFilter = cfg.cfgmagnitude;
   const useVolatilityFilter = cfg.cfgvol;
-  const window = cfg.cfgwindow;
-  const distPctMax = cfg.cfgdistpct; // reservat per si el fem servir més endavant
+  const window             = cfg.cfgwindow;
+  const distPctMax         = cfg.cfgdistpct; // igual que a l'indicador (per microimpulsos)
 
   // -------------------------
   // SORT CANDLES
@@ -72,18 +93,18 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   candles = [...candles].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
-  const curr = candles[n - 1];     // vela en formació
-  const c3 = candles[n - 2];       // tercera vela (última tancada)
-  const c2 = candles[n - 3];
-  const c1 = candles[n - 4];
+  const curr = candles[n - 1]; // equivalent a la vela actual
+  const c3   = candles[n - 2]; // tercera vela (última tancada)
+  const c2   = candles[n - 3];
+  const c1   = candles[n - 4];
 
   if (!curr || !c3 || !c2 || !c1) {
     return { signal: null, state: prevState };
   }
 
   // -------------------------
-  // BASE MS / ES CONDITIONS
-  // -------------------------
+  // BASE MS / ES CONDITIONS (IDÈNTIC A L'INDICADOR)
+// -------------------------
   const indecision = (o2, h1, l1, c2close) => {
     const r1 = range(h1, l1);
     return r1 === 0 ? true : body(o2, c2close) < r1 * 0.3;
@@ -100,8 +121,8 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
     isBear(c3.open, c3.close);
 
   // -------------------------
-  // TREND
-  // -------------------------
+  // TREND (IDÈNTIC A L'INDICADOR)
+// -------------------------
   const trendUp =
     c3.close > c2.close &&
     c2.close >= c1.close;
@@ -116,26 +137,25 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   let esFiltered = esCond && (trendDown || trendNeutral);
 
   // -------------------------
-  // ATR / VOLATILITY
-  // -------------------------
-  const atr14 = calcATR(candles, 14);
-  const atrSMA20 = sma(
-    candles.slice(-40).map(c => calcATR(candles.slice(0, candles.indexOf(c) + 1), 14) || 0),
-    20
-  );
-
+  // ATR / VOLATILITY (MATEIX CONCEPTE QUE TA.ATR + TA.SMA)
+// -------------------------
+  const atrArr = calcATRArray(candles, 14);
+  const atr14 = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
+  const atrSMA20 = sma(atrArr, 20);
   const volOK = atr14 && atrSMA20 ? atr14 > atrSMA20 : true;
 
   // -------------------------
-  // EMA20 + SLOPE
-  // -------------------------
+  // EMA20 + SLOPE (IDÈNTIC CONCEPTE A L'INDICADOR)
+// -------------------------
   const closes = candles.map(c => c.close);
-  const ema20 = ema(closes, 20);
-  const emaSlope = ema20[ema20.length - 1] - ema20[ema20.length - 2];
+  const ema20Arr = ema(closes, 20);
+  const ema20Last = ema20Arr[ema20Arr.length - 1];
+  const ema20Prev = ema20Arr[ema20Arr.length - 2];
+  const emaSlope = ema20Last - ema20Prev;
 
   // -------------------------
-  // APPLY FILTERS
-  // -------------------------
+  // APPLY FILTERS (MATEIXOS QUE L'INDICADOR)
+// -------------------------
   if (useSlopeFilterMS) {
     msFiltered = msFiltered && emaSlope > 0;
   }
@@ -145,7 +165,9 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   }
 
   if (useTrendFilterES) {
-    esFiltered = esFiltered && c3.close < ema20[ema20.length - 1] && emaSlope < 0;
+    // A l'indicador: esFiltered := esFiltered and close < ema20 and emaSlope < 0
+    // Aquí fem servir curr.close com a "close" actual
+    esFiltered = esFiltered && curr.close < ema20Last && emaSlope < 0;
   }
 
   if (useMagnitudeFilter && atr14) {
@@ -159,8 +181,8 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   }
 
   // -------------------------
-  // CLUSTERS
-  // -------------------------
+  // CLUSTERS (MATEIX CONCEPTE QUE TA.SMA * WINDOW)
+// -------------------------
   const state = { ...prevState };
 
   if (!state.msHistory) state.msHistory = [];
@@ -186,8 +208,8 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
     !state.prevEsFiltered;
 
   // -------------------------
-  // BUILD SIGNAL
-  // -------------------------
+  // BUILD SIGNAL (MATEIX TIPUS QUE L'INDICADOR)
+// -------------------------
   let signal = null;
 
   // MS normal (alcista)
@@ -253,21 +275,4 @@ export async function detectMSES(candles, symbol, timeframe, prevState = {}) {
   state.prevEsFiltered = esFiltered;
 
   return { signal, state };
-}
-
-// =========================
-// SIMPLE EMA
-// =========================
-function ema(values, period) {
-  const k = 2 / (period + 1);
-  let emaArr = [];
-  let prev = values[0];
-  emaArr.push(prev);
-
-  for (let i = 1; i < values.length; i++) {
-    const v = values[i] * k + prev * (1 - k);
-    emaArr.push(v);
-    prev = v;
-  }
-  return emaArr;
 }
