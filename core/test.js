@@ -83,12 +83,12 @@ import { detectMSES } from "./patterns.js";
 
 
 // 2. Configuració
-const symbol = "SUIUSDT";
+const symbol = "SUI-USDT";
 const timeframe = "1H";
 
 async function run() {
   let state = {};
-
+  console.log("Inici test...")
   for (let i = 0; i < candles.length; i++) {
     const slice = candles.slice(0, i + 1);
 
@@ -112,6 +112,7 @@ async function run() {
       );
     }
   }
+  console.log("Fi test...")
 }
 
 run();
