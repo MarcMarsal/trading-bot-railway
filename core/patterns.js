@@ -68,7 +68,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   // -------------------------
   // LOAD CONFIG FROM DB
   // -------------------------
-  const cleanSymbol = symbol.replace("-", "");
+ 
   const cfgRes = await client.query(
     "SELECT * FROM config_crypto WHERE symbol = $1",
     [cleanSymbol]
