@@ -61,7 +61,7 @@ function ema(values, period) {
 // MAIN FUNCTION
 // =========================
 export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) {
-  if (!candlesRaw || candlesRaw.length < 30) {
+  if (!candlesRaw || candlesRaw.length < 10) {
     return { signal: null, state: prevState };
   }
 
@@ -81,51 +81,38 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   const cfg = cfgRes.rows[0];
 
   const useSlopeFilterMS    = cfg.cfgslopems;
-  const useSlopeFilterES    = cfg.cfgslopes;
+  const useSlopeFilterES    = cfg.cfgslopees;
   const useTrendFilterES    = cfg.cfgtrendes;
   const useMagnitudeFilter  = cfg.cfgmagnitude;
   const useVolatilityFilter = cfg.cfgvol;
   const window              = cfg.cfgwindow;
-  const distPctMax          = cfg.cfgdistpct; // (només per microimpulsos a l’indicador)
 
   // -------------------------
-  // SORT CANDLES & USE ONLY CLOSED ONES
+  // IGNORE LAST CANDLE (OPEN)
   // -------------------------
   let candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
 
-  // assumim que l’última pot estar oberta → la ignorem per replicar TradingView
-  if (candles.length < 5) {
-    return { signal: null, state: prevState };
-  }
-  candles = candles.slice(0, candles.length - 1); // només veles tancades
+  if (candles.length < 5) return { signal: null, state: prevState };
+
+  // IGNORE LAST (OPEN) CANDLE
+  candles = candles.slice(0, candles.length - 1);
 
   const n = candles.length;
-  if (n < 5) {
-    return { signal: null, state: prevState };
-  }
+  if (n < 5) return { signal: null, state: prevState };
 
-  // índexs equivalents a Pine:
+  // Pine equivalence:
   // close   = candles[n-1]
   // close[1]= candles[n-2]
   // close[2]= candles[n-3]
   // close[3]= candles[n-4]
-  const curr = candles[n - 1]; // close
+  const curr = candles[n - 1]; // close[0]
   const c3   = candles[n - 2]; // close[1]
   const c2   = candles[n - 3]; // close[2]
   const c1   = candles[n - 4]; // close[3]
 
-  if (!curr || !c3 || !c2 || !c1) {
-    return { signal: null, state: prevState };
-  }
-
   // -------------------------
-  // BASE MS / ES CONDITIONS (IDÈNTIC A PINE)
-// o1 = open[3], h1 = high[3], l1 = low[3], c1 = close[3]
-// o2 = open[2], h2 = high[2], l2 = low[2], c2 = close[2]
-// o3 = open[1], h3 = high[1], l3 = low[1], c3 = close[1]
-// msCond = isBear(o1,c1) and |c2-o2| < (h1-l1)*0.3 and isBull(o3,c3)
-// esCond = isBull(o1,c1) and |c2-o2| < (h1-l1)*0.3 and isBear(o3,c3)
-// -------------------------
+  // BASE MS / ES CONDITIONS
+  // -------------------------
   const indecision = (o2, h1, l1, c2close) => {
     const r1 = range(h1, l1);
     return r1 === 0 ? true : body(o2, c2close) < r1 * 0.3;
@@ -142,10 +129,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
     isBear(c3.open, c3.close);
 
   // -------------------------
-  // TENDÈNCIA (IDÈNTIC A PINE)
-// trendUp   = close > close[1] and close[1] >= close[2]
-// trendDown = close < close[1] and close[1] <= close[2]
-// -------------------------
+  // TREND (IDENTICAL TO PINE)
+  // -------------------------
   const trendUp =
     curr.close > c3.close &&
     c3.close >= c2.close;
@@ -160,18 +145,16 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   let esValid = esCond && (trendDown || trendNeutral);
 
   // -------------------------
-  // ATR / VOLATILITY (mateix concepte que ta.atr + ta.sma)
-// es calcula sobre veles tancades
-// -------------------------
+  // ATR / VOLATILITY
+  // -------------------------
   const atrArr = calcATRArray(candles, 14);
   const atr14 = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
   const atrSMA20 = sma(atrArr, 20);
   const volOK = atr14 && atrSMA20 ? atr14 > atrSMA20 : true;
 
   // -------------------------
-  // EMA20 + SLOPE (IDÈNTIC CONCEPTE A L’INDICADOR)
-// ema sobre closes de veles tancades
-// -------------------------
+  // EMA20 + SLOPE
+  // -------------------------
   const closes = candles.map(c => c.close);
   const ema20Arr = ema(closes, 20);
   const ema20Last = ema20Arr[ema20Arr.length - 1];
@@ -179,11 +162,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   const emaSlope = ema20Last - ema20Prev;
 
   // -------------------------
-  // APPLY FILTERS (IDÈNTICS A PINE)
-// msFiltered = msValid
-// esFiltered = esValid
-// + slope, trendES, magnitude, vol
-// -------------------------
+  // APPLY FILTERS
+  // -------------------------
   let msFiltered = msValid;
   let esFiltered = esValid;
 
@@ -210,12 +190,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   }
 
   // -------------------------
-  // CLUSTERS (MATEIX CONCEPTE QUE TA.SMA * WINDOW)
-// msCount = ta.sma(msFiltered ? 1 : 0, window) * window
-// esCount = ta.sma(esFiltered ? 1 : 0, window) * window
-// msCluster = msCount >= 3 and msFiltered and not msFiltered[1]
-// esCluster = esCount >= 3 and esFiltered and not esFiltered[1]
-// -------------------------
+  // CLUSTERS (IDENTICAL TO PINE)
+  // -------------------------
   const state = { ...prevState };
 
   if (!state.msHistory) state.msHistory = [];
@@ -241,12 +217,10 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
     !state.prevEsFiltered;
 
   // -------------------------
-  // BUILD SIGNAL (MATEIX TIPUS QUE L’INDICADOR)
-// labels a Pine es pinten a bar_index[1] → entry = c3.close
-// -------------------------
+  // BUILD SIGNAL
+  // -------------------------
   let signal = null;
 
-  // MS normal (alcista)
   if (msFiltered && !state.prevMsFiltered) {
     signal = {
       symbol,
@@ -260,7 +234,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
     };
   }
 
-  // ES normal (baixista)
   if (esFiltered && !state.prevEsFiltered) {
     signal = {
       symbol,
@@ -274,7 +247,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
     };
   }
 
-  // MS CLUSTER (alcista)
   if (msCluster) {
     signal = {
       symbol,
@@ -288,7 +260,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
     };
   }
 
-  // ES CLUSTER (baixista)
   if (esCluster) {
     signal = {
       symbol,
