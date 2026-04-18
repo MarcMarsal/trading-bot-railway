@@ -1,6 +1,4 @@
-
 import { detectMSES_test as detectMSES } from "./detectMSES_test.js";
-
 
 let candles = [
   { symbol:"SUI-USDT", timeframe:"1H", open:0.9726, high:0.9747, low:0.9639, close:0.9675, volume:588096.8, timestamp:1776333600000, timestamp_es:1776340800000, date_es:"16/04/2026 12:00" },
@@ -53,6 +51,7 @@ let candles = [
   { symbol:"SUI-USDT", timeframe:"1H", open:0.9902, high:0.9911, low:0.9868, close:0.9876, volume:28975.865, timestamp:1776502800000, timestamp_es:1776510000000, date_es:"18/04/2026 11:00" }
 ];
 
+// Ordenem per timestamp
 candles = candles.sort((a, b) => a.timestamp - b.timestamp);
 
 const symbol = "SUI-USDT";
@@ -60,14 +59,13 @@ const timeframe = "1H";
 
 async function run() {
   let state = {};
+
   console.log("Inici test...");
-    console.log("Total veles:", candles.length);
+  console.log("Total veles:", candles.length);
 
   try {
     for (let i = 0; i < candles.length; i++) {
       const c = candles[i];
-      console.log(`--- ITERACIÓ ${i + 1}/${candles.length} ---`, new Date(c.timestamp).toISOString());
-
       const slice = candles.slice(0, i + 1);
 
       let result;
@@ -81,21 +79,19 @@ async function run() {
       const { signal, state: newState } = result || {};
       state = newState || state;
 
-      if (signal) {
-        console.log(
-          "SIGNAL:",
-          signal.type,
-          "at",
-          new Date(signal.timestamp).toISOString(),
-          "reason:",
-          signal.reason
-        );
-      } else {
-        console.log("res a", new Date(c.timestamp).toISOString());
-      }
+      // -------------------------
+      // LOG ORDENAT (1 línia)
+      // -------------------------
+      const ts = new Date(c.timestamp).toISOString();
+      const sig = signal ? signal.type : "cap";
+
+      console.log(
+        `${String(i + 1).padStart(2, "0")}/${candles.length} | ts=${ts} | signal=${sig}`
+      );
     }
 
-    console.log("Fi test OK, totes les veles processades.");
+    console.log("******** TEST ACABAT, TOTAL ITERACIONS:", candles.length, "********");
+
   } catch (err) {
     console.error("TEST ABORTAT PER ERROR:", err);
   }
