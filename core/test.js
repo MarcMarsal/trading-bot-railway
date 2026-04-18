@@ -1,4 +1,6 @@
-import { detectMSES } from "./patterns.js";
+
+import { detectMSES_test as detectMSES } from "./detectMSES_test.js";
+
 
 let candles = [
   { symbol:"SUI-USDT", timeframe:"1H", open:0.9726, high:0.9747, low:0.9639, close:0.9675, volume:588096.8, timestamp:1776333600000, timestamp_es:1776340800000, date_es:"16/04/2026 12:00" },
