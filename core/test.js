@@ -1,7 +1,6 @@
 import { detectMSES } from "./core/patterns.js";
 
 // 1. Enganxa aquí les 72 veles convertides a objectes JS
-const candles = [
   // Exemple:
   // { open:1.02, high:1.0216, low:1.0093, close:1.0137, volume:269893.3, timestamp:1776448800000 },
   // ...
@@ -81,7 +80,7 @@ const candles = [
 { open:0.9291, high:0.9395, low:0.9280, close:0.9388, volume:256489.73, timestamp:1776240000000 }
 ];
 
-];
+
 
 // 2. Configuració
 const symbol = "SUI-USDT";
