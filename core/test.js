@@ -1,4 +1,4 @@
-import { detectMSES } from "patterns.js";
+import { detectMSES } from "./patterns.js";
 
 // 1. Enganxa aquí les 72 veles convertides a objectes JS
   // Exemple:
