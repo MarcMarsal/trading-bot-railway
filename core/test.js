@@ -5,7 +5,7 @@ import { detectMSES } from "./patterns.js";
   // { open:1.02, high:1.0216, low:1.0093, close:1.0137, volume:269893.3, timestamp:1776448800000 },
   // ...
 
-  const candles = [
+  let candles = [
 { open:1.0005, high:1.0042, low:1.0000, close:1.0042, volume:85184.66, timestamp:1776495600000 },
 { open:1.0046, high:1.0046, low:0.9986, close:1.0006, volume:152028.92, timestamp:1776492000000 },
 { open:0.9999, high:1.0045, low:0.9993, close:1.0045, volume:186211.16, timestamp:1776488400000 },
@@ -80,15 +80,17 @@ import { detectMSES } from "./patterns.js";
 { open:0.9291, high:0.9395, low:0.9280, close:0.9388, volume:256489.73, timestamp:1776240000000 }
 ];
 
+// 2) Ordenar veles (IMPORTANT)
+candles = candles.sort((a, b) => a.timestamp - b.timestamp);
 
-
-// 2. Configuració
-const symbol = "SUI-USDT";
+// 3) Config correcte
+const symbol = "SUI-USDT";   // <-- ARA TOT EL SISTEMA USA AQUEST FORMAT
 const timeframe = "1H";
 
 async function run() {
   let state = {};
-  console.log("Inici test...")
+  console.log("Inici test...");
+
   for (let i = 0; i < candles.length; i++) {
     const slice = candles.slice(0, i + 1);
 
@@ -110,9 +112,15 @@ async function run() {
         "reason:",
         signal.reason
       );
+    } else {
+      console.log(
+        "res a",
+        new Date(candles[i].timestamp).toISOString()
+      );
     }
   }
-  console.log("Fi test...")
+
+  console.log("Fi test...");
 }
 
 run();
