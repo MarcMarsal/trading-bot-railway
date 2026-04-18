@@ -37,11 +37,10 @@ function renderActiveSignalsTable(signals) {
   let rows = "";
 
   for (const s of signals) {
-    // Convertir BTC-USDT → BTCUSDT
-    const symbolClean = s.symbol.replace("-", "").toUpperCase();
+     
 
     // URL correcta Bitunix
-    const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${symbolClean}`;
+    const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${s.symbol}`;
 
     // Classes de color segons tipus
     let rowClass = "";
