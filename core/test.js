@@ -83,7 +83,7 @@ import { detectMSES } from "./patterns.js";
 
 
 // 2. Configuració
-const symbol = "SUI-USDT";
+const symbol = "SUIUSDT";
 const timeframe = "1H";
 
 async function run() {
