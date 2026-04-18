@@ -95,7 +95,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   if (candles.length < 5) return { signal: null, state: prevState };
 
   // IGNORE LAST (OPEN) CANDLE
-  candles = candles.slice(0, candles.length - 1);
+  //la vela oberta ha de ser curr
+  //candles = candles.slice(0, candles.length - 1);
 
   const n = candles.length;
   if (n < 5) return { signal: null, state: prevState };
