@@ -1,3 +1,6 @@
+console.log(">>> TEST.JS EXECUTANT-SE <<<");
+
+
 import { detectMSES_test as detectMSES } from "./detectMSES_test.js";
 
 let candles = [
