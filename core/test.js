@@ -80,11 +80,9 @@ import { detectMSES } from "./patterns.js";
 { open:0.9291, high:0.9395, low:0.9280, close:0.9388, volume:256489.73, timestamp:1776240000000 }
 ];
 
-// 2) Ordenar veles (IMPORTANT)
 candles = candles.sort((a, b) => a.timestamp - b.timestamp);
 
-// 3) Config correcte
-const symbol = "SUI-USDT";   // <-- ARA TOT EL SISTEMA USA AQUEST FORMAT
+const symbol = "SUI-USDT";
 const timeframe = "1H";
 
 async function run() {
@@ -113,15 +111,16 @@ async function run() {
         signal.reason
       );
     } else {
-      console.log(
-        "res a",
-        new Date(candles[i].timestamp).toISOString()
-      );
+      console.log("res a", new Date(candles[i].timestamp).toISOString());
     }
   }
 
   console.log("Fi test...");
+
+  // DONA TEMPS A RAILWAY PER MOSTRAR LOGS
+  await new Promise(r => setTimeout(r, 2000));
+
+  process.exit(0);
 }
 
 run();
-
