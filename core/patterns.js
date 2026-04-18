@@ -71,10 +71,10 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
  
   const cfgRes = await client.query(
     "SELECT * FROM config_crypto WHERE symbol = $1",
-    [cleanSymbol]
+    [symbol]
   );
   if (cfgRes.rows.length === 0) {
-    console.log("No config for", cleanSymbol);
+    console.log("No config for", symbol);
     return { signal: null, state: prevState };
   }
 
