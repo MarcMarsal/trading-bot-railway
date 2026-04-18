@@ -50,7 +50,7 @@ let candles = [
   { symbol:"SUI-USDT", timeframe:"1H", open:1.0046, high:1.0046, low:0.9986, close:1.0006, volume:152028.92, timestamp:1776492000000, timestamp_es:1776499200000, date_es:"18/04/2026 08:00" },
   { symbol:"SUI-USDT", timeframe:"1H", open:1.0005, high:1.0097, low:1.0, close:1.0053, volume:280691.12, timestamp:1776495600000, timestamp_es:1776502800000, date_es:"18/04/2026 09:00" },
   { symbol:"SUI-USDT", timeframe:"1H", open:1.0054, high:1.0067, low:0.9839, close:0.9903, volume:998171.7, timestamp:1776499200000, timestamp_es:1776506400000, date_es:"18/04/2026 10:00" },
-  { symbol:"SUI-USDT", timeframe:"1H", open:0.9902, high:0.9911, low:0.9868, close:0.9876, volume:28975.865, timestamp:1776502800000, timestamp_es:1776510000000, date_es:"18/04/2026 }
+  { symbol:"SUI-USDT", timeframe:"1H", open:0.9902, high:0.9911, low:0.9868, close:0.9876, volume:28975.865, timestamp:1776502800000, timestamp_es:1776510000000, date_es:"18/04/2026 11:00" }
   // ... resta de veles ...
 ];
 
