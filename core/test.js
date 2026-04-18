@@ -49,7 +49,6 @@ let candles = [
   { symbol:"SUI-USDT", timeframe:"1H", open:1.0005, high:1.0097, low:1.0, close:1.0053, volume:280691.12, timestamp:1776495600000, timestamp_es:1776502800000, date_es:"18/04/2026 09:00" },
   { symbol:"SUI-USDT", timeframe:"1H", open:1.0054, high:1.0067, low:0.9839, close:0.9903, volume:998171.7, timestamp:1776499200000, timestamp_es:1776506400000, date_es:"18/04/2026 10:00" },
   { symbol:"SUI-USDT", timeframe:"1H", open:0.9902, high:0.9911, low:0.9868, close:0.9876, volume:28975.865, timestamp:1776502800000, timestamp_es:1776510000000, date_es:"18/04/2026 11:00" }
-  // ... resta de veles ...
 ];
 
 candles = candles.sort((a, b) => a.timestamp - b.timestamp);
@@ -60,7 +59,7 @@ const timeframe = "1H";
 async function run() {
   let state = {};
   console.log("Inici test...");
-  console.log("Total veles:", candles.length);
+    console.log("Total veles:", candles.length);
 
   try {
     for (let i = 0; i < candles.length; i++) {
@@ -74,7 +73,7 @@ async function run() {
         result = await detectMSES(slice, symbol, timeframe, state);
       } catch (err) {
         console.error("ERROR dins detectMSES a la iteració", i + 1, err);
-        throw err; // sortim per veure-ho clar als logs
+        throw err;
       }
 
       const { signal, state: newState } = result || {};
