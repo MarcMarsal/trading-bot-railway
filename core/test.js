@@ -1,8 +1,6 @@
 import { detectMSES } from "./patterns.js";
 
 let candles = [
-  // (les teves 72 veles, tal qual)
- [
   { symbol:"SUI-USDT", timeframe:"1H", open:0.9726, high:0.9747, low:0.9639, close:0.9675, volume:588096.8, timestamp:1776333600000, timestamp_es:1776340800000, date_es:"16/04/2026 12:00" },
   { symbol:"SUI-USDT", timeframe:"1H", open:0.9678, high:0.9716, low:0.9651, close:0.9698, volume:228385.25, timestamp:1776337200000, timestamp_es:1776344400000, date_es:"16/04/2026 13:00" },
   { symbol:"SUI-USDT", timeframe:"1H", open:0.9698, high:0.9791, low:0.9698, close:0.9772, volume:327753.06, timestamp:1776340800000, timestamp_es:1776348000000, date_es:"16/04/2026 14:00" },
