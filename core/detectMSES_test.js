@@ -1,6 +1,6 @@
 // ===============================================
 // detectMSES_test.js
-// Versió final 1:1 amb TradingView (MS, ES, CLÚSTER)
+// Versió final 1:1 amb TradingView (temps real)
 // ===============================================
 
 // Helpers
@@ -25,11 +25,8 @@ function getConfig(symbol) {
         window: 14,
         distPct: 0.6
       };
-
-    // Afegir altres símbols aquí si cal
   }
 
-  // Default
   return {
     slopeMS: false,
     slopeES: false,
@@ -42,24 +39,25 @@ function getConfig(symbol) {
 }
 
 // ===============================
-// DETECT MSES TEST
+// DETECT MSES TEST (temps real)
 // ===============================
 export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState = {}) {
 
   const cfg = getConfig(symbol);
   const window = cfg.window;
 
-  if (!candlesRaw || candlesRaw.length < 5)
+  // Necessitem mínim 4 veles per MS/ES
+  if (!candlesRaw || candlesRaw.length < 4)
     return { signal: null, state: prevState };
 
-  let candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
+  // NOMÉS les últimes 4 veles (temps real)
+  const candles = candlesRaw.slice(-4);
   const n = candles.length;
 
-  // Índexs PineScript
-  const curr = candles[n - 1];   // close[0]
-  const c1   = candles[n - 2];   // close[1]
-  const c2   = candles[n - 3];   // close[2]
-  const c3   = candles[n - 4];   // close[3]
+  const curr = candles[n - 1];
+  const c1   = candles[n - 2];
+  const c2   = candles[n - 3];
+  const c3   = candles[n - 4];
 
   // =========================
   // MS / ES BASE CONDITIONS
@@ -69,19 +67,16 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
     return r1 === 0 ? true : body(o2, c2close) < r1 * 0.3;
   };
 
-  // MS (UP)
   const msCond =
     isBear(c3.open, c3.close) &&
     indecision(c2.open, c3.high, c3.low, c2.close) &&
     isBull(c1.open, c1.close);
 
-  // ES (DOWN)
   const esCond =
     isBull(c3.open, c3.close) &&
     indecision(c2.open, c3.high, c3.low, c2.close) &&
     isBear(c1.open, c1.close);
 
-  // Tendència suau (com TV)
   const trendUp =
     curr.close > c1.close &&
     c1.close >= c2.close;
@@ -92,8 +87,8 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
 
   const trendNeutral = !trendUp && !trendDown;
 
-  let msFiltered = msCond && (trendUp || trendNeutral);
-  let esFiltered = esCond && (trendDown || trendNeutral);
+  const msFiltered = msCond && (trendUp || trendNeutral);
+  const esFiltered = esCond && (trendDown || trendNeutral);
 
   // =========================
   // STATE
@@ -112,7 +107,7 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   let signal = null;
 
   // =========================
-  // VELA NOVA
+  // VELA NOVA (temps real)
   // =========================
   if (curr.timestamp !== state.lastTimestamp) {
 
@@ -137,11 +132,11 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   // =========================
   // COUNTS (MODE TRADINGVIEW)
   // =========================
-  const esClosedCount = state.esHistory.reduce((a, b) => a + b, 0);
-  const esCount = esClosedCount + (esFiltered ? 1 : 0);
-
   const msClosedCount = state.msHistory.reduce((a, b) => a + b, 0);
   const msCount = msClosedCount + (msFiltered ? 1 : 0);
+
+  const esClosedCount = state.esHistory.reduce((a, b) => a + b, 0);
+  const esCount = esClosedCount + (esFiltered ? 1 : 0);
 
   // =========================
   // CLÚSTER (MODE TRADINGVIEW)
