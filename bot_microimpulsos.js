@@ -105,15 +105,15 @@ function calcTargets(type, entry, thirdCandle) {
 // -------------------------------------------------------------
 // PROCESS SYMBOL
 // -------------------------------------------------------------
+// -------------------------------------------------------------
+// PROCESS SYMBOL
+// -------------------------------------------------------------
 async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 80);
   if (!candles || candles.length < 30) return;
 
   candles.sort((a, b) => a.timestamp - b.timestamp);
 
-  // -------------------------
-  // MS / ES / CLÚSTER
-  // -------------------------
   let msesState = getMsesState(symbol, timeframe);
 
   const { signal: msesSignal, state: newMsesState } =
@@ -121,7 +121,9 @@ async function processSymbol(symbol, timeframe) {
 
   setMsesState(symbol, timeframe, newMsesState);
 
-  if (msesSignal) {
+  // ⛔ NO ENVIAR ES
+  if (msesSignal && !msesSignal.type.startsWith("ES")) {
+
     const dateKey = getDay(msesSignal.timestamp);
 
     const exists = await alreadySent2(
@@ -158,6 +160,7 @@ async function processSymbol(symbol, timeframe) {
     }
   }
 }
+
 
 // -------------------------------------------------------------
 // LOOP PRINCIPAL
