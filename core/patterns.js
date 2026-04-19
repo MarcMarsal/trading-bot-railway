@@ -101,6 +101,14 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   const c1   = candles[n - 2];   // close[1]
   const c2   = candles[n - 3];   // close[2]
   const c3   = candles[n - 4];   // close[3]
+  if (symbol === 'RENDER-USDT') { 
+    console.log("=== RENDER 1H — Velas analizadas ===");
+    console.log("c3 (close[3]):", c3.timestamp, c3.open, c3.high, c3.low, c3.close);
+    console.log("c2 (close[2]):", c2.timestamp, c2.open, c2.high, c2.low, c2.close);
+    console.log("c1 (close[1]):", c1.timestamp, c1.open, c1.high, c1.low, c1.close);
+    console.log("curr (close[0]):", curr.timestamp, curr.open, curr.high, curr.low, curr.close);
+    console.log("====================================");
+  }
 
   // -------------------------
   // INDECISIÓ CORRECTA (USANT NOMÉS c2)
