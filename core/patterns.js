@@ -266,7 +266,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       type: "MS (UP)",
       timestamp: curr.timestamp,
       entry: c3.close,
-      reason: "ms"
+      reason: "ms",
+      thirdCandle: c1
     };
   }
 
@@ -277,7 +278,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       type: "ES (DOWN)",
       timestamp: curr.timestamp,
       entry: c3.close,
-      reason: "es"
+      reason: "es",
+      thirdCandle: c1
     };
   }
 
@@ -288,7 +290,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       type: "CLUSTER (UP)",
       timestamp: curr.timestamp,
       entry: c3.close,
-      reason: "cluster"
+      reason: "cluster",
+      thirdCandle: c1
     };
   }
 
@@ -299,7 +302,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       type: "CLUSTER (DOWN)",
       timestamp: curr.timestamp,
       entry: c3.close,
-      reason: "cluster"
+      reason: "cluster",
+      thirdCandle: c1
     };
   }
 
