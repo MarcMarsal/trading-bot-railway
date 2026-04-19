@@ -78,7 +78,7 @@ export async function fetchAndStoreCandles(symbol, timeframe) {
       );
     }
 
-    console.log(`✔ Candles OKX guardades: ${symbol} ${timeframe}`);
+    //console.log(`✔ Candles OKX guardades: ${symbol} ${timeframe}`);
 
   } catch (err) {
     console.log("❌ Error descarregant vela OKX:", symbol, timeframe, err.message);
