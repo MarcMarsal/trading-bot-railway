@@ -85,6 +85,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   const useMagnitudeFilter  = cfg.cfgmagnitude;
   const useVolatilityFilter = cfg.cfgvol;
   const window              = cfg.cfgwindow;
+  const debug               = cfg.cfgdebug;   // <── DEBUG CONTROLAT PER CONFIG
 
   // -------------------------
   // CANDLES ORDENADES
@@ -95,44 +96,49 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   const n = candles.length;
 
   // =========================
-  // INDEXACIÓ PINE (CORRECTA)
+  // INDEXACIÓ PINE (1:1)
   // =========================
   const curr = candles[n - 1];   // close[0]
   const c1   = candles[n - 2];   // close[1]
   const c2   = candles[n - 3];   // close[2]
   const c3   = candles[n - 4];   // close[3]
-  if (symbol === 'RENDER-USDT') { 
-    console.log("=== RENDER 1H — Velas analizadas ===");
+
+  // -------------------------
+  // DEBUG CONTROLAT PER CONFIG
+  // -------------------------
+  if (debug) {
+    console.log(`=== DEBUG ${symbol} ${timeframe} — Velas analizadas ===`);
     console.log("c3 (close[3]):", c3.timestamp, c3.open, c3.high, c3.low, c3.close);
     console.log("c2 (close[2]):", c2.timestamp, c2.open, c2.high, c2.low, c2.close);
     console.log("c1 (close[1]):", c1.timestamp, c1.open, c1.high, c1.low, c1.close);
     console.log("curr (close[0]):", curr.timestamp, curr.open, curr.high, curr.low, curr.close);
-    console.log("====================================");
+    console.log("=========================================================");
   }
 
   // -------------------------
-  // INDECISIÓ CORRECTA (USANT NOMÉS c2)
+  // INDECISIÓ 1:1 TRADINGVIEW
+  // cos de c2, rang de c1
   // -------------------------
-  const indecision = (c) => {
-    const r = c.high - c.low;
-    return r === 0 ? true : Math.abs(c.close - c.open) < r * 0.3;
+  const indecision = (c2, c1) => {
+    const r = c1.high - c1.low;
+    return r === 0 ? true : Math.abs(c2.close - c2.open) < r * 0.3;
   };
 
   // -------------------------
-  // BASE MS / ES CONDITIONS (CORRECTES)
+  // MS / ES 1:1 TRADINGVIEW
   // -------------------------
   const msCond =
     isBear(c3.open, c3.close) &&
-    indecision(c2) &&
+    indecision(c2, c3) &&
     isBull(c1.open, c1.close);
 
   const esCond =
     isBull(c3.open, c3.close) &&
-    indecision(c2) &&
+    indecision(c2, c3) &&
     isBear(c1.open, c1.close);
 
   // -------------------------
-  // TREND (CORRECTE)
+  // TENDÈNCIA 1:1 TRADINGVIEW
   // -------------------------
   const trendUp =
     curr.close > c1.close &&
@@ -205,7 +211,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
       const cond =
         isBear(c3.open, c3.close) &&
-        indecision(c2) &&
+        indecision(c2, c3) &&
         isBull(c1.open, c1.close);
 
       const trend =
@@ -227,7 +233,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
       const cond =
         isBull(c3.open, c3.close) &&
-        indecision(c2) &&
+        indecision(c2, c3) &&
         isBear(c1.open, c1.close);
 
       const trend =
