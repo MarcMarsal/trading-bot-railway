@@ -110,13 +110,11 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
     return r1 === 0 ? true : body(o2, c2close) < r1 * 0.3;
   };
 
-  // MS (UP): c3 bearish → c2 indecisive → c1 bullish
   const msCond =
     isBear(c3.open, c3.close) &&
     indecision(c2.open, c3.high, c3.low, c2.close) &&
     isBull(c1.open, c1.close);
 
-  // ES (DOWN): c3 bullish → c2 indecisive → c1 bearish
   const esCond =
     isBull(c3.open, c3.close) &&
     indecision(c2.open, c3.high, c3.low, c2.close) &&
@@ -135,8 +133,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
   const trendNeutral = !trendUp && !trendDown;
 
-  let msValid = msCond && (trendUp || trendNeutral);
-  let esValid = esCond && (trendDown || trendNeutral);
+  let msFiltered = msCond && (trendUp || trendNeutral);
+  let esFiltered = esCond && (trendDown || trendNeutral);
 
   // -------------------------
   // ATR / VOLATILITY
@@ -158,20 +156,11 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   // -------------------------
   // APPLY FILTERS
   // -------------------------
-  let msFiltered = msValid;
-  let esFiltered = esValid;
+  if (useSlopeFilterMS) msFiltered = msFiltered && emaSlope > 0;
+  if (useSlopeFilterES) esFiltered = esFiltered && emaSlope < 0;
 
-  if (useSlopeFilterMS) {
-    msFiltered = msFiltered && emaSlope > 0;
-  }
-
-  if (useSlopeFilterES) {
-    esFiltered = esFiltered && emaSlope < 0;
-  }
-
-  if (useTrendFilterES) {
+  if (useTrendFilterES)
     esFiltered = esFiltered && curr.close < ema20Last && emaSlope < 0;
-  }
 
   if (useMagnitudeFilter && atr14) {
     msFiltered = msFiltered && Math.abs(c3.close - c3.open) > atr14 * 0.20;
@@ -184,61 +173,76 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   }
 
   // -------------------------
-  // STATE & CLÚSTER (CORREGIT)
+  // STATE (NOMÉS PER MS[1] / ES[1])
   // -------------------------
   const state = { ...prevState };
 
-  if (!state.msHistory) state.msHistory = [];
-  if (!state.esHistory) state.esHistory = [];
-
-  if (!state.lastTimestamp) state.lastTimestamp = 0;
-  if (state.lastMsFiltered === undefined) state.lastMsFiltered = false;
-  if (state.lastEsFiltered === undefined) state.lastEsFiltered = false;
   if (state.prevMsFiltered === undefined) state.prevMsFiltered = false;
   if (state.prevEsFiltered === undefined) state.prevEsFiltered = false;
 
-  // NOMÉS ACTUALITZEM ESTAT QUAN CANVIA LA VELA
-  if (curr.timestamp !== state.lastTimestamp) {
-
-    const closedMs = state.lastMsFiltered;
-    const closedEs = state.lastEsFiltered;
-
-    state.msHistory.push(closedMs ? 1 : 0);
-    if (state.msHistory.length > window) state.msHistory.shift();
-
-    state.esHistory.push(closedEs ? 1 : 0);
-    if (state.esHistory.length > window) state.esHistory.shift();
-
-    state.prevMsFiltered = closedMs;
-    state.prevEsFiltered = closedEs;
-
-    state.lastMsFiltered = msFiltered;
-    state.lastEsFiltered = esFiltered;
-
-    state.lastTimestamp = curr.timestamp;
-  }
-
   // -------------------------
-  // CLÚSTER MODE TRADINGVIEW
+  // CLÚSTER MODE TRADINGVIEW (1:1)
   // -------------------------
-  const esClosedCount = state.esHistory.reduce((a, b) => a + b, 0);
-  const msClosedCount = state.msHistory.reduce((a, b) => a + b, 0);
 
-  const esCount = esClosedCount + (esFiltered ? 1 : 0);
-  const msCount = msClosedCount + (msFiltered ? 1 : 0);
+  // Comptem MS dins la finestra com Pine Script
+  const msCount = candles
+    .slice(-window)
+    .filter((_, idx, arr) => {
+      const i = n - window + idx;
+      const c1 = candles[i - 1];
+      const c2 = candles[i - 2];
+      const c3 = candles[i - 3];
+      if (!c3) return false;
 
+      const cond =
+        isBear(c3.open, c3.close) &&
+        indecision(c2.open, c3.high, c3.low, c2.close) &&
+        isBull(c1.open, c1.close);
+
+      const trend =
+        candles[i].close > c1.close && c1.close >= c2.close
+          ? true
+          : !(candles[i].close < c1.close && c1.close <= c2.close);
+
+      return cond && trend;
+    }).length;
+
+  // Comptem ES dins la finestra com Pine Script
+  const esCount = candles
+    .slice(-window)
+    .filter((_, idx, arr) => {
+      const i = n - window + idx;
+      const c1 = candles[i - 1];
+      const c2 = candles[i - 2];
+      const c3 = candles[i - 3];
+      if (!c3) return false;
+
+      const cond =
+        isBull(c3.open, c3.close) &&
+        indecision(c2.open, c3.high, c3.low, c2.close) &&
+        isBear(c1.open, c1.close);
+
+      const trend =
+        candles[i].close < c1.close && c1.close <= c2.close
+          ? true
+          : !(candles[i].close > c1.close && c1.close >= c2.close);
+
+      return cond && trend;
+    }).length;
+
+  // Detecció 1:1 TradingView
   const msCluster =
     msCount >= 3 &&
     msFiltered &&
-    !esFiltered;
+    !state.prevMsFiltered;
 
   const esCluster =
     esCount >= 3 &&
     esFiltered &&
-    !msFiltered;
+    !state.prevEsFiltered;
 
   // -------------------------
-  // BUILD SIGNAL (CORREGIT)
+  // BUILD SIGNAL
   // -------------------------
   let signal = null;
 
@@ -249,9 +253,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       type: "MS (UP)",
       timestamp: curr.timestamp,
       entry: c3.close,
-      reason: "ms",
-      thirdCandle: c3,
-      secondCandle: c2
+      reason: "ms"
     };
   }
 
@@ -262,9 +264,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       type: "ES (DOWN)",
       timestamp: curr.timestamp,
       entry: c3.close,
-      reason: "es",
-      thirdCandle: c3,
-      secondCandle: c2
+      reason: "es"
     };
   }
 
@@ -275,9 +275,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       type: "CLUSTER (UP)",
       timestamp: curr.timestamp,
       entry: c3.close,
-      reason: "cluster",
-      thirdCandle: c3,
-      secondCandle: c2
+      reason: "cluster"
     };
   }
 
@@ -288,12 +286,15 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       type: "CLUSTER (DOWN)",
       timestamp: curr.timestamp,
       entry: c3.close,
-      reason: "cluster",
-      thirdCandle: c3,
-      secondCandle: c2
+      reason: "cluster"
     };
   }
 
+  // -------------------------
+  // UPDATE STATE (NOMÉS AIXÒ)
+  // -------------------------
+  state.prevMsFiltered = msFiltered;
+  state.prevEsFiltered = esFiltered;
+
   return { signal, state };
 }
-
