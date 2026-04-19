@@ -85,7 +85,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   const useMagnitudeFilter  = cfg.cfgmagnitude;
   const useVolatilityFilter = cfg.cfgvol;
   const window              = cfg.cfgwindow;
-  const debug               = cfg.cfgdebug;   // <── DEBUG CONTROLAT PER CONFIG
+  const debug               = cfg.cfgdebug;
 
   // -------------------------
   // CANDLES ORDENADES
@@ -104,7 +104,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   const c3   = candles[n - 4];   // close[3]
 
   // -------------------------
-  // DEBUG CONTROLAT PER CONFIG
+  // DEBUG
   // -------------------------
   if (debug) {
     console.log(`=== DEBUG ${symbol} ${timeframe} — Velas analizadas ===`);
@@ -117,7 +117,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
   // -------------------------
   // INDECISIÓ 1:1 TRADINGVIEW
-  // cos de c2, rang de c1
   // -------------------------
   const indecision = (c2, c1) => {
     const r = c1.high - c1.low;
@@ -129,12 +128,12 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   // -------------------------
   const msCond =
     isBear(c3.open, c3.close) &&
-    indecision(c2, c3) &&
+    indecision(c2, c1) &&
     isBull(c1.open, c1.close);
 
   const esCond =
     isBull(c3.open, c3.close) &&
-    indecision(c2, c3) &&
+    indecision(c2, c1) &&
     isBear(c1.open, c1.close);
 
   // -------------------------
@@ -211,13 +210,12 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
       const cond =
         isBear(c3.open, c3.close) &&
-        indecision(c2, c3) &&
+        indecision(c2, c1) &&
         isBull(c1.open, c1.close);
 
       const trend =
-        candles[i].close > c1.close && c1.close >= c2.close
-          ? true
-          : !(candles[i].close < c1.close && c1.close <= c2.close);
+        (candles[i].close > c1.close && c1.close >= c2.close) ||
+        !(candles[i].close < c1.close && c1.close <= c2.close);
 
       return cond && trend;
     }).length;
@@ -233,13 +231,12 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
       const cond =
         isBull(c3.open, c3.close) &&
-        indecision(c2, c3) &&
+        indecision(c2, c1) &&
         isBear(c1.open, c1.close);
 
       const trend =
-        candles[i].close < c1.close && c1.close <= c2.close
-          ? true
-          : !(candles[i].close > c1.close && c1.close >= c2.close);
+        (candles[i].close < c1.close && c1.close <= c2.close) ||
+        !(candles[i].close > c1.close && c1.close >= c2.close);
 
       return cond && trend;
     }).length;
@@ -315,3 +312,4 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
   return { signal, state };
 }
+
