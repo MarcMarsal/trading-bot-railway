@@ -56,7 +56,7 @@ let candles = [
 // Ordenem per timestamp
 candles = candles.sort((a, b) => a.timestamp - b.timestamp);
 
-const symbol = "SUI-USDT";
+const symbol = "OP-USDT";
 const timeframe = "1H";
 
 async function run() {
