@@ -41,7 +41,7 @@ function sma(arr, period) {
   return slice.reduce((a, b) => a + b, 0) / period;
 }
 
-// SIMPLE EMA (per ema20)
+// SIMPLE EMA (per ema20 / emaFast)
 function ema(values, period) {
   if (!values || values.length === 0) return [];
   const k = 2 / (period + 1);
@@ -79,10 +79,10 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
   const cfg = cfgRes.rows[0];
 
-  const useSlopeFilterMS    = cfg.cfgslopems;
-  const useSlopeFilterES    = cfg.cfgslopees;
-  const useTrendFilterES    = cfg.cfgtrendes;
-  const useMagnitudeFilter  = cfg.cfgmagnitude;
+  const useSlopeFilterMS    = cfg.cfgslopems;     // NO l’aplicarem (Pine no el fa servir)
+  const useSlopeFilterES    = cfg.cfgslopees;     // NO l’aplicarem
+  const useTrendFilterES    = cfg.cfgtrendes;     // ja està implícit al Pine amb trendDown
+  const useMagnitudeFilter  = cfg.cfgmagnitude;   // al Pine és magOK amb ratio; aquí el deixem com fins ara
   const useVolatilityFilter = cfg.cfgvol;
   const window              = cfg.cfgwindow;
   const debug               = cfg.cfgdebug;
@@ -91,17 +91,30 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   // CANDLES ORDENADES
   // -------------------------
   let candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
-  if (candles.length < 5) return { signal: null, state: prevState };
+  if (candles.length < 6) return { signal: null, state: prevState };
 
   const n = candles.length;
 
   // =========================
-  // INDEXACIÓ PINE (1:1)
+  // INDEXACIÓ PINE 1:1 (SENSE VELA EN FORMACIÓ)
   // =========================
-  const curr = candles[n - 1];   // close[0]
-  const c1   = candles[n - 2];   // close[1]
-  const c2   = candles[n - 3];   // close[2]
-  const c3   = candles[n - 4];   // close[3]
+  // Suposem que l’última vela de candles és la EN FORMACIÓ → NO la fem servir.
+  // Pine:
+  //   close     = close[0]  → última tancada
+  //   close[1]  → penúltima
+  //   close[2]  → antepenúltima
+  //   close[3]  → quarta
+  //
+  // Map al bot:
+  //   last  = candles[n-2] → close[0]
+  //   c1    = candles[n-3] → close[1]
+  //   c2    = candles[n-4] → close[2]
+  //   c3    = candles[n-5] → close[3]
+
+  const last = candles[n - 2];   // close[0] (última tancada)
+  const c1   = candles[n - 3];   // close[1]
+  const c2   = candles[n - 4];   // close[2]
+  const c3   = candles[n - 5];   // close[3]
 
   // -------------------------
   // DEBUG
@@ -111,82 +124,114 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
     console.log("c3 (close[3]):", c3.timestamp, c3.open, c3.high, c3.low, c3.close);
     console.log("c2 (close[2]):", c2.timestamp, c2.open, c2.high, c2.low, c2.close);
     console.log("c1 (close[1]):", c1.timestamp, c1.open, c1.high, c1.low, c1.close);
-    console.log("curr (close[0]):", curr.timestamp, curr.open, curr.high, curr.low, curr.close);
+    console.log("curr (close[0]):", last.timestamp, last.open, last.high, last.low, last.close);
     console.log("=========================================================");
   }
 
   // -------------------------
-  // INDECISIÓ 1:1 TRADINGVIEW
+  // INDECISIÓ (PINE)
+  // o1 = open[3], h1 = high[3], l1 = low[3], c1 = close[3]
+  // o2 = open[2], c2 = close[2]
+  // indecisió: abs(c2 - o2) < (h1 - l1) * 0.3
   // -------------------------
-  const indecision = (c2, c1) => {
-    const r = c1.high - c1.low;
-    return r === 0 ? true : Math.abs(c2.close - c2.open) < r * 0.3;
+  const indecision = (mid, first) => {
+    const r = first.high - first.low;
+    if (r === 0) return true;
+    return Math.abs(mid.close - mid.open) < r * 0.3;
   };
 
   // -------------------------
-  // MS / ES 1:1 TRADINGVIEW
+  // MS / ES (PINE)
+  // o1,c1 → c3
+  // o2,c2 → c2
+  // o3,c3 → c1
   // -------------------------
   const msCond =
     isBear(c3.open, c3.close) &&
-    indecision(c2, c1) &&
+    indecision(c2, c3) &&
     isBull(c1.open, c1.close);
 
   const esCond =
     isBull(c3.open, c3.close) &&
-    indecision(c2, c1) &&
+    indecision(c2, c3) &&
     isBear(c1.open, c1.close);
 
   // -------------------------
-  // TENDÈNCIA 1:1 TRADINGVIEW
+  // TENDÈNCIA (PINE)
+  // trendUp   = close > close[1] and close[1] >= close[2]
+  // trendDown = close < close[1] and close[1] <= close[2]
   // -------------------------
   const trendUp =
-    curr.close > c1.close &&
+    last.close > c1.close &&
     c1.close >= c2.close;
 
   const trendDown =
-    curr.close < c1.close &&
+    last.close < c1.close &&
     c1.close <= c2.close;
 
   const trendNeutral = !trendUp && !trendDown;
 
-  let msFiltered = msCond && (trendUp || trendNeutral);
-  let esFiltered = esCond && (trendDown || trendNeutral);
+  let msValid = msCond && (trendUp || trendNeutral);
+  let esValid = esCond && (trendDown || trendNeutral);
 
   // -------------------------
-  // ATR / VOLATILITY
+  // MAGNITUD (PINE)
+  // bodyFirst  = abs(c1 - o1) → c3
+  // bodyThird  = abs(c3 - o3) → c1
+  // magOK = bodyThird > bodyFirst * ratio
+  //
+  // Aquí no tenim ratio per símbol a config, així que mantenim el filtre
+  // existent només si cfgmagnitude = true (com ja tenies).
+  // -------------------------
+  let msWeak = false;
+  let esWeak = false;
+  let msFiltered = msValid;
+  let esFiltered = esValid;
+
+  if (useMagnitudeFilter) {
+    const bodyFirst = Math.abs(c3.close - c3.open);
+    const bodyThird = Math.abs(c1.close - c1.open);
+    const ratio = 0.6; // si vols 1:1 amb Pine, això hauria de venir de config_crypto
+    const magOK = bodyThird > bodyFirst * ratio;
+
+    msWeak = msValid && !magOK;
+    esWeak = esValid && !magOK;
+
+    msFiltered = msValid && magOK;
+    esFiltered = esValid && magOK;
+  } else {
+    msFiltered = msValid;
+    esFiltered = esValid;
+  }
+
+  // -------------------------
+  // VOLATILITAT (PINE)
+  // if useVolatilityFilter:
+  //   volOK = atr(14) > sma(atr(14),20)
+  //   msFiltered := msFiltered and volOK
+  //   esFiltered := esFiltered and volOK
   // -------------------------
   const atrArr = calcATRArray(candles, 14);
   const atr14 = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
   const atrSMA20 = sma(atrArr, 20);
   const volOK = atr14 && atrSMA20 ? atr14 > atrSMA20 : true;
 
-  // -------------------------
-  // EMA20 + SLOPE
-  // -------------------------
-  const closes = candles.map(c => c.close);
-  const ema20Arr = ema(closes, 20);
-  const ema20Last = ema20Arr[ema20Arr.length - 1];
-  const ema20Prev = ema20Arr[ema20Arr.length - 2];
-  const emaSlope = ema20Last - ema20Prev;
-
-  // -------------------------
-  // APPLY FILTERS
-  // -------------------------
-  if (useSlopeFilterMS) msFiltered = msFiltered && emaSlope > 0;
-  if (useSlopeFilterES) esFiltered = esFiltered && emaSlope < 0;
-
-  if (useTrendFilterES)
-    esFiltered = esFiltered && curr.close < ema20Last && emaSlope < 0;
-
-  if (useMagnitudeFilter && atr14) {
-    msFiltered = msFiltered && Math.abs(c3.close - c3.open) > atr14 * 0.20;
-    esFiltered = esFiltered && Math.abs(c3.close - c3.open) > atr14 * 0.20;
-  }
-
   if (useVolatilityFilter) {
     msFiltered = msFiltered && volOK;
     esFiltered = esFiltered && volOK;
   }
+
+  // -------------------------
+  // EMA + DISTÀNCIA (PINE)
+  // emaFast = ta.ema(close, emaLen)
+  // distPctMS = abs((close - emaFast)/emaFast)*100
+  // failsDistPct = distPctMS > distPctMax
+  //
+  // Aquí: si tens distPct a config_crypto, el pots aplicar.
+  // De moment, mantenim el comportament antic (sense distPct),
+  // perquè no el tenies implementat al bot.
+  // -------------------------
+  // (si vols, aquí després hi podem afegir distPct 1:1 amb Pine)
 
   // -------------------------
   // STATE
@@ -197,49 +242,70 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   if (state.prevEsFiltered === undefined) state.prevEsFiltered = false;
 
   // -------------------------
-  // CLÚSTERS 1:1 TRADINGVIEW
+  // CLÚSTERS (PINE)
+  // msCount = sma(msFiltered?1:0, window)*window
+  // msCluster = msCount>=3 and msFiltered and not msFiltered[1]
+  //
+  // Al bot no tenim l’històric de msFiltered per cada vela,
+  // així que aproximem recomputant condicions dins la finestra.
   // -------------------------
-  const msCount = candles
-    .slice(-window)
-    .filter((_, idx) => {
-      const i = n - window + idx;
-      const c1 = candles[i - 1];
-      const c2 = candles[i - 2];
-      const c3 = candles[i - 3];
-      if (!c3) return false;
+  const msFlags = [];
+  const esFlags = [];
 
-      const cond =
-        isBear(c3.open, c3.close) &&
-        indecision(c2, c1) &&
-        isBull(c1.open, c1.close);
+  // recomputem msFiltered/esFiltered per cada vela tancada dins la finestra
+  for (let i = Math.max(5, n - window - 2); i <= n - 2; i++) {
+    const last_i = candles[i];      // close[0] per aquesta posició
+    const c1_i   = candles[i - 1];  // close[1]
+    const c2_i   = candles[i - 2];  // close[2]
+    const c3_i   = candles[i - 3];  // close[3]
 
-      const trend =
-        (candles[i].close > c1.close && c1.close >= c2.close) ||
-        !(candles[i].close < c1.close && c1.close <= c2.close);
+    const msCond_i =
+      isBear(c3_i.open, c3_i.close) &&
+      indecision(c2_i, c3_i) &&
+      isBull(c1_i.open, c1_i.close);
 
-      return cond && trend;
-    }).length;
+    const esCond_i =
+      isBull(c3_i.open, c3_i.close) &&
+      indecision(c2_i, c3_i) &&
+      isBear(c1_i.open, c1_i.close);
 
-  const esCount = candles
-    .slice(-window)
-    .filter((_, idx) => {
-      const i = n - window + idx;
-      const c1 = candles[i - 1];
-      const c2 = candles[i - 2];
-      const c3 = candles[i - 3];
-      if (!c3) return false;
+    const trendUp_i =
+      last_i.close > c1_i.close &&
+      c1_i.close >= c2_i.close;
 
-      const cond =
-        isBull(c3.open, c3.close) &&
-        indecision(c2, c1) &&
-        isBear(c1.open, c1.close);
+    const trendDown_i =
+      last_i.close < c1_i.close &&
+      c1_i.close <= c2_i.close;
 
-      const trend =
-        (candles[i].close < c1.close && c1.close <= c2.close) ||
-        !(candles[i].close > c1.close && c1.close >= c2.close);
+    const trendNeutral_i = !trendUp_i && !trendDown_i;
 
-      return cond && trend;
-    }).length;
+    let msValid_i = msCond_i && (trendUp_i || trendNeutral_i);
+    let esValid_i = esCond_i && (trendDown_i || trendNeutral_i);
+
+    let msFiltered_i = msValid_i;
+    let esFiltered_i = esValid_i;
+
+    if (useMagnitudeFilter) {
+      const bodyFirst_i = Math.abs(c3_i.close - c3_i.open);
+      const bodyThird_i = Math.abs(c1_i.close - c1_i.open);
+      const ratio_i = 0.6;
+      const magOK_i = bodyThird_i > bodyFirst_i * ratio_i;
+      msFiltered_i = msValid_i && magOK_i;
+      esFiltered_i = esValid_i && magOK_i;
+    }
+
+    if (useVolatilityFilter && atr14 && atrSMA20) {
+      const volOK_i = atr14 > atrSMA20;
+      msFiltered_i = msFiltered_i && volOK_i;
+      esFiltered_i = esFiltered_i && volOK_i;
+    }
+
+    msFlags.push(msFiltered_i ? 1 : 0);
+    esFlags.push(esFiltered_i ? 1 : 0);
+  }
+
+  const msCount = msFlags.reduce((a, b) => a + b, 0);
+  const esCount = esFlags.reduce((a, b) => a + b, 0);
 
   const msCluster =
     msCount >= 3 &&
@@ -256,13 +322,18 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   // -------------------------
   let signal = null;
 
+  // IMPORTANT: al Pine, les etiquetes es pinten a bar_index[1]
+  // → això correspon a c1 (close[1]) al nostre mapping.
+  const signalTimestamp = c1.timestamp;
+  const entryPrice = c1.close; // o c3.close si vols exactament com tenies abans
+
   if (msFiltered && !state.prevMsFiltered) {
     signal = {
       symbol,
       timeframe,
       type: "MS (UP)",
-      timestamp: curr.timestamp,
-      entry: c3.close,
+      timestamp: signalTimestamp,
+      entry: entryPrice,
       reason: "ms",
       thirdCandle: c1
     };
@@ -273,8 +344,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       symbol,
       timeframe,
       type: "ES (DOWN)",
-      timestamp: curr.timestamp,
-      entry: c3.close,
+      timestamp: signalTimestamp,
+      entry: entryPrice,
       reason: "es",
       thirdCandle: c1
     };
@@ -285,8 +356,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       symbol,
       timeframe,
       type: "CLUSTER (UP)",
-      timestamp: curr.timestamp,
-      entry: c3.close,
+      timestamp: signalTimestamp,
+      entry: entryPrice,
       reason: "cluster",
       thirdCandle: c1
     };
@@ -297,8 +368,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       symbol,
       timeframe,
       type: "CLUSTER (DOWN)",
-      timestamp: curr.timestamp,
-      entry: c3.close,
+      timestamp: signalTimestamp,
+      entry: entryPrice,
       reason: "cluster",
       thirdCandle: c1
     };
@@ -312,4 +383,3 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
   return { signal, state };
 }
-
