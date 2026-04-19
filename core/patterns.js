@@ -80,11 +80,28 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   // SEGURETAT: necessitem 6 veles tancades
   if (n < 7) return { signal: null, state: prevState };
 
-  // NO VELA EN FORMACIÓ
-  const c0 = candles[n - 2]; // close[0]
-  const c1 = candles[n - 3]; // close[1]
-  const c2 = candles[n - 4]; // close[2]
-  const c3 = candles[n - 5]; // close[3]
+  // ================================
+  // ❗❗❗ MAPPING CORREGIT (SENSE DELAY)
+  // ================================
+  //
+  // ABANS (INCORRECTE, 1H TARD):
+  // c0 = candles[n-2]
+  // c1 = candles[n-3]
+  // c2 = candles[n-4]
+  // c3 = candles[n-5]
+  //
+  // ARA (CORRECTE, 1:1 TRADINGVIEW):
+  // c0 = candles[n-1] ← última tancada (close[1] real)
+  // c1 = candles[n-2]
+  // c2 = candles[n-3]
+  // c3 = candles[n-4]
+  //
+  // ÚNIC canvi del fitxer.
+  //
+  const c0 = candles[n - 1];
+  const c1 = candles[n - 2];
+  const c2 = candles[n - 3];
+  const c3 = candles[n - 4];
 
   if (debug) {
     console.log("=== DEBUG ===");
