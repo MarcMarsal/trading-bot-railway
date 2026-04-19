@@ -1,5 +1,5 @@
 // core/detectMSES_test.js
-// Versió final per OP-USDT, 1:1 amb la lògica del bot
+// Versió final per OP-USDT, 1:1 amb la lògica del bot i TradingView
 
 // Helpers
 function isBull(o, c) { return c > o; }
@@ -10,12 +10,8 @@ function range(h, l) { return h - l; }
 export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState = {}) {
 
   // CONFIG OP-USDT
-  const useSlopeFilterMS    = false;
-  const useSlopeFilterES    = false;
-  const useTrendFilterES    = true;
-  const useMagnitudeFilter  = false;
-  const useVolatilityFilter = false;
-  const window              = 14;
+  const useTrendFilterES = true;
+  const window = 14;
 
   if (!candlesRaw || candlesRaw.length < 5)
     return { signal: null, state: prevState };
@@ -31,30 +27,35 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   const c3   = candles[n - 4];   // close[3]
 
   // =========================
-  // MS / ES BASE CONDITIONS
+  // MS / ES BASE CONDITIONS (ORDRE CORRECTE)
   // =========================
   const indecision = (o2, h1, l1, c2close) => {
     const r1 = range(h1, l1);
     return r1 === 0 ? true : body(o2, c2close) < r1 * 0.3;
   };
 
+  // MS (UP) = c3 bearish → c2 indecisive → c1 bullish
   const msCond =
-    isBear(c1.open, c1.close) &&
-    indecision(c2.open, c1.high, c1.low, c2.close) &&
-    isBull(c3.open, c3.close);
+    isBear(c3.open, c3.close) &&
+    indecision(c2.open, c3.high, c3.low, c2.close) &&
+    isBull(c1.open, c1.close);
 
+  // ES (DOWN) = c3 bullish → c2 indecisive → c1 bearish
   const esCond =
-    isBull(c1.open, c1.close) &&
-    indecision(c2.open, c1.high, c1.low, c2.close) &&
-    isBear(c3.open, c3.close);
+    isBull(c3.open, c3.close) &&
+    indecision(c2.open, c3.high, c3.low, c2.close) &&
+    isBear(c1.open, c1.close);
 
+  // =========================
+  // TREND
+  // =========================
   const trendUp =
-    curr.close > c3.close &&
-    c3.close >= c2.close;
+    curr.close > c1.close &&
+    c1.close >= c2.close;
 
   const trendDown =
-    curr.close < c3.close &&
-    c3.close <= c2.close;
+    curr.close < c1.close &&
+    c1.close <= c2.close;
 
   const trendNeutral = !trendUp && !trendDown;
 
