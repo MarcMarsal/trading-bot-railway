@@ -1,5 +1,5 @@
 // core/detectMSES_test.js
-// Versió per OP-USDT, 1:1 amb la lògica de senyals i clúster tipus TradingView
+// Versió final OP-USDT, 1:1 amb TradingView (MS, ES i CLÚSTER)
 
 // Helpers
 function isBull(o, c) { return c > o; }
@@ -9,8 +9,7 @@ function range(h, l) { return h - l; }
 
 export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState = {}) {
 
-  // CONFIG OP-USDT
-  const window = 14;
+  const window = 14; // finestra TV
 
   if (!candlesRaw || candlesRaw.length < 5)
     return { signal: null, state: prevState };
@@ -19,7 +18,7 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
 
   const n = candles.length;
 
-  // Índexs estil Pine
+  // Índexs PineScript
   const curr = candles[n - 1];   // close[0]
   const c1   = candles[n - 2];   // close[1]
   const c2   = candles[n - 3];   // close[2]
@@ -45,7 +44,7 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
     indecision(c2.open, c3.high, c3.low, c2.close) &&
     isBear(c1.open, c1.close);
 
-  // Trend (suau, estil TV)
+  // Trend suau (com TV)
   const trendUp =
     curr.close > c1.close &&
     c1.close >= c2.close;
@@ -60,7 +59,7 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   let esFiltered = esCond && (trendDown || trendNeutral);
 
   // =========================
-  // STATE (VELA TANCADA)
+  // STATE
   // =========================
   const state = { ...prevState };
 
@@ -80,7 +79,6 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   // =========================
   if (curr.timestamp !== state.lastTimestamp) {
 
-    // 1) Guardem la vela TANCADA (last)
     const closedMs = state.lastMsFiltered;
     const closedEs = state.lastEsFiltered;
 
@@ -90,11 +88,9 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
     state.esHistory.push(closedEs ? 1 : 0);
     if (state.esHistory.length > window) state.esHistory.shift();
 
-    // 2) prev = closed
     state.prevMsFiltered = closedMs;
     state.prevEsFiltered = closedEs;
 
-    // 3) last = valor actual
     state.lastMsFiltered = msFiltered;
     state.lastEsFiltered = esFiltered;
 
@@ -102,15 +98,19 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   }
 
   // =========================
-  // COUNTS
+  // COUNTS (MODE TRADINGVIEW)
   // =========================
-  const msCount = state.msHistory.reduce((a, b) => a + b, 0);
-  const esCount = state.esHistory.reduce((a, b) => a + b, 0);
+  const esClosedCount = state.esHistory.reduce((a, b) => a + b, 0);
 
-  // Clúster estil TradingView:
-  //  - 3 o més senyals dins finestra
-  //  - la vela actual també és senyal
-  //  - opcionalment, que no hi hagi senyal contrari a la mateixa vela
+  // TV compta ES tancats + ES actual
+  const esCount = esClosedCount + (esFiltered ? 1 : 0);
+
+  const msClosedCount = state.msHistory.reduce((a, b) => a + b, 0);
+  const msCount = msClosedCount + (msFiltered ? 1 : 0);
+
+  // =========================
+  // CLÚSTER (MODE TRADINGVIEW)
+  // =========================
   const msCluster =
     msCount >= 3 &&
     msFiltered &&
