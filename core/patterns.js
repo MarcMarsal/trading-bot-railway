@@ -183,34 +183,52 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   // -------------------------
   // CLUSTERS (PATCH CORRECTE)
   // -------------------------
-  const state = { ...prevState };
+  // CLUSTERS (PATCH CORRECTE)
+const state = { ...prevState };
 
-  if (!state.msHistory) state.msHistory = [];
-  if (!state.esHistory) state.esHistory = [];
+if (!state.msHistory) state.msHistory = [];
+if (!state.esHistory) state.esHistory = [];
 
-  if (!state.lastTimestamp) state.lastTimestamp = 0;
-  if (state.lastMsFiltered === undefined) state.lastMsFiltered = false;
-  if (state.lastEsFiltered === undefined) state.lastEsFiltered = false;
-  if (state.prevMsFiltered === undefined) state.prevMsFiltered = false;
-  if (state.prevEsFiltered === undefined) state.prevEsFiltered = false;
+if (!state.lastTimestamp) state.lastTimestamp = 0;
+if (state.lastMsFiltered === undefined) state.lastMsFiltered = false;
+if (state.lastEsFiltered === undefined) state.lastEsFiltered = false;
+if (state.prevMsFiltered === undefined) state.prevMsFiltered = false;
+if (state.prevEsFiltered === undefined) state.prevEsFiltered = false;
 
-  // NOMÉS ACTUALITZEM ESTAT QUAN CANVIA LA VELA
-  if (curr.timestamp !== state.lastTimestamp) {
-    state.prevMsFiltered = state.lastMsFiltered;
-    state.prevEsFiltered = state.lastEsFiltered;
+// NOMÉS ACTUALITZEM ESTAT I HISTÒRIC QUAN CANVIA LA VELA
+if (curr.timestamp !== state.lastTimestamp) {
+  // vela nova → el valor "anterior" passa a ser l'últim
+  state.prevMsFiltered = state.lastMsFiltered;
+  state.prevEsFiltered = state.lastEsFiltered;
 
-    state.lastMsFiltered = msFiltered;
-    state.lastEsFiltered = esFiltered;
+  // i l'últim passa a ser el d'aquesta vela
+  state.lastMsFiltered = msFiltered;
+  state.lastEsFiltered = esFiltered;
 
-    state.lastTimestamp = curr.timestamp;
-  }
+  state.lastTimestamp = curr.timestamp;
 
-  // Actualitzem històrics
+  // ARA SÍ: només comptem 1 cop per vela
   state.msHistory.push(msFiltered ? 1 : 0);
   if (state.msHistory.length > window) state.msHistory.shift();
 
   state.esHistory.push(esFiltered ? 1 : 0);
   if (state.esHistory.length > window) state.esHistory.shift();
+}
+
+// ja NO fem push fora del bloc
+const msCount = state.msHistory.reduce((a, b) => a + b, 0);
+const esCount = state.esHistory.reduce((a, b) => a + b, 0);
+
+const msCluster =
+  msCount >= 3 &&
+  msFiltered &&
+  !state.prevMsFiltered;
+
+const esCluster =
+  esCount >= 3 &&
+  esFiltered &&
+  !state.prevEsFiltered;
+
 
   const msCount = state.msHistory.reduce((a, b) => a + b, 0);
   const esCount = state.esHistory.reduce((a, b) => a + b, 0);
