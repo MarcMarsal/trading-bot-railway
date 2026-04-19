@@ -1,5 +1,7 @@
-// core/detectMSES_test.js
-// Versió final OP-USDT, 1:1 amb TradingView (MS, ES i CLÚSTER)
+// ===============================================
+// detectMSES_test.js
+// Versió final 1:1 amb TradingView (MS, ES, CLÚSTER)
+// ===============================================
 
 // Helpers
 function isBull(o, c) { return c > o; }
@@ -7,15 +9,50 @@ function isBear(o, c) { return c < o; }
 function body(o, c) { return Math.abs(c - o); }
 function range(h, l) { return h - l; }
 
+// ===============================
+// CONFIG PER SÍMBOLS
+// ===============================
+function getConfig(symbol) {
+  switch (symbol) {
+    case "APT-USDT":
+    case "APTUSDT":
+      return {
+        slopeMS: false,
+        slopeES: false,
+        trendES: false,
+        magnitude: false,
+        vol: false,
+        window: 14,
+        distPct: 0.6
+      };
+
+    // Afegir altres símbols aquí si cal
+  }
+
+  // Default
+  return {
+    slopeMS: false,
+    slopeES: false,
+    trendES: false,
+    magnitude: false,
+    vol: false,
+    window: 14,
+    distPct: 0.6
+  };
+}
+
+// ===============================
+// DETECT MSES TEST
+// ===============================
 export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState = {}) {
 
-  const window = 14; // finestra TV
+  const cfg = getConfig(symbol);
+  const window = cfg.window;
 
   if (!candlesRaw || candlesRaw.length < 5)
     return { signal: null, state: prevState };
 
   let candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
-
   const n = candles.length;
 
   // Índexs PineScript
@@ -32,19 +69,19 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
     return r1 === 0 ? true : body(o2, c2close) < r1 * 0.3;
   };
 
-  // MS (UP): c3 bearish → c2 indecisive → c1 bullish
+  // MS (UP)
   const msCond =
     isBear(c3.open, c3.close) &&
     indecision(c2.open, c3.high, c3.low, c2.close) &&
     isBull(c1.open, c1.close);
 
-  // ES (DOWN): c3 bullish → c2 indecisive → c1 bearish
+  // ES (DOWN)
   const esCond =
     isBull(c3.open, c3.close) &&
     indecision(c2.open, c3.high, c3.low, c2.close) &&
     isBear(c1.open, c1.close);
 
-  // Trend suau (com TV)
+  // Tendència suau (com TV)
   const trendUp =
     curr.close > c1.close &&
     c1.close >= c2.close;
@@ -101,8 +138,6 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   // COUNTS (MODE TRADINGVIEW)
   // =========================
   const esClosedCount = state.esHistory.reduce((a, b) => a + b, 0);
-
-  // TV compta ES tancats + ES actual
   const esCount = esClosedCount + (esFiltered ? 1 : 0);
 
   const msClosedCount = state.msHistory.reduce((a, b) => a + b, 0);
