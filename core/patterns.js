@@ -197,23 +197,27 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   // NOMÉS ACTUALITZEM ESTAT I HISTÒRIC QUAN CANVIA LA VELA
   if (curr.timestamp !== state.lastTimestamp) {
 
-    // Guardem la vela TANCADA (lastMsFiltered / lastEsFiltered)
-    state.msHistory.push(state.lastMsFiltered ? 1 : 0);
+    // 1) Guardem la vela TANCADA (last) a l’historial
+    const closedMs = state.lastMsFiltered;
+    const closedEs = state.lastEsFiltered;
+
+    state.msHistory.push(closedMs ? 1 : 0);
     if (state.msHistory.length > window) state.msHistory.shift();
 
-    state.esHistory.push(state.lastEsFiltered ? 1 : 0);
+    state.esHistory.push(closedEs ? 1 : 0);
     if (state.esHistory.length > window) state.esHistory.shift();
 
-    // Actualitzem prev = last
-    state.prevMsFiltered = state.lastMsFiltered;
-    state.prevEsFiltered = state.lastEsFiltered;
+    // 2) Ara prev = closed (equivalent a msFiltered[1])
+    state.prevMsFiltered = closedMs;
+    state.prevEsFiltered = closedEs;
 
-    // Actualitzem last = valor de la vela actual
+    // 3) I last = valor de la vela actual (equivalent a msFiltered)
     state.lastMsFiltered = msFiltered;
     state.lastEsFiltered = esFiltered;
 
     state.lastTimestamp = curr.timestamp;
-  }
+}
+
 
   const msCount = state.msHistory.reduce((a, b) => a + b, 0);
   const esCount = state.esHistory.reduce((a, b) => a + b, 0);
