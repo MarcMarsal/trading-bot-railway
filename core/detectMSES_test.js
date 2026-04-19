@@ -23,16 +23,13 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   let candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
 
   const n = candles.length;
-  //const curr = candles[n - 1];
-  //const c3   = candles[n - 2];
-  //const c2   = candles[n - 3];
-  //const c1   = candles[n - 4];
+
+  // Índexs correctes (Pine Script)
   const curr = candles[n - 1];   // close[0]
   const c1   = candles[n - 2];   // close[1]
   const c2   = candles[n - 3];   // close[2]
   const c3   = candles[n - 4];   // close[3]
 
-  
   // =========================
   // MS / ES BASE CONDITIONS
   // =========================
@@ -122,11 +119,14 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
     esFiltered &&
     !state.prevEsFiltered;
 
+  // =========================
+  // SENYALS
+  // =========================
   if (msFiltered && !state.prevMsFiltered)
     signal = { type: "MS (UP)", timestamp: curr.timestamp };
 
   if (esFiltered && !state.prevEsFiltered)
-    signal = { type: "MS (DOWN)", timestamp: curr.timestamp };
+    signal = { type: "ES (DOWN)", timestamp: curr.timestamp };
 
   if (msCluster)
     signal = { type: "CLUSTER (UP)", timestamp: curr.timestamp };
@@ -136,4 +136,3 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
 
   return { signal, state };
 }
-
