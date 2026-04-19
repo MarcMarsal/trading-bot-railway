@@ -68,7 +68,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   // -------------------------
   // LOAD CONFIG FROM DB
   // -------------------------
- 
   const cfgRes = await client.query(
     "SELECT * FROM config_crypto WHERE symbol = $1",
     [symbol]
@@ -88,24 +87,15 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   const window              = cfg.cfgwindow;
 
   // -------------------------
-  // IGNORE LAST CANDLE (OPEN)
+  // CANDLES ORDENADES
   // -------------------------
   let candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
-
   if (candles.length < 5) return { signal: null, state: prevState };
-
-  // IGNORE LAST (OPEN) CANDLE
-  //la vela oberta ha de ser curr
-  //candles = candles.slice(0, candles.length - 1);
 
   const n = candles.length;
   if (n < 5) return { signal: null, state: prevState };
 
   // Pine equivalence:
-  // close   = candles[n-1]
-  // close[1]= candles[n-2]
-  // close[2]= candles[n-3]
-  // close[3]= candles[n-4]
   const curr = candles[n - 1]; // close[0]
   const c3   = candles[n - 2]; // close[1]
   const c2   = candles[n - 3]; // close[2]
@@ -191,13 +181,31 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   }
 
   // -------------------------
-  // CLUSTERS (IDENTICAL TO PINE)
+  // CLUSTERS (PATCH CORRECTE)
   // -------------------------
   const state = { ...prevState };
 
   if (!state.msHistory) state.msHistory = [];
   if (!state.esHistory) state.esHistory = [];
 
+  if (!state.lastTimestamp) state.lastTimestamp = 0;
+  if (state.lastMsFiltered === undefined) state.lastMsFiltered = false;
+  if (state.lastEsFiltered === undefined) state.lastEsFiltered = false;
+  if (state.prevMsFiltered === undefined) state.prevMsFiltered = false;
+  if (state.prevEsFiltered === undefined) state.prevEsFiltered = false;
+
+  // NOMÉS ACTUALITZEM ESTAT QUAN CANVIA LA VELA
+  if (curr.timestamp !== state.lastTimestamp) {
+    state.prevMsFiltered = state.lastMsFiltered;
+    state.prevEsFiltered = state.lastEsFiltered;
+
+    state.lastMsFiltered = msFiltered;
+    state.lastEsFiltered = esFiltered;
+
+    state.lastTimestamp = curr.timestamp;
+  }
+
+  // Actualitzem històrics
   state.msHistory.push(msFiltered ? 1 : 0);
   if (state.msHistory.length > window) state.msHistory.shift();
 
@@ -273,12 +281,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       secondCandle: c2
     };
   }
-
-  // -------------------------
-  // SAVE STATE
-  // -------------------------
-  state.prevMsFiltered = msFiltered;
-  state.prevEsFiltered = esFiltered;
 
   return { signal, state };
 }
