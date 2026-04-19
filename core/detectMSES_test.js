@@ -1,7 +1,9 @@
 // core/detectMSES_test.js
-// detectMSES sense BD, amb la configuració de SUI-USDT segons TradingView
+// Test 1:1 amb la lògica actual del bot per OP-USDT
 
-// Helpers
+// =========================
+// HELPERS
+// =========================
 function isBull(o, c) { return c > o; }
 function isBear(o, c) { return c < o; }
 function body(o, c) { return Math.abs(c - o); }
@@ -50,23 +52,21 @@ function ema(values, period) {
 // =========================
 // detectMSES TEST VERSION
 // =========================
-export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState = {}) {
+export function detectMSES_test(candlesRaw, prevState = {}) {
 
-  // Config SUI-USDT segons TradingView
+  // CONFIG OP-USDT
   const useSlopeFilterMS    = false;
   const useSlopeFilterES    = false;
-  const useTrendFilterES    = false;
+  const useTrendFilterES    = true;
   const useMagnitudeFilter  = false;
   const useVolatilityFilter = false;
-  const window              = 12;
+  const window              = 14;
 
   if (!candlesRaw || candlesRaw.length < 10)
     return { signal: null, state: prevState };
 
   let candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
 
-  // ignorem última (OPEN)
-  candles = candles.slice(0, candles.length - 1);
   const n = candles.length;
   if (n < 5) return { signal: null, state: prevState };
 
@@ -75,6 +75,9 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   const c2   = candles[n - 3];
   const c1   = candles[n - 4];
 
+  // =========================
+  // MS / ES BASE CONDITIONS
+  // =========================
   const indecision = (o2, h1, l1, c2close) => {
     const r1 = range(h1, l1);
     return r1 === 0 ? true : body(o2, c2close) < r1 * 0.3;
@@ -90,6 +93,7 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
     indecision(c2.open, c1.high, c1.low, c2.close) &&
     isBear(c3.open, c3.close);
 
+  // TREND
   const trendUp =
     curr.close > c3.close &&
     c3.close >= c2.close;
@@ -103,11 +107,13 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   let msFiltered = msCond && (trendUp || trendNeutral);
   let esFiltered = esCond && (trendDown || trendNeutral);
 
+  // ATR / VOL
   const atrArr = calcATRArray(candles, 14);
   const atr14 = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
   const atrSMA20 = sma(atrArr, 20);
   const volOK = atr14 && atrSMA20 ? atr14 > atrSMA20 : true;
 
+  // EMA20 + SLOPE
   const closes = candles.map(c => c.close);
   const ema20Arr = ema(closes, 20);
   const ema20Last = ema20Arr[ema20Arr.length - 1];
@@ -131,38 +137,73 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   if (useVolatilityFilter)
     msFiltered = msFiltered && volOK;
 
+  // =========================
+  // STATE (VELA TANCADA)
+  // =========================
   const state = { ...prevState };
+
   if (!state.msHistory) state.msHistory = [];
   if (!state.esHistory) state.esHistory = [];
 
-  state.msHistory.push(msFiltered ? 1 : 0);
-  if (state.msHistory.length > window) state.msHistory.shift();
+  if (state.lastTimestamp === undefined) state.lastTimestamp = 0;
+  if (state.lastMsFiltered === undefined) state.lastMsFiltered = false;
+  if (state.lastEsFiltered === undefined) state.lastEsFiltered = false;
+  if (state.prevMsFiltered === undefined) state.prevMsFiltered = false;
+  if (state.prevEsFiltered === undefined) state.prevEsFiltered = false;
 
-  state.esHistory.push(esFiltered ? 1 : 0);
-  if (state.esHistory.length > window) state.esHistory.shift();
+  // =========================
+  // VELA NOVA
+  // =========================
+  if (curr.timestamp !== state.lastTimestamp) {
 
+    // 1) Guardem la vela TANCADA (last)
+    const closedMs = state.lastMsFiltered;
+    const closedEs = state.lastEsFiltered;
+
+    state.msHistory.push(closedMs ? 1 : 0);
+    if (state.msHistory.length > window) state.msHistory.shift();
+
+    state.esHistory.push(closedEs ? 1 : 0);
+    if (state.esHistory.length > window) state.esHistory.shift();
+
+    // 2) prev = closed
+    state.prevMsFiltered = closedMs;
+    state.prevEsFiltered = closedEs;
+
+    // 3) last = valor actual
+    state.lastMsFiltered = msFiltered;
+    state.lastEsFiltered = esFiltered;
+
+    state.lastTimestamp = curr.timestamp;
+  }
+
+  // =========================
+  // COUNTS
+  // =========================
   const msCount = state.msHistory.reduce((a, b) => a + b, 0);
   const esCount = state.esHistory.reduce((a, b) => a + b, 0);
 
-  const msCluster = msCount >= 3 && msFiltered && !state.prevMsFiltered;
-  const esCluster = esCount >= 3 && esFiltered && !state.prevEsFiltered;
+  const msCluster =
+    msCount >= 3 &&
+    msFiltered &&
+    !state.prevMsFiltered;
 
-  let signal = null;
+  const esCluster =
+    esCount >= 3 &&
+    esFiltered &&
+    !state.prevEsFiltered;
 
-  if (msFiltered && !state.prevMsFiltered)
-    signal = { symbol, timeframe, type: "MS (UP)", timestamp: curr.timestamp, entry: c3.close, reason: "ms" };
+  // =========================
+  // LOG PER DEBUG
+  // =========================
+  console.log("----- VELA", new Date(curr.timestamp).toISOString(), "-----");
+  console.log("msFiltered:", msFiltered, "esFiltered:", esFiltered);
+  console.log("prevMs:", state.prevMsFiltered, "prevEs:", state.prevEsFiltered);
+  console.log("lastMs:", state.lastMsFiltered, "lastEs:", state.lastEsFiltered);
+  console.log("msHistory:", state.msHistory);
+  console.log("esHistory:", state.esHistory);
+  console.log("msCount:", msCount, "esCount:", esCount);
+  console.log("msCluster:", msCluster, "esCluster:", esCluster);
 
-  if (esFiltered && !state.prevEsFiltered)
-    signal = { symbol, timeframe, type: "MS (DOWN)", timestamp: curr.timestamp, entry: c3.close, reason: "es" };
-
-  if (msCluster)
-    signal = { symbol, timeframe, type: "CLUSTER (UP)", timestamp: curr.timestamp, entry: c3.close, reason: "cluster" };
-
-  if (esCluster)
-    signal = { symbol, timeframe, type: "CLUSTER (DOWN)", timestamp: curr.timestamp, entry: c3.close, reason: "cluster" };
-
-  state.prevMsFiltered = msFiltered;
-  state.prevEsFiltered = esFiltered;
-
-  return { signal, state };
+  return { state };
 }
