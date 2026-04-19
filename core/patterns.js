@@ -181,7 +181,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   }
 
   // -------------------------
-  // CLUSTERS (PATCH CORRECTE)
+  // CLUSTERS (VELA TANCADA)
   // -------------------------
   const state = { ...prevState };
 
@@ -196,22 +196,23 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
   // NOMÉS ACTUALITZEM ESTAT I HISTÒRIC QUAN CANVIA LA VELA
   if (curr.timestamp !== state.lastTimestamp) {
-    // vela nova → el valor "anterior" passa a ser l'últim
+
+    // Guardem la vela TANCADA (lastMsFiltered / lastEsFiltered)
+    state.msHistory.push(state.lastMsFiltered ? 1 : 0);
+    if (state.msHistory.length > window) state.msHistory.shift();
+
+    state.esHistory.push(state.lastEsFiltered ? 1 : 0);
+    if (state.esHistory.length > window) state.esHistory.shift();
+
+    // Actualitzem prev = last
     state.prevMsFiltered = state.lastMsFiltered;
     state.prevEsFiltered = state.lastEsFiltered;
 
-    // i l'últim passa a ser el d'aquesta vela
+    // Actualitzem last = valor de la vela actual
     state.lastMsFiltered = msFiltered;
     state.lastEsFiltered = esFiltered;
 
     state.lastTimestamp = curr.timestamp;
-
-    // només comptem 1 cop per vela
-    state.msHistory.push(msFiltered ? 1 : 0);
-    if (state.msHistory.length > window) state.msHistory.shift();
-
-    state.esHistory.push(esFiltered ? 1 : 0);
-    if (state.esHistory.length > window) state.esHistory.shift();
   }
 
   const msCount = state.msHistory.reduce((a, b) => a + b, 0);
