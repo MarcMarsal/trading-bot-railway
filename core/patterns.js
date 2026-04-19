@@ -103,25 +103,28 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   const c3   = candles[n - 4];   // close[3]
 
   // -------------------------
-  // BASE MS / ES CONDITIONS (CORREGIT)
+  // INDECISIÓ CORRECTA (USANT NOMÉS c2)
   // -------------------------
-  const indecision = (o2, h1, l1, c2close) => {
-    const r1 = range(h1, l1);
-    return r1 === 0 ? true : body(o2, c2close) < r1 * 0.3;
+  const indecision = (c) => {
+    const r = c.high - c.low;
+    return r === 0 ? true : Math.abs(c.close - c.open) < r * 0.3;
   };
 
+  // -------------------------
+  // BASE MS / ES CONDITIONS (CORRECTES)
+  // -------------------------
   const msCond =
     isBear(c3.open, c3.close) &&
-    indecision(c2.open, c3.high, c3.low, c2.close) &&
+    indecision(c2) &&
     isBull(c1.open, c1.close);
 
   const esCond =
     isBull(c3.open, c3.close) &&
-    indecision(c2.open, c3.high, c3.low, c2.close) &&
+    indecision(c2) &&
     isBear(c1.open, c1.close);
 
   // -------------------------
-  // TREND (CORREGIT)
+  // TREND (CORRECTE)
   // -------------------------
   const trendUp =
     curr.close > c1.close &&
@@ -173,7 +176,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   }
 
   // -------------------------
-  // STATE (NOMÉS PER MS[1] / ES[1])
+  // STATE
   // -------------------------
   const state = { ...prevState };
 
@@ -181,13 +184,11 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   if (state.prevEsFiltered === undefined) state.prevEsFiltered = false;
 
   // -------------------------
-  // CLÚSTER MODE TRADINGVIEW (1:1)
+  // CLÚSTERS 1:1 TRADINGVIEW
   // -------------------------
-
-  // Comptem MS dins la finestra com Pine Script
   const msCount = candles
     .slice(-window)
-    .filter((_, idx, arr) => {
+    .filter((_, idx) => {
       const i = n - window + idx;
       const c1 = candles[i - 1];
       const c2 = candles[i - 2];
@@ -196,7 +197,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
       const cond =
         isBear(c3.open, c3.close) &&
-        indecision(c2.open, c3.high, c3.low, c2.close) &&
+        indecision(c2) &&
         isBull(c1.open, c1.close);
 
       const trend =
@@ -207,10 +208,9 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       return cond && trend;
     }).length;
 
-  // Comptem ES dins la finestra com Pine Script
   const esCount = candles
     .slice(-window)
-    .filter((_, idx, arr) => {
+    .filter((_, idx) => {
       const i = n - window + idx;
       const c1 = candles[i - 1];
       const c2 = candles[i - 2];
@@ -219,7 +219,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
       const cond =
         isBull(c3.open, c3.close) &&
-        indecision(c2.open, c3.high, c3.low, c2.close) &&
+        indecision(c2) &&
         isBear(c1.open, c1.close);
 
       const trend =
@@ -230,7 +230,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
       return cond && trend;
     }).length;
 
-  // Detecció 1:1 TradingView
   const msCluster =
     msCount >= 3 &&
     msFiltered &&
@@ -291,7 +290,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   }
 
   // -------------------------
-  // UPDATE STATE (NOMÉS AIXÒ)
+  // UPDATE STATE
   // -------------------------
   state.prevMsFiltered = msFiltered;
   state.prevEsFiltered = esFiltered;
