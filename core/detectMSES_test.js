@@ -110,18 +110,23 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   // =========================
   if (curr.timestamp !== state.lastTimestamp) {
 
+    // 🔥 CORRECCIÓ CRÍTICA:
+    // Primer guardem l’estat anterior (vela tancada)
     const closedMs = state.lastMsFiltered;
     const closedEs = state.lastEsFiltered;
 
+    // Afegim només la vela TANCADA
     state.msHistory.push(closedMs ? 1 : 0);
     if (state.msHistory.length > window) state.msHistory.shift();
 
     state.esHistory.push(closedEs ? 1 : 0);
     if (state.esHistory.length > window) state.esHistory.shift();
 
-    state.prevMsFiltered = closedMs;
-    state.prevEsFiltered = closedEs;
+    // Actualitzem prev → last (ordre correcte)
+    state.prevMsFiltered = state.lastMsFiltered;
+    state.prevEsFiltered = state.lastEsFiltered;
 
+    // Ara sí, actualitzem la vela actual
     state.lastMsFiltered = msFiltered;
     state.lastEsFiltered = esFiltered;
 
