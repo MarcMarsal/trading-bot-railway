@@ -46,11 +46,10 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   const cfg = getConfig(symbol);
   const window = cfg.window;
 
-  // Necessitem mínim 4 veles per MS/ES
+  // NOMÉS les últimes 4 veles (temps real)
   if (!candlesRaw || candlesRaw.length < 4)
     return { signal: null, state: prevState };
 
-  // NOMÉS les últimes 4 veles (temps real)
   const candles = candlesRaw.slice(-4);
   const n = candles.length;
 
