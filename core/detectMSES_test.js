@@ -1,5 +1,5 @@
 // core/detectMSES_test.js
-// Versió final per OP-USDT, 1:1 amb la lògica del bot i TradingView
+// Versió per OP-USDT, 1:1 amb la lògica de senyals i clúster tipus TradingView
 
 // Helpers
 function isBull(o, c) { return c > o; }
@@ -10,7 +10,6 @@ function range(h, l) { return h - l; }
 export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState = {}) {
 
   // CONFIG OP-USDT
-  const useTrendFilterES = true;
   const window = 14;
 
   if (!candlesRaw || candlesRaw.length < 5)
@@ -20,35 +19,33 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
 
   const n = candles.length;
 
-  // Índexs correctes (Pine Script)
+  // Índexs estil Pine
   const curr = candles[n - 1];   // close[0]
   const c1   = candles[n - 2];   // close[1]
   const c2   = candles[n - 3];   // close[2]
   const c3   = candles[n - 4];   // close[3]
 
   // =========================
-  // MS / ES BASE CONDITIONS (ORDRE CORRECTE)
+  // MS / ES BASE CONDITIONS
   // =========================
   const indecision = (o2, h1, l1, c2close) => {
     const r1 = range(h1, l1);
     return r1 === 0 ? true : body(o2, c2close) < r1 * 0.3;
   };
 
-  // MS (UP) = c3 bearish → c2 indecisive → c1 bullish
+  // MS (UP): c3 bearish → c2 indecisive → c1 bullish
   const msCond =
     isBear(c3.open, c3.close) &&
     indecision(c2.open, c3.high, c3.low, c2.close) &&
     isBull(c1.open, c1.close);
 
-  // ES (DOWN) = c3 bullish → c2 indecisive → c1 bearish
+  // ES (DOWN): c3 bullish → c2 indecisive → c1 bearish
   const esCond =
     isBull(c3.open, c3.close) &&
     indecision(c2.open, c3.high, c3.low, c2.close) &&
     isBear(c1.open, c1.close);
 
-  // =========================
-  // TREND
-  // =========================
+  // Trend (suau, estil TV)
   const trendUp =
     curr.close > c1.close &&
     c1.close >= c2.close;
@@ -110,15 +107,19 @@ export async function detectMSES_test(candlesRaw, symbol, timeframe, prevState =
   const msCount = state.msHistory.reduce((a, b) => a + b, 0);
   const esCount = state.esHistory.reduce((a, b) => a + b, 0);
 
+  // Clúster estil TradingView:
+  //  - 3 o més senyals dins finestra
+  //  - la vela actual també és senyal
+  //  - opcionalment, que no hi hagi senyal contrari a la mateixa vela
   const msCluster =
     msCount >= 3 &&
     msFiltered &&
-    !state.prevMsFiltered;
+    !esFiltered;
 
   const esCluster =
     esCount >= 3 &&
     esFiltered &&
-    !state.prevEsFiltered;
+    !msFiltered;
 
   // =========================
   // SENYALS
