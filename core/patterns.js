@@ -77,6 +77,9 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   let candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
+  // SEGURETAT: necessitem 6 veles tancades
+  if (n < 7) return { signal: null, state: prevState };
+
   // NO VELA EN FORMACIÓ
   const c0 = candles[n - 2]; // close[0]
   const c1 = candles[n - 3]; // close[1]
@@ -222,17 +225,48 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   let signal = null;
   const signalTimestamp = c1.timestamp;
 
+  // MS
   if (msFiltered && !state.prevMsFiltered)
-    signal = { symbol, timeframe, type: "M", timestamp: signalTimestamp };
+    signal = {
+      symbol,
+      timeframe,
+      type: "M",
+      timestamp: signalTimestamp,
+      entry: c1.close,
+      thirdCandle: c1
+    };
 
+  // ES
   if (esFiltered && !state.prevEsFiltered)
-    signal = { symbol, timeframe, type: "E", timestamp: signalTimestamp };
+    signal = {
+      symbol,
+      timeframe,
+      type: "E",
+      timestamp: signalTimestamp,
+      entry: c1.close,
+      thirdCandle: c1
+    };
 
+  // CLÚSTERS
   if (msCluster)
-    signal = { symbol, timeframe, type: "CLUSTER_UP", timestamp: signalTimestamp };
+    signal = {
+      symbol,
+      timeframe,
+      type: "CLUSTER_UP",
+      timestamp: signalTimestamp,
+      entry: c1.close,
+      thirdCandle: c1
+    };
 
   if (esCluster)
-    signal = { symbol, timeframe, type: "CLUSTER_DOWN", timestamp: signalTimestamp };
+    signal = {
+      symbol,
+      timeframe,
+      type: "CLUSTER_DOWN",
+      timestamp: signalTimestamp,
+      entry: c1.close,
+      thirdCandle: c1
+    };
 
   // Update state
   state.prevMsFiltered = msFiltered;
