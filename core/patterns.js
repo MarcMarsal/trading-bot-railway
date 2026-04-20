@@ -231,8 +231,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
   // Construir TOTES les senyals
   const signals = [];
-  //const ts = c1.timestamp;
-  const ts = c1.timestamp + 3600000;
+  const ts = c1.timestamp;
+  
 
   // MS bona
   if (msFiltered && !state.prevMsFiltered) {
