@@ -1,4 +1,4 @@
-// bot_microimpulsos.js — VERSIÓ NETEJADA I PREPARADA PER 1:1 TRADINGVIEW
+// bot_microimpulsos.js — VERSIÓ FINAL 1:1 TRADINGVIEW (SUPORTA TOTS ELS TIPUS)
 
 import cron from "node-cron";
 import { client, initDB } from "./db/client.js";
@@ -19,7 +19,7 @@ const SYMBOLS = [
 const TIMEFRAMES = ["1H"];
 
 // -------------------------------------------------------------
-// ESTAT GLOBAL NOMÉS PER MSES
+// ESTAT GLOBAL PER MSES (clusters i transicions)
 // -------------------------------------------------------------
 const msesStates = {};
 
@@ -36,7 +36,7 @@ function setMsesState(symbol, timeframe, state) {
 }
 
 // -------------------------------------------------------------
-// GET CANDLES FROM DB
+// LLEGIR VELAS DE LA DB
 // -------------------------------------------------------------
 async function getCandlesFromDB(symbol, timeframe, limit) {
   const query = `
@@ -46,19 +46,20 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
     ORDER BY timestamp DESC
     LIMIT $3
   `;
-
   const res = await client.query(query, [symbol, timeframe, limit]);
   return res.rows.reverse();
 }
 
 // -------------------------------------------------------------
-// CÀLCUL ENTRYR / TP / SL (només per MS i CLÚSTER)
+// CÀLCUL ENTRYR / TP / SL (només per M, E, CLÚSTERS)
 // -------------------------------------------------------------
 function calcTargets(type, entry, thirdCandle) {
   const { open, close, high, low } = thirdCandle;
   const body = Math.abs(close - open);
 
-  let entryr, tp, sl;
+  let entryr = null;
+  let tp = null;
+  let sl = null;
 
   if (type === "M") {
     entryr = entry - body * 0.15;
@@ -90,7 +91,7 @@ function calcTargets(type, entry, thirdCandle) {
 }
 
 // -------------------------------------------------------------
-// PROCESS SYMBOL
+// PROCESSAR UN SÍMBOL
 // -------------------------------------------------------------
 async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 80);
@@ -100,48 +101,52 @@ async function processSymbol(symbol, timeframe) {
 
   let msesState = getMsesState(symbol, timeframe);
 
-  const { signal: msesSignal, state: newMsesState } =
+  // ⚠️ Ara detectMSES retorna { signals: [...] }
+  const { signals, state: newMsesState } =
     await detectMSES(candles, symbol, timeframe, msesState);
 
   setMsesState(symbol, timeframe, newMsesState);
 
-  // Si no hi ha senyal → res
-  if (!msesSignal) return;
+  if (!signals || signals.length === 0) return;
 
-  // Ara NO filtrem ES ni clusters de baixada
-  const dateKey = getDay(msesSignal.timestamp);
+  // Processar TOTES les senyals
+  for (const sig of signals) {
 
-  const exists = await alreadySent2(
-    symbol,
-    timeframe,
-    msesSignal.type,
-    msesSignal.entry,
-    dateKey,
-    "mses"
-  );
+    const dateKey = getDay(sig.timestamp);
 
-  if (!exists) {
-    console.log("[MSES]", symbol, timeframe, msesSignal.type, msesSignal.timestamp);
-
-    const { entryr, tp, sl } = calcTargets(
-      msesSignal.type,
-      msesSignal.entry,
-      msesSignal.thirdCandle
-    );
-
-    await saveSignal2({
+    const exists = await alreadySent2(
       symbol,
       timeframe,
-      type: msesSignal.type,
-      entry: msesSignal.entry,
-      entryr,
-      tp,
-      sl,
-      timestamp: msesSignal.timestamp,
-      reason: msesSignal.reason,
-      sensitivity: 50,
-      status: "mses",
-    });
+      sig.type,
+      sig.entry,
+      dateKey,
+      "mses"
+    );
+
+    if (!exists) {
+      console.log("[MSES]", symbol, timeframe, sig.type, sig.timestamp);
+
+      // Només M, E i CLÚSTERS tenen TP/SL
+      const { entryr, tp, sl } = calcTargets(
+        sig.type,
+        sig.entry,
+        sig.thirdCandle
+      );
+
+      await saveSignal2({
+        symbol,
+        timeframe,
+        type: sig.type,
+        entry: sig.entry,
+        entryr,
+        tp,
+        sl,
+        timestamp: sig.timestamp,
+        reason: sig.reason,
+        sensitivity: 50,
+        status: "mses",
+      });
+    }
   }
 }
 
@@ -171,7 +176,7 @@ async function mainLoop() {
 // -------------------------------------------------------------
 async function startBot() {
   await initDB();
-  console.log("Bot MS/ES/CLÚSTER FIAT en marxa");
+  console.log("Bot MS/ES/CLÚSTER FIAT en marxa (versió 1:1 TradingView)");
 
   cron.schedule("* * * * *", mainLoop);
 }
