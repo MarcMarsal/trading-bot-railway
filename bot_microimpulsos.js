@@ -1,4 +1,4 @@
-// bot_microimpulsos.js (versió neta sense microimpulsos)
+// bot_microimpulsos.js — VERSIÓ NETEJADA I PREPARADA PER 1:1 TRADINGVIEW
 
 import cron from "node-cron";
 import { client, initDB } from "./db/client.js";
@@ -15,7 +15,6 @@ const SYMBOLS = [
   "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT","ATOM-USDT",
   "OP-USDT","ARB-USDT","DOT-USDT"
 ];
-
 
 const TIMEFRAMES = ["1H"];
 
@@ -53,7 +52,7 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
 }
 
 // -------------------------------------------------------------
-// FUNCIÓ DE CÀLCUL ENTRYR / TP / SL PER MS I CLÚSTER
+// CÀLCUL ENTRYR / TP / SL (només per MS i CLÚSTER)
 // -------------------------------------------------------------
 function calcTargets(type, entry, thirdCandle) {
   const { open, close, high, low } = thirdCandle;
@@ -61,39 +60,27 @@ function calcTargets(type, entry, thirdCandle) {
 
   let entryr, tp, sl;
 
-  // ============================
-  // MS (UP)
-  // ============================
-  if (type === "MS (UP)") {
-    entryr = entry - body * 0.15;     // retrocés 15%
-    sl = low;                         // SL sota la 3a vela
+  if (type === "M") {
+    entryr = entry - body * 0.15;
+    sl = low;
     const risk = entryr - sl;
-    tp = entryr + risk * 1.5;         // RR 1.5
+    tp = entryr + risk * 1.5;
   }
 
-  // ============================
-  // MS (DOWN)
-  // ============================
-  else if (type === "MS (DOWN)") {
-    entryr = entry + body * 0.15;     // retrocés 15%
-    sl = high;                        // SL sobre la 3a vela
+  else if (type === "E") {
+    entryr = entry + body * 0.15;
+    sl = high;
     const risk = sl - entryr;
-    tp = entryr - risk * 1.5;         // RR 1.5
+    tp = entryr - risk * 1.5;
   }
 
-  // ============================
-  // CLUSTER (UP)
-  // ============================
-  else if (type === "CLUSTER (UP)") {
-    entryr = entry;                   // entrada immediata
-    sl = null;                        // SL manual
-    tp = entry + entry * 0.025;       // RR 2.5 aproximat
+  else if (type === "CLUSTER_UP") {
+    entryr = entry;
+    sl = null;
+    tp = entry + entry * 0.025;
   }
 
-  // ============================
-  // CLUSTER (DOWN)
-  // ============================
-  else if (type === "CLUSTER (DOWN)") {
+  else if (type === "CLUSTER_DOWN") {
     entryr = entry;
     sl = null;
     tp = entry - entry * 0.025;
@@ -102,9 +89,6 @@ function calcTargets(type, entry, thirdCandle) {
   return { entryr, tp, sl };
 }
 
-// -------------------------------------------------------------
-// PROCESS SYMBOL
-// -------------------------------------------------------------
 // -------------------------------------------------------------
 // PROCESS SYMBOL
 // -------------------------------------------------------------
@@ -121,46 +105,45 @@ async function processSymbol(symbol, timeframe) {
 
   setMsesState(symbol, timeframe, newMsesState);
 
-  // ⛔ NO ENVIAR ES
-  if (msesSignal && !msesSignal.type.startsWith("ES")) {
+  // Si no hi ha senyal → res
+  if (!msesSignal) return;
 
-    const dateKey = getDay(msesSignal.timestamp);
+  // Ara NO filtrem ES ni clusters de baixada
+  const dateKey = getDay(msesSignal.timestamp);
 
-    const exists = await alreadySent2(
-      symbol,
-      timeframe,
+  const exists = await alreadySent2(
+    symbol,
+    timeframe,
+    msesSignal.type,
+    msesSignal.entry,
+    dateKey,
+    "mses"
+  );
+
+  if (!exists) {
+    console.log("[MSES]", symbol, timeframe, msesSignal.type, msesSignal.timestamp);
+
+    const { entryr, tp, sl } = calcTargets(
       msesSignal.type,
       msesSignal.entry,
-      dateKey,
-      "mses"
+      msesSignal.thirdCandle
     );
 
-    if (!exists) {
-      console.log("[MSES]", symbol, timeframe, msesSignal.type, msesSignal.timestamp);
-
-      const { entryr, tp, sl } = calcTargets(
-        msesSignal.type,
-        msesSignal.entry,
-        msesSignal.thirdCandle
-      );
-
-      await saveSignal2({
-        symbol,
-        timeframe,
-        type: msesSignal.type,
-        entry: msesSignal.entry,
-        entryr,
-        tp,
-        sl,
-        timestamp: msesSignal.timestamp,
-        reason: msesSignal.reason,
-        sensitivity: 50,
-        status: "mses",
-      });
-    }
+    await saveSignal2({
+      symbol,
+      timeframe,
+      type: msesSignal.type,
+      entry: msesSignal.entry,
+      entryr,
+      tp,
+      sl,
+      timestamp: msesSignal.timestamp,
+      reason: msesSignal.reason,
+      sensitivity: 50,
+      status: "mses",
+    });
   }
 }
-
 
 // -------------------------------------------------------------
 // LOOP PRINCIPAL
