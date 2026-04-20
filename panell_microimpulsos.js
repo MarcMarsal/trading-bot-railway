@@ -1,26 +1,21 @@
-// panell_microimpulsos.js
+// panell_microimpulsos.js — VERSIÓ FINAL 1:1 TRADINGVIEW
 
 import http from "http";
 import { initDB, client } from "./db/client.js";
 import { formatSpainTime } from "./core/utils.js";
 
-// -------------------------------------------------------------
-// FORMATADOR NUMÈRIC
-// -------------------------------------------------------------
+// Formatador numèric
 function fmt(n) {
   return n !== null && n !== undefined ? Number(n).toFixed(4) : "-";
 }
 
-// -------------------------------------------------------------
-// LLEGIR LES ÚLTIMES 20 ALERTES (ordenades per timestamp real)
-// -------------------------------------------------------------
+// Llegir últimes 20 alertes
 async function getActiveSignals() {
   const q = await client.query(
     `
     SELECT symbol, timeframe, type,
            entry, entryr, tp, sl,
-           timestamp, timestamp_es, date_es, hora_es,
-           reason, sensitivity, created_at, status
+           timestamp, reason, created_at
     FROM signals2
     ORDER BY timestamp DESC
     LIMIT 20
@@ -30,24 +25,29 @@ async function getActiveSignals() {
   return q.rows;
 }
 
-// -------------------------------------------------------------
-// GENERAR TAULA D’ALERTES
-// -------------------------------------------------------------
+// Generar taula
 function renderActiveSignalsTable(signals) {
   let rows = "";
 
   for (const s of signals) {
-     
 
-    // URL correcta Bitunix
+    // URL Bitunix
     const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${s.symbol}`;
 
     // Classes de color segons tipus
     let rowClass = "";
-    if (s.type === "MS (UP)") rowClass = "ms-up";
-    if (s.type === "MS (DOWN)") rowClass = "ms-down";
-    if (s.type === "CLUSTER (UP)") rowClass = "cluster-up";
-    if (s.type === "CLUSTER (DOWN)") rowClass = "cluster-down";
+
+    if (s.type === "M") rowClass = "ms-up";
+    if (s.type === "E") rowClass = "ms-down";
+
+    if (s.type === "M_WEAK") rowClass = "weak-up";
+    if (s.type === "E_WEAK") rowClass = "weak-down";
+
+    if (s.type === "DISCARD_MS") rowClass = "discard-up";
+    if (s.type === "DISCARD_ES") rowClass = "discard-down";
+
+    if (s.type === "CLUSTER_UP") rowClass = "cluster-up";
+    if (s.type === "CLUSTER_DOWN") rowClass = "cluster-down";
 
     // SL manual per clústers
     const slDisplay = s.type.includes("CLUSTER") ? "manual" : fmt(s.sl);
@@ -62,6 +62,7 @@ function renderActiveSignalsTable(signals) {
         <td>${fmt(s.tp)}</td>
         <td>${slDisplay}</td>
         <td>${formatSpainTime(s.timestamp * 1000)}</td>
+        <td>${s.reason || "-"}</td>
         <td>
           <button onclick="openBitunix('${bitunixUrl}', '${fmt(s.entryr)}')">
             Obrir Bitunix
@@ -84,6 +85,7 @@ function renderActiveSignalsTable(signals) {
           <th>TP</th>
           <th>SL</th>
           <th>Creat a</th>
+          <th>Motiu</th>
           <th>Acció</th>
         </tr>
       </thead>
@@ -94,9 +96,7 @@ function renderActiveSignalsTable(signals) {
   `;
 }
 
-// -------------------------------------------------------------
-// SERVIDOR HTTP
-// -------------------------------------------------------------
+// Servidor HTTP
 async function startPanel() {
   await initDB();
 
@@ -142,9 +142,16 @@ async function startPanel() {
             background-color: #006600;
           }
 
-          /* Colors per tipus de senyal */
+          /* Colors per tipus */
           .ms-up { color: #00ff00; }
           .ms-down { color: #ff4444; }
+
+          .weak-up { color: #3399ff; }
+          .weak-down { color: #3399ff; }
+
+          .discard-up { color: #66ccff; }
+          .discard-down { color: #66ccff; }
+
           .cluster-up { color: #00ff88; font-weight: bold; }
           .cluster-down { color: #ff6666; font-weight: bold; }
 
@@ -190,7 +197,7 @@ async function startPanel() {
     res.end("Panell Microimpulsos FIAT OK");
   }).listen(process.env.PORT || 3000);
 
-  console.log("Panell Microimpulsos FIAT en marxa");
+  console.log("Panell Microimpulsos FIAT en marxa (versió 1:1 TradingView)");
 }
 
 startPanel();
