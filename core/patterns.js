@@ -1,25 +1,24 @@
-// core/patterns.js — VERSIÓ 1:1 TRADINGVIEW (AMB CLUSTER_UP/DOWN)
+// core/patterns.js — VERSIÓ SINCRONITZADA MS/ES AMB TRADINGVIEW (sense microimpulsos ni febles encara)
 import { client } from "../db/client.js";
 
-// Helpers
+// Helpers bàsics
 function isBull(o, c) { return c > o; }
 function isBear(o, c) { return c < o; }
-function body(o, c) { return Math.abs(c - o); }
-function range(h, l) { return h - l; }
+function body(o, c)   { return Math.abs(c - o); }
 
 // ATR
 function calcATRArray(candles, period = 14) {
   if (candles.length < period + 1) return [];
   const atrs = [];
   for (let i = 1; i < candles.length; i++) {
-    const h = candles[i].high;
-    const l = candles[i].low;
+    const h  = candles[i].high;
+    const l  = candles[i].low;
     const pc = candles[i - 1].close;
     const tr = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
     if (i >= period) {
-      const slice = atrs.slice(-(period - 1));
-      const prevTRs = [...slice, tr];
-      const atr = prevTRs.reduce((a, b) => a + b, 0) / prevTRs.length;
+      const slice  = atrs.slice(-(period - 1));
+      const prevTR = [...slice, tr];
+      const atr    = prevTR.reduce((a, b) => a + b, 0) / prevTR.length;
       atrs.push(atr);
     } else {
       atrs.push(tr);
@@ -39,7 +38,7 @@ function sma(arr, period) {
 function ema(values, period) {
   if (!values || values.length === 0) return [];
   const k = 2 / (period + 1);
-  let emaArr = [];
+  const emaArr = [];
   let prev = values[0];
   emaArr.push(prev);
   for (let i = 1; i < values.length; i++) {
@@ -54,7 +53,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   if (!candlesRaw || candlesRaw.length < 10)
     return { signal: null, state: prevState };
 
-  // Load config
+  // Carregar config de DB
   const cfgRes = await client.query(
     "SELECT * FROM config_crypto WHERE symbol = $1",
     [symbol]
@@ -64,62 +63,49 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
   const cfg = cfgRes.rows[0];
 
-  const useMagnitudeFilter  = cfg.cfgmagnitude;
-  const useVolatilityFilter = cfg.cfgvol;
-  const window              = cfg.cfgwindow;
-  const distPctMax          = cfg.cfgdistpct;
+  const useMagnitudeFilter  = cfg.cfgmagnitude;   // true/false
+  const useVolatilityFilter = cfg.cfgvol;         // true/false
+  const window              = cfg.cfgwindow;      // clusters
+  const distPctMax          = cfg.cfgdistpct;     // ara només per motiu
   const debug               = cfg.cfgdebug;
 
-  const ratio  = 0.6;  // Pine default
-  const emaLen = 20;   // Pine default
+  const ratio  = 0.6;  // igual que Pine
+  const emaLen = 20;   // igual que Pine
 
-  // Sort candles
+  // Ordenar veles per timestamp
   let candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
-  // SEGURETAT: necessitem 6 veles tancades
+  // Seguretat
   if (n < 7) return { signal: null, state: prevState };
 
-  // ================================
-  // ❗❗❗ MAPPING CORREGIT (SENSE DELAY)
-  // ================================
-  //
-  // ABANS (INCORRECTE, 1H TARD):
-  // c0 = candles[n-2]
-  // c1 = candles[n-3]
-  // c2 = candles[n-4]
-  // c3 = candles[n-5]
-  //
-  // ARA (CORRECTE, 1:1 TRADINGVIEW):
-  // c0 = candles[n-1] ← última tancada (close[1] real)
-  // c1 = candles[n-2]
-  // c2 = candles[n-3]
-  // c3 = candles[n-4]
-  //
-  // ÚNIC canvi del fitxer.
-  //
+  // Mapping 1:1 amb Pine:
+  // c0 = última tancada (equivalent a close[0] a Pine)
+  // c1 = close[1]
+  // c2 = close[2]
+  // c3 = close[3]
   const c0 = candles[n - 1];
   const c1 = candles[n - 2];
   const c2 = candles[n - 3];
   const c3 = candles[n - 4];
 
   if (debug) {
-    console.log("=== DEBUG ===");
+    console.log("=== DEBUG MSES ===");
     console.log("c3:", c3.timestamp, c3.open, c3.high, c3.low, c3.close);
     console.log("c2:", c2.timestamp, c2.open, c2.high, c2.low, c2.close);
     console.log("c1:", c1.timestamp, c1.open, c1.high, c1.low, c1.close);
     console.log("c0:", c0.timestamp, c0.open, c0.high, c0.low, c0.close);
-    console.log("================");
+    console.log("==================");
   }
 
-  // INDECISIÓ (Pine)
+  // Indecisió (mateix que Pine)
   const indecision = (mid, first) => {
     const r = first.high - first.low;
     if (r === 0) return true;
     return Math.abs(mid.close - mid.open) < r * 0.3;
   };
 
-  // MS / ES (Pine)
+  // Condicions base MS / ES (Pine)
   const msCond =
     isBear(c3.open, c3.close) &&
     indecision(c2, c3) &&
@@ -148,16 +134,21 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   let msFiltered = msValid;
   let esFiltered = esValid;
 
+  let msWeak = false;
+  let esWeak = false;
+
   if (useMagnitudeFilter) {
     const bodyFirst = Math.abs(c3.close - c3.open);
     const bodyThird = Math.abs(c1.close - c1.open);
     const magOK = bodyThird > bodyFirst * ratio;
 
+    msWeak     = msValid && !magOK;
+    esWeak     = esValid && !magOK;
     msFiltered = msValid && magOK;
     esFiltered = esValid && magOK;
   }
 
-  // EMA + distPct (Pine)
+  // EMA (només per motiu, NO filtre dur)
   const closes = candles.map(c => c.close);
   const emaFast = ema(closes, emaLen);
   const emaLast = emaFast[emaFast.length - 2]; // última tancada
@@ -165,28 +156,23 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   const distPct = Math.abs((c0.close - emaLast) / emaLast) * 100;
   const failsDistPct = distPct > distPctMax;
 
-  if (failsDistPct) {
-    msFiltered = false;
-    esFiltered = false;
-  }
-
   // Volatilitat (Pine)
-  const atrArr = calcATRArray(candles, 14);
-  const atr14 = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
+  const atrArr   = calcATRArray(candles, 14);
+  const atr14    = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
   const atrSMA20 = sma(atrArr, 20);
-  const volOK = atr14 && atrSMA20 ? atr14 > atrSMA20 : true;
+  const volOK    = atr14 && atrSMA20 ? atr14 > atrSMA20 : true;
 
   if (useVolatilityFilter) {
     msFiltered = msFiltered && volOK;
     esFiltered = esFiltered && volOK;
   }
 
-  // State
+  // Estat per a clusters (igual que abans)
   const state = { ...prevState };
   if (state.prevMsFiltered === undefined) state.prevMsFiltered = false;
   if (state.prevEsFiltered === undefined) state.prevEsFiltered = false;
 
-  // Clústers (Pine)
+  // Clústers (aprox. com abans; ja ho refinarem si cal 1:1 absolut)
   const msFlags = [];
   const esFlags = [];
 
@@ -238,54 +224,74 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
     esFiltered &&
     !state.prevEsFiltered;
 
-  // Build signal
-  let signal = null;
-  const signalTimestamp = c1.timestamp;
+  // Motiu (MAG / EMA) — ja preparat per quan vulguem guardar-ho
+  let motiu = "";
+  if (msWeak || esWeak) motiu += "MAG+";
+  if (failsDistPct)      motiu += "EMA+";
 
-  // MS
-  if (msFiltered && !state.prevMsFiltered)
+  if (motiu.endsWith("+"))
+    motiu = motiu.slice(0, -1);
+
+  // Descarts (encara no els retornem com a senyal, però ja els tenim calculats)
+  const isDiscardedMS = msValid && !msFiltered;
+  const isDiscardedES = esValid && !esFiltered;
+
+  // Construir senyal principal (per ara: M, E, CLUSTER_UP, CLUSTER_DOWN)
+  let signal = null;
+  const signalTimestamp = c1.timestamp; // equivalent a bar_index[1]
+
+  // MS bona
+  if (msFiltered && !state.prevMsFiltered) {
     signal = {
       symbol,
       timeframe,
       type: "M",
       timestamp: signalTimestamp,
       entry: c1.close,
-      thirdCandle: c1
+      thirdCandle: c1,
+      reason: motiu || null
     };
+  }
 
-  // ES
-  if (esFiltered && !state.prevEsFiltered)
+  // ES bona
+  if (esFiltered && !state.prevEsFiltered) {
     signal = {
       symbol,
       timeframe,
       type: "E",
       timestamp: signalTimestamp,
       entry: c1.close,
-      thirdCandle: c1
+      thirdCandle: c1,
+      reason: motiu || null
     };
+  }
 
   // CLÚSTERS
-  if (msCluster)
+  if (msCluster) {
     signal = {
       symbol,
       timeframe,
       type: "CLUSTER_UP",
       timestamp: signalTimestamp,
       entry: c1.close,
-      thirdCandle: c1
+      thirdCandle: c1,
+      reason: motiu || null
     };
+  }
 
-  if (esCluster)
+  if (esCluster) {
     signal = {
       symbol,
       timeframe,
       type: "CLUSTER_DOWN",
       timestamp: signalTimestamp,
       entry: c1.close,
-      thirdCandle: c1
+      thirdCandle: c1,
+      reason: motiu || null
     };
+  }
 
-  // Update state
+  // Actualitzar estat
   state.prevMsFiltered = msFiltered;
   state.prevEsFiltered = esFiltered;
 
