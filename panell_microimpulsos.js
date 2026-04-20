@@ -32,7 +32,10 @@ function renderActiveSignalsTable(signals) {
   for (const s of signals) {
 
     // URL Bitunix
-    const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${s.symbol}`;
+    //const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${s.symbol}`;
+    const symbolNoDash = s.symbol.replace("-", "");
+    const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${symbolNoDash}`;
+
 
     // Classes de color segons tipus
     let rowClass = "";
