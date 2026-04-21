@@ -132,16 +132,36 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   let msWeak = false;
   let esWeak = false;
 
-  if (useMagnitudeFilter) {
-    const bodyFirst = Math.abs(c3.close - c3.open);
-    const bodyThird = Math.abs(c1.close - c1.open);
-    const magOK = bodyThird > bodyFirst * ratio;
+  //if (useMagnitudeFilter) {
+  //  const bodyFirst = Math.abs(c3.close - c3.open);
+  //  const bodyThird = Math.abs(c1.close - c1.open);
+  //  const magOK = bodyThird > bodyFirst * ratio;
 
-    msWeak     = msValid && !magOK;
-    esWeak     = esValid && !magOK;
-    msFiltered = msValid && magOK;
-    esFiltered = esValid && magOK;
-  }
+  //  msWeak     = msValid && !magOK;
+  //  esWeak     = esValid && !magOK;
+  //  msFiltered = msValid && magOK;
+  //  esFiltered = esValid && magOK;
+  //}
+  if (useMagnitudeFilter) {
+
+    // IMPORTANT: només calculem magnitud si el patró és vàlid
+    // (igual que TradingView)
+    if (msValid || esValid) {
+
+        // c3 = primera vela del patró
+        // c1 = tercera vela del patró
+        const bodyFirst = Math.abs(c3.close - c3.open);
+        const bodyThird = Math.abs(c1.close - c1.open);
+
+        const magOK = bodyThird > bodyFirst * ratio;
+
+        msWeak     = msValid && !magOK;
+        esWeak     = esValid && !magOK;
+        msFiltered = msValid && magOK;
+        esFiltered = esValid && magOK;
+    }
+}
+
 
   // EMA (només motiu)
   const closes = candles.map(c => c.close);
