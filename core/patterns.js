@@ -132,20 +132,9 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   let msWeak = false;
   let esWeak = false;
 
-  //if (useMagnitudeFilter) {
-  //  const bodyFirst = Math.abs(c3.close - c3.open);
-  //  const bodyThird = Math.abs(c1.close - c1.open);
-  //  const magOK = bodyThird > bodyFirst * ratio;
-
-  //  msWeak     = msValid && !magOK;
-  //  esWeak     = esValid && !magOK;
-  //  msFiltered = msValid && magOK;
-  //  esFiltered = esValid && magOK;
-  //}
   if (useMagnitudeFilter) {
 
     // IMPORTANT: només calculem magnitud si el patró és vàlid
-    // (igual que TradingView)
     if (msValid || esValid) {
 
         // c3 = primera vela del patró
@@ -160,8 +149,13 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
         msFiltered = msValid && magOK;
         esFiltered = esValid && magOK;
     }
-}
+  }
 
+  // 🔥 FIX FIAT (1:1 TradingView)
+  // Si és WEAK → NO pot ser forta
+  // Si és forta → NO pot ser WEAK
+  msFiltered = msValid && !msWeak;
+  esFiltered = esValid && !esWeak;
 
   // EMA (només motiu)
   const closes = candles.map(c => c.close);
