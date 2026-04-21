@@ -1,4 +1,4 @@
-// bot_microimpulsos.js — VERSIÓ FINAL 1:1 TRADINGVIEW (SUPORTA TOTS ELS TIPUS)
+// bot_microimpulsos.js — VERSIÓ SL/TP MS/ES ANCORAT A C1 + ATR
 
 import cron from "node-cron";
 import { client, initDB } from "./db/client.js";
@@ -51,9 +51,35 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
 }
 
 // -------------------------------------------------------------
+// ATR14 SIMPLE
+// -------------------------------------------------------------
+function calcATR(candles, period = 14) {
+  if (!candles || candles.length <= period) return null;
+
+  const trs = [];
+  for (let i = 1; i < candles.length; i++) {
+    const prev = candles[i - 1];
+    const cur = candles[i];
+
+    const highLow = cur.high - cur.low;
+    const highClose = Math.abs(cur.high - prev.close);
+    const lowClose = Math.abs(cur.low - prev.close);
+
+    const tr = Math.max(highLow, highClose, lowClose);
+    trs.push(tr);
+  }
+
+  if (trs.length < period) return null;
+
+  const last = trs.slice(-period);
+  const sum = last.reduce((a, b) => a + b, 0);
+  return sum / period;
+}
+
+// -------------------------------------------------------------
 // CÀLCUL ENTRYR / TP / SL (només per M, E, CLÚSTERS)
 // -------------------------------------------------------------
-function calcTargets(type, entry, thirdCandle) {
+function calcTargets(type, entry, thirdCandle, atr) {
   const { open, close, high, low } = thirdCandle;
   const body = Math.abs(close - open);
 
@@ -61,18 +87,46 @@ function calcTargets(type, entry, thirdCandle) {
   let tp = null;
   let sl = null;
 
+  // Configurables
+  const atrFactor = 1.1; // respiració (pots pujar a 1.2–1.3)
+  const tpR = 1.3;       // TP = 1.3R
+
   if (type === "M") {
+    // Entrada de retrocés com abans
     entryr = entry - body * 0.15;
-    sl = low;
-    const risk = entryr - sl;
-    tp = entryr + risk * 1.5;
+
+    if (atr && atr > 0) {
+      const baseSL = low;
+      const buffer = atr * atrFactor;
+      sl = baseSL - buffer;
+
+      const risk = entryr - sl;
+      tp = entryr + risk * tpR;
+    } else {
+      // Fallback: lògica antiga si no hi ha ATR
+      sl = low;
+      const risk = entryr - sl;
+      tp = entryr + risk * 1.5;
+    }
   }
 
   else if (type === "E") {
+    // Entrada de retrocés com abans
     entryr = entry + body * 0.15;
-    sl = high;
-    const risk = sl - entryr;
-    tp = entryr - risk * 1.5;
+
+    if (atr && atr > 0) {
+      const baseSL = high;
+      const buffer = atr * atrFactor;
+      sl = baseSL + buffer;
+
+      const risk = sl - entryr;
+      tp = entryr - risk * tpR;
+    } else {
+      // Fallback: lògica antiga si no hi ha ATR
+      sl = high;
+      const risk = sl - entryr;
+      tp = entryr - risk * 1.5;
+    }
   }
 
   else if (type === "CLUSTER_UP") {
@@ -99,9 +153,11 @@ async function processSymbol(symbol, timeframe) {
 
   candles.sort((a, b) => a.timestamp - b.timestamp);
 
+  // ATR per aquest símbol/TF
+  const atr = calcATR(candles, 14);
+
   let msesState = getMsesState(symbol, timeframe);
 
-  // ⚠️ Ara detectMSES retorna { signals: [...] }
   const { signals, state: newMsesState } =
     await detectMSES(candles, symbol, timeframe, msesState);
 
@@ -109,9 +165,7 @@ async function processSymbol(symbol, timeframe) {
 
   if (!signals || signals.length === 0) return;
 
-  // Processar TOTES les senyals
   for (const sig of signals) {
-
     const dateKey = getDay(sig.timestamp);
 
     const exists = await alreadySent2(
@@ -126,11 +180,11 @@ async function processSymbol(symbol, timeframe) {
     if (!exists) {
       console.log("[MSES]", symbol, timeframe, sig.type, sig.timestamp);
 
-      // Només M, E i CLÚSTERS tenen TP/SL
       const { entryr, tp, sl } = calcTargets(
         sig.type,
         sig.entry,
-        sig.thirdCandle
+        sig.thirdCandle,
+        atr
       );
 
       await saveSignal2({
@@ -176,7 +230,7 @@ async function mainLoop() {
 // -------------------------------------------------------------
 async function startBot() {
   await initDB();
-  console.log("Bot MS/ES/CLÚSTER FIAT en marxa (versió 1:1 TradingView)");
+  console.log("Bot MS/ES/CLÚSTER FIAT en marxa (SL/TP MS/ES ancorat a C1 + ATR)");
 
   cron.schedule("* * * * *", mainLoop);
 }
