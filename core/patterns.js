@@ -174,8 +174,15 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
 
   // Estat
   const state = { ...prevState };
+
   if (state.prevMsFiltered === undefined) state.prevMsFiltered = false;
   if (state.prevEsFiltered === undefined) state.prevEsFiltered = false;
+
+  if (state.prevMsWeak === undefined) state.prevMsWeak = false;
+  if (state.prevEsWeak === undefined) state.prevEsWeak = false;
+
+  if (state.prevMsValid === undefined) state.prevMsValid = false;
+  if (state.prevEsValid === undefined) state.prevEsValid = false;
 
   // Clústers
   const msFlags = [];
@@ -232,7 +239,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   // Construir TOTES les senyals
   const signals = [];
   const ts = c1.timestamp;
-  
 
   // MS bona
   if (msFiltered && !state.prevMsFiltered) {
@@ -258,8 +264,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
     });
   }
 
-  // MS feble
-  if (msWeak && !state.prevMsFiltered) {
+  // MS feble (1:1 TradingView)
+  if (msWeak && !state.prevMsWeak) {
     signals.push({
       symbol, timeframe,
       type: "M_WEAK",
@@ -270,8 +276,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
     });
   }
 
-  // ES feble
-  if (esWeak && !state.prevEsFiltered) {
+  // ES feble (1:1 TradingView)
+  if (esWeak && !state.prevEsWeak) {
     signals.push({
       symbol, timeframe,
       type: "E_WEAK",
@@ -332,6 +338,12 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) 
   // Update state
   state.prevMsFiltered = msFiltered;
   state.prevEsFiltered = esFiltered;
+
+  state.prevMsWeak = msWeak;
+  state.prevEsWeak = esWeak;
+
+  state.prevMsValid = msValid;
+  state.prevEsValid = esValid;
 
   return { signals, state };
 }
