@@ -13,12 +13,12 @@ function fmt(n) {
 async function getActiveSignals() {
   const q = await client.query(
     `
-    SELECT symbol, timeframe, type,
-           entry, entryr, tp, sl,
-           timestamp, reason, created_at
-    FROM signals2
-    ORDER BY timestamp DESC
-    LIMIT 20
+   SELECT symbol, timeframe, type,
+       entry, entryr, tp, sl,
+       timestamp, reason, created_at
+   FROM signals2
+   ORDER BY timestamp DESC, symbol ASC
+   LIMIT 20
     `
   );
 
