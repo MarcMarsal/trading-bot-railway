@@ -54,43 +54,52 @@ function ema(values, period) {
 // CONTEXT BTC (score + label FIAT)
 // -------------------------------------------------------------
 export function computeBTCContext(candles) {
-  if (!candles || candles.length < 30) {
+  if (!candles || candles.length < 40) {
     return { score: 0, label: "BTC_NOT_ENOUGH_DATA" };
   }
 
-  const n = candles.length;
-  const c0 = candles[n - 1];
-  const c1 = candles[n - 2];
-  const c2 = candles[n - 3];
+  // Treballem només amb veles TANCADES
+  const closed = candles.slice(0, -1); // excloem la vela oberta
+  const n = closed.length;
 
-  const closes = candles.map(c => c.close);
+  // Mapping FIAT (igual que detectMSES)
+  const c1 = closed[n - 1]; // 1a tancada
+  const c2 = closed[n - 2]; // 2a tancada
+  const c3 = closed[n - 3]; // 3a tancada
+
+  // EMA FIAT (sense vela oberta)
+  const closes = closed.map(c => c.close);
   const emaLen = 20;
   const emaFast = ema(closes, emaLen);
   const emaLast = emaFast[emaFast.length - 1];
   const emaPrev = emaFast[emaFast.length - 2];
   const emaSlope = emaLast - emaPrev;
 
-  const atrArr   = calcATRArray(candles, 14);
-  const atr14    = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
+  // ATR FIAT (sense vela oberta)
+  const atrArr = calcATRArray(closed, 14);
+  const atr14 = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
   const atrSMA20 = sma(atrArr, 20);
 
-  const body0 = body(c0.open, c0.close);
+  // Magnitud FIAT
   const body1 = body(c1.open, c1.close);
   const body2 = body(c2.open, c2.close);
-  const avgBody = (body0 + body1 + body2) / 3;
+  const body3 = body(c3.open, c3.close);
+  const avgBody = (body1 + body2 + body3) / 3;
 
-  const range0 = c0.high - c0.low;
-  const upperWick0 = c0.high - Math.max(c0.open, c0.close);
-  const lowerWick0 = Math.min(c0.open, c0.close) - c0.low;
-  const wickRatio0 = range0 > 0 ? (upperWick0 + lowerWick0) / range0 : 0;
+  // Flush FIAT
+  const range1 = c1.high - c1.low;
+  const upperWick1 = c1.high - Math.max(c1.open, c1.close);
+  const lowerWick1 = Math.min(c1.open, c1.close) - c1.low;
+  const wickRatio1 = range1 > 0 ? (upperWick1 + lowerWick1) / range1 : 0;
 
+  // Tendència FIAT (igual que detectMSES)
   const trendUp =
-    c0.close > c1.close &&
-    c1.close >= c2.close;
+    c1.close > c2.close &&
+    c2.close >= c3.close;
 
   const trendDown =
-    c0.close < c1.close &&
-    c1.close <= c2.close;
+    c1.close < c2.close &&
+    c2.close <= c3.close;
 
   let score = 0;
   const flags = [];
@@ -111,7 +120,7 @@ export function computeBTCContext(candles) {
   else flags.push("LOW_MAG");
 
   // 4) No flush
-  const noFlush = wickRatio0 < 0.6;
+  const noFlush = wickRatio1 < 0.6;
   if (noFlush) score += 1;
   else flags.push("FLUSH");
 
@@ -124,7 +133,6 @@ export function computeBTCContext(candles) {
 
   return { score, label };
 }
-
 
 
 // -------------------------------------------------------------
