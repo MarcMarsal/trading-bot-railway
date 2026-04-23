@@ -1,10 +1,10 @@
-// bot_microimpulsos.js — VERSIÓ SL/TP MS/ES ANCORAT A C1 + ATR
+// bot_microimpulsos.js — VERSIÓ SL/TP MS/ES ANCORAT A C1 + ATR + FILTRE BTC
 
 import cron from "node-cron";
 import { client, initDB } from "./db/client.js";
 import { alreadySent2 } from "./db/alreadySent2.js";
 import { saveSignal2 } from "./db/saveSignal2.js";
-import { detectMSES } from "./core/patterns.js";
+import { detectMSES, computeBTCContext } from "./core/patterns.js";
 import { getDay } from "./core/utils.js";
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
 
@@ -87,12 +87,10 @@ function calcTargets(type, entry, thirdCandle, atr) {
   let tp = null;
   let sl = null;
 
-  // Configurables
-  const atrFactor = 1.1; // respiració (pots pujar a 1.2–1.3)
-  const tpR = 1.3;       // TP = 1.3R
+  const atrFactor = 1.1;
+  const tpR = 1.3;
 
   if (type === "M") {
-    // Entrada de retrocés com abans
     entryr = entry - body * 0.15;
 
     if (atr && atr > 0) {
@@ -103,7 +101,6 @@ function calcTargets(type, entry, thirdCandle, atr) {
       const risk = entryr - sl;
       tp = entryr + risk * tpR;
     } else {
-      // Fallback: lògica antiga si no hi ha ATR
       sl = low;
       const risk = entryr - sl;
       tp = entryr + risk * 1.5;
@@ -111,7 +108,6 @@ function calcTargets(type, entry, thirdCandle, atr) {
   }
 
   else if (type === "E") {
-    // Entrada de retrocés com abans
     entryr = entry + body * 0.15;
 
     if (atr && atr > 0) {
@@ -122,7 +118,6 @@ function calcTargets(type, entry, thirdCandle, atr) {
       const risk = sl - entryr;
       tp = entryr - risk * tpR;
     } else {
-      // Fallback: lògica antiga si no hi ha ATR
       sl = high;
       const risk = sl - entryr;
       tp = entryr - risk * 1.5;
@@ -145,21 +140,20 @@ function calcTargets(type, entry, thirdCandle, atr) {
 }
 
 // -------------------------------------------------------------
-// PROCESSAR UN SÍMBOL
+// PROCESSAR UN SÍMBOL (ARA REP btcContext)
 // -------------------------------------------------------------
-async function processSymbol(symbol, timeframe) {
+async function processSymbol(symbol, timeframe, btcContext) {
   const candles = await getCandlesFromDB(symbol, timeframe, 80);
   if (!candles || candles.length < 30) return;
 
   candles.sort((a, b) => a.timestamp - b.timestamp);
 
-  // ATR per aquest símbol/TF
   const atr = calcATR(candles, 14);
 
   let msesState = getMsesState(symbol, timeframe);
 
   const { signals, state: newMsesState } =
-    await detectMSES(candles, symbol, timeframe, msesState);
+    await detectMSES(candles, symbol, timeframe, msesState, btcContext);
 
   setMsesState(symbol, timeframe, newMsesState);
 
@@ -205,19 +199,29 @@ async function processSymbol(symbol, timeframe) {
 }
 
 // -------------------------------------------------------------
-// LOOP PRINCIPAL
+// LOOP PRINCIPAL (ARA CALCULA BTC CONTEXT 1 SOLA VEGADA)
 // -------------------------------------------------------------
 async function mainLoop() {
+  // 1) Actualitzar veles
   for (const symbol of SYMBOLS) {
     for (const timeframe of TIMEFRAMES) {
       await fetchAndStoreCandles(symbol, timeframe);
     }
   }
 
+  // 2) Calcular context BTC
+  let btcContext = null;
+  for (const timeframe of TIMEFRAMES) {
+    const btcCandles = await getCandlesFromDB("BTC-USDT", timeframe, 80);
+    btcCandles.sort((a, b) => a.timestamp - b.timestamp);
+    btcContext = computeBTCContext(btcCandles);
+  }
+
+  // 3) Processar totes les criptos amb el context BTC
   for (const symbol of SYMBOLS) {
     for (const timeframe of TIMEFRAMES) {
       try {
-        await processSymbol(symbol, timeframe);
+        await processSymbol(symbol, timeframe, btcContext);
       } catch (err) {
         console.log("Error processant", symbol, timeframe, err.message);
       }
@@ -230,7 +234,7 @@ async function mainLoop() {
 // -------------------------------------------------------------
 async function startBot() {
   await initDB();
-  console.log("Bot MS/ES/CLÚSTER FIAT en marxa (SL/TP MS/ES ancorat a C1 + ATR)");
+  console.log("Bot MS/ES/CLÚSTER FIAT en marxa (SL/TP MS/ES ancorat a C1 + ATR + FILTRE BTC)");
 
   cron.schedule("* * * * *", mainLoop);
 }
