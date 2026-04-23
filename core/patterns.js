@@ -212,9 +212,6 @@ export async function detectMSES(
   let esValid = esCond && (trendDown || trendNeutral);
 
   // Magnitud
-  let msFiltered = msValid;
-  let esFiltered = esValid;
-
   let msWeak = false;
   let esWeak = false;
 
@@ -225,16 +222,10 @@ export async function detectMSES(
 
       const magOK = bodyThird > bodyFirst * ratio;
 
-      msWeak     = msValid && !magOK;
-      esWeak     = esValid && !magOK;
-      msFiltered = msValid && magOK;
-      esFiltered = esValid && magOK;
+      msWeak = msValid && !magOK;
+      esWeak = esValid && !magOK;
     }
   }
-
-  // FIX FIAT
-  msFiltered = msValid && !msWeak;
-  esFiltered = esValid && !esWeak;
 
   // EMA (només motiu)
   const closes = candles.map(c => c.close);
@@ -249,6 +240,9 @@ export async function detectMSES(
   const atr14    = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
   const atrSMA20 = sma(atrArr, 20);
   const volOK    = atr14 && atrSMA20 ? atr14 > atrSMA20 : true;
+
+  let msFiltered = msValid && !msWeak;
+  let esFiltered = esValid && !esWeak;
 
   if (useVolatilityFilter) {
     msFiltered = msFiltered && volOK;
@@ -268,15 +262,11 @@ export async function detectMSES(
   ) {
     const scoreBad = btcContext.score < cfgBTCExposure;
 
-    const hadMs = msFiltered;
-    const hadEs = esFiltered;
-
     if (scoreBad) {
-      if (msFiltered) msFiltered = false;
-      if (esFiltered) esFiltered = false;
+      btcDiscard = (msFiltered || esFiltered);
+      msFiltered = false;
+      esFiltered = false;
     }
-
-    btcDiscard = scoreBad && (hadMs || hadEs);
   }
 
   // Motiu
@@ -285,10 +275,6 @@ export async function detectMSES(
   if (failsDistPct)      motiu += "EMA+";
   if (btcDiscard)        motiu += "BTC+";
   if (motiu.endsWith("+")) motiu = motiu.slice(0, -1);
-
-  // Descarts
-  const isDiscardedMS = msValid && !msFiltered;
-  const isDiscardedES = esValid && !esFiltered;
 
   // Estat
   const state = { ...prevState };
@@ -299,66 +285,14 @@ export async function detectMSES(
   if (state.prevMsWeak === undefined) state.prevMsWeak = false;
   if (state.prevEsWeak === undefined) state.prevEsWeak = false;
 
-  if (state.prevMsValid === undefined) state.prevMsValid = false;
-  if (state.prevEsValid === undefined) state.prevEsValid = false;
-
-  // Clústers
-  const msFlags = [];
-  const esFlags = [];
-
-  for (let i = n - window - 2; i <= n - 2; i++) {
-    if (i < 5) continue;
-
-    const x0 = candles[i];
-    const x1 = candles[i - 1];
-    const x2 = candles[i - 2];
-    const x3 = candles[i - 3];
-
-    const ms_i =
-      isBear(x3.open, x3.close) &&
-      indecision(x2, x3) &&
-      isBull(x1.open, x1.close);
-
-    const es_i =
-      isBull(x3.open, x3.close) &&
-      indecision(x2, x3) &&
-      isBear(x1.open, x1.close);
-
-    const trendUp_i =
-      x0.close > x1.close &&
-      x1.close >= x2.close;
-
-    const trendDown_i =
-      x0.close < x1.close &&
-      x1.close <= x2.close;
-
-    const trendNeutral_i = !trendUp_i && !trendDown_i;
-
-    let msValid_i = ms_i && (trendUp_i || trendNeutral_i);
-    let esValid_i = es_i && (trendDown_i || trendNeutral_i);
-
-    msFlags.push(msValid_i ? 1 : 0);
-    esFlags.push(esValid_i ? 1 : 0);
-  }
-
-  const msCount = msFlags.reduce((a, b) => a + b, 0);
-  const esCount = esFlags.reduce((a, b) => a + b, 0);
-
-  const msCluster =
-    msCount >= 3 &&
-    msFiltered &&
-    !state.prevMsFiltered;
-
-  const esCluster =
-    esCount >= 3 &&
-    esFiltered &&
-    !state.prevEsFiltered;
-
-  // Construir TOTES les senyals
   const signals = [];
   const ts = c1.timestamp;
 
-  // MS bona
+  // -------------------------------------------------------------
+  // PIPELINE FIAT
+  // -------------------------------------------------------------
+
+  // 1) MS bona
   if (msFiltered && !state.prevMsFiltered) {
     signals.push({
       symbol, timeframe,
@@ -370,7 +304,7 @@ export async function detectMSES(
     });
   }
 
-  // ES bona
+  // 2) ES bona
   if (esFiltered && !state.prevEsFiltered) {
     signals.push({
       symbol, timeframe,
@@ -382,7 +316,7 @@ export async function detectMSES(
     });
   }
 
-  // MS feble
+  // 3) MS feble
   if (msWeak && !state.prevMsWeak) {
     signals.push({
       symbol, timeframe,
@@ -394,7 +328,7 @@ export async function detectMSES(
     });
   }
 
-  // ES feble
+  // 4) ES feble
   if (esWeak && !state.prevEsWeak) {
     signals.push({
       symbol, timeframe,
@@ -406,8 +340,8 @@ export async function detectMSES(
     });
   }
 
-  // DESCART MS
-  if (isDiscardedMS && !state.prevMsFiltered) {
+  // 5) DESCARTS
+  if (msValid && !msFiltered && !state.prevMsFiltered) {
     signals.push({
       symbol, timeframe,
       type: "DISCARD_MS",
@@ -418,8 +352,7 @@ export async function detectMSES(
     });
   }
 
-  // DESCART ES
-  if (isDiscardedES && !state.prevEsFiltered) {
+  if (esValid && !esFiltered && !state.prevEsFiltered) {
     signals.push({
       symbol, timeframe,
       type: "DISCARD_ES",
@@ -430,32 +363,7 @@ export async function detectMSES(
     });
   }
 
-  // CLÚSTERS
-  if (msCluster) {
-    signals.push({
-      symbol, timeframe,
-      type: "CLUSTER_UP",
-      timestamp: ts,
-      entry: c1.close,
-      thirdCandle: c1,
-      reason: motiu
-    });
-  }
-
-  if (esCluster) {
-    signals.push({
-      symbol, timeframe,
-      type: "CLUSTER_DOWN",
-      timestamp: ts,
-      entry: c1.close,
-      thirdCandle: c1,
-      reason: motiu
-    });
-  }
-
-  // -------------------------------------------------------------
-  // LÍNIA GROGA BTC_STATUS (només si hi ha descart per BTC)
-  // -------------------------------------------------------------
+  // 6) BTC_STATUS
   if (btcDiscard) {
     signals.push({
       symbol,
@@ -474,9 +382,6 @@ export async function detectMSES(
 
   state.prevMsWeak = msWeak;
   state.prevEsWeak = esWeak;
-
-  state.prevMsValid = msValid;
-  state.prevEsValid = esValid;
 
   return { signals, state };
 }
