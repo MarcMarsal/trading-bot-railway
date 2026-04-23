@@ -52,6 +52,8 @@ function renderActiveSignalsTable(signals) {
     if (s.type === "CLUSTER_UP") rowClass = "cluster-up";
     if (s.type === "CLUSTER_DOWN") rowClass = "cluster-down";
 
+    if (s.type === "BTC_STATUS") rowClass = "btc-status";
+
     // SL manual per clústers
     const slDisplay = s.type.includes("CLUSTER") ? "manual" : fmt(s.sl);
 
@@ -157,6 +159,8 @@ async function startPanel() {
 
           .cluster-up { color: #00ff88; font-weight: bold; }
           .cluster-down { color: #ff6666; font-weight: bold; }
+
+          .btc-status { color: #ffcc00; font-weight: bold; }
 
         </style>
 
