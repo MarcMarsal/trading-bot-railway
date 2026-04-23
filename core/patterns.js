@@ -154,7 +154,6 @@ export async function detectMSES(
   const useVolatilityFilter = cfg.cfgvol;
   const window              = cfg.cfgwindow;
   const distPctMax          = cfg.cfgdistpct;
-  const debug               = cfg.cfgdebug;
   const cfgBTCExposure      = cfg.cfgbtcexposure || 0;
 
   const ratio  = 0.6;
@@ -249,7 +248,7 @@ export async function detectMSES(
   }
 
   // -------------------------------------------------------------
-  // FILTRE BTC
+  // FILTRE BTC (només descarta si hi havia senyal real)
   // -------------------------------------------------------------
   let btcDiscard = false;
 
@@ -259,11 +258,17 @@ export async function detectMSES(
     cfgBTCExposure > 0 &&
     btcContext
   ) {
-    if (btcContext.score < cfgBTCExposure) {
+    const scoreBad = btcContext.score < cfgBTCExposure;
+
+    const hadMs = msFiltered;
+    const hadEs = esFiltered;
+
+    if (scoreBad) {
       if (msFiltered) msFiltered = false;
       if (esFiltered) esFiltered = false;
-      btcDiscard = true;
     }
+
+    btcDiscard = scoreBad && (hadMs || hadEs);
   }
 
   // Motiu
@@ -443,7 +448,7 @@ export async function detectMSES(
   // -------------------------------------------------------------
   // LÍNIA GROGA BTC_STATUS (només si hi ha descart per BTC)
   // -------------------------------------------------------------
-  if (btcDiscard && btcContext) {
+  if (btcDiscard) {
     signals.push({
       symbol,
       timeframe,
@@ -451,7 +456,7 @@ export async function detectMSES(
       timestamp: ts,
       entry: c1.close,
       thirdCandle: c1,
-      reason: btcContext.label
+      reason: "BTC"
     });
   }
 
