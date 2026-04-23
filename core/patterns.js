@@ -467,7 +467,3 @@ export async function detectMSES(
 
   return { signals, state };
 }
-
-
-  return { signals, state };
-}
