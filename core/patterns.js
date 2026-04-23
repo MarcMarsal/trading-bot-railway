@@ -6,6 +6,97 @@ function isBull(o, c) { return c > o; }
 function isBear(o, c) { return c < o; }
 function body(o, c)   { return Math.abs(c - o); }
 
+export function computeBTCContext(candles) {
+  if (!candles || candles.length < 30) {
+    return { score: 0, label: "BTC_NOT_ENOUGH_DATA" };
+  }
+
+  const n = candles.length;
+  const c0 = candles[n - 1];
+  const c1 = candles[n - 2];
+  const c2 = candles[n - 3];
+
+  const closes = candles.map(c => c.close);
+  const emaLen = 20;
+  const emaFast = ema(closes, emaLen);
+  const emaLast = emaFast[emaFast.length - 1];
+  const emaPrev = emaFast[emaFast.length - 2];
+  const emaSlope = emaLast - emaPrev;
+
+  const atrArr   = calcATRArray(candles, 14);
+  const atr14    = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
+  const atrSMA20 = sma(atrArr, 20);
+
+  const body0 = body(c0.open, c0.close);
+  const body1 = body(c1.open, c1.close);
+  const body2 = body(c2.open, c2.close);
+  const avgBody = (body0 + body1 + body2) / 3;
+
+  const range0 = c0.high - c0.low;
+  const upperWick0 = c0.high - Math.max(c0.open, c0.close);
+  const lowerWick0 = Math.min(c0.open, c0.close) - c0.low;
+  const wickRatio0 = range0 > 0 ? (upperWick0 + lowerWick0) / range0 : 0;
+
+  const trendUp =
+    c0.close > c1.close &&
+    c1.close >= c2.close;
+
+  const trendDown =
+    c0.close < c1.close &&
+    c1.close <= c2.close;
+
+  const trendNeutral = !trendUp && !trendDown;
+
+  let score = 0;
+  const flags = [];
+
+  // 1) EMA slope
+  const emaSlopeOK = Math.abs(emaSlope / emaLast) * 100 > 0.03; // 0.03% mínim
+  if (emaSlopeOK) {
+    score += 1;
+  } else {
+    flags.push("EMA_FLAT");
+  }
+
+  // 2) ATR vs ATR_SMA20
+  const atrOK = atr14 && atrSMA20 ? atr14 > atrSMA20 : false;
+  if (atrOK) {
+    score += 1;
+  } else {
+    flags.push("LOW_ATR");
+  }
+
+  // 3) Magnitud (cosos vs ATR)
+  const magOK = atr14 ? avgBody > atr14 * 0.4 : false;
+  if (magOK) {
+    score += 1;
+  } else {
+    flags.push("LOW_MAG");
+  }
+
+  // 4) No flush (mètxes massa grans)
+  const noFlush = wickRatio0 < 0.6;
+  if (noFlush) {
+    score += 1;
+  } else {
+    flags.push("FLUSH");
+  }
+
+  // 5) Tendència clara
+  const trendOK = trendUp || trendDown;
+  if (trendOK) {
+    score += 1;
+  } else {
+    flags.push("NO_TREND");
+  }
+
+  const label = flags.length === 0 ? "BTC_GOOD" : "BTC_" + flags.join("_");
+
+  return { score, label };
+}
+
+
+
 // ATR
 function calcATRArray(candles, period = 14) {
   if (candles.length < period + 1) return [];
