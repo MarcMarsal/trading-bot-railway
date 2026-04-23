@@ -6,96 +6,6 @@ function isBull(o, c) { return c > o; }
 function isBear(o, c) { return c < o; }
 function body(o, c)   { return Math.abs(c - o); }
 
-export function computeBTCContext(candles) {
-  if (!candles || candles.length < 30) {
-    return { score: 0, label: "BTC_NOT_ENOUGH_DATA" };
-  }
-
-  const n = candles.length;
-  const c0 = candles[n - 1];
-  const c1 = candles[n - 2];
-  const c2 = candles[n - 3];
-
-  const closes = candles.map(c => c.close);
-  const emaLen = 20;
-  const emaFast = ema(closes, emaLen);
-  const emaLast = emaFast[emaFast.length - 1];
-  const emaPrev = emaFast[emaFast.length - 2];
-  const emaSlope = emaLast - emaPrev;
-
-  const atrArr   = calcATRArray(candles, 14);
-  const atr14    = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
-  const atrSMA20 = sma(atrArr, 20);
-
-  const body0 = body(c0.open, c0.close);
-  const body1 = body(c1.open, c1.close);
-  const body2 = body(c2.open, c2.close);
-  const avgBody = (body0 + body1 + body2) / 3;
-
-  const range0 = c0.high - c0.low;
-  const upperWick0 = c0.high - Math.max(c0.open, c0.close);
-  const lowerWick0 = Math.min(c0.open, c0.close) - c0.low;
-  const wickRatio0 = range0 > 0 ? (upperWick0 + lowerWick0) / range0 : 0;
-
-  const trendUp =
-    c0.close > c1.close &&
-    c1.close >= c2.close;
-
-  const trendDown =
-    c0.close < c1.close &&
-    c1.close <= c2.close;
-
-  const trendNeutral = !trendUp && !trendDown;
-
-  let score = 0;
-  const flags = [];
-
-  // 1) EMA slope
-  const emaSlopeOK = Math.abs(emaSlope / emaLast) * 100 > 0.03; // 0.03% mínim
-  if (emaSlopeOK) {
-    score += 1;
-  } else {
-    flags.push("EMA_FLAT");
-  }
-
-  // 2) ATR vs ATR_SMA20
-  const atrOK = atr14 && atrSMA20 ? atr14 > atrSMA20 : false;
-  if (atrOK) {
-    score += 1;
-  } else {
-    flags.push("LOW_ATR");
-  }
-
-  // 3) Magnitud (cosos vs ATR)
-  const magOK = atr14 ? avgBody > atr14 * 0.4 : false;
-  if (magOK) {
-    score += 1;
-  } else {
-    flags.push("LOW_MAG");
-  }
-
-  // 4) No flush (mètxes massa grans)
-  const noFlush = wickRatio0 < 0.6;
-  if (noFlush) {
-    score += 1;
-  } else {
-    flags.push("FLUSH");
-  }
-
-  // 5) Tendència clara
-  const trendOK = trendUp || trendDown;
-  if (trendOK) {
-    score += 1;
-  } else {
-    flags.push("NO_TREND");
-  }
-
-  const label = flags.length === 0 ? "BTC_GOOD" : "BTC_" + flags.join("_");
-
-  return { score, label };
-}
-
-
 
 // ATR
 function calcATRArray(candles, period = 14) {
@@ -140,8 +50,93 @@ function ema(values, period) {
   return emaArr;
 }
 
-export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}, btcContext = null) {
+// -------------------------------------------------------------
+// CONTEXT BTC (score + label FIAT)
+// -------------------------------------------------------------
+export function computeBTCContext(candles) {
+  if (!candles || candles.length < 30) {
+    return { score: 0, label: "BTC_NOT_ENOUGH_DATA" };
+  }
 
+  const n = candles.length;
+  const c0 = candles[n - 1];
+  const c1 = candles[n - 2];
+  const c2 = candles[n - 3];
+
+  const closes = candles.map(c => c.close);
+  const emaLen = 20;
+  const emaFast = ema(closes, emaLen);
+  const emaLast = emaFast[emaFast.length - 1];
+  const emaPrev = emaFast[emaFast.length - 2];
+  const emaSlope = emaLast - emaPrev;
+
+  const atrArr   = calcATRArray(candles, 14);
+  const atr14    = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
+  const atrSMA20 = sma(atrArr, 20);
+
+  const body0 = body(c0.open, c0.close);
+  const body1 = body(c1.open, c1.close);
+  const body2 = body(c2.open, c2.close);
+  const avgBody = (body0 + body1 + body2) / 3;
+
+  const range0 = c0.high - c0.low;
+  const upperWick0 = c0.high - Math.max(c0.open, c0.close);
+  const lowerWick0 = Math.min(c0.open, c0.close) - c0.low;
+  const wickRatio0 = range0 > 0 ? (upperWick0 + lowerWick0) / range0 : 0;
+
+  const trendUp =
+    c0.close > c1.close &&
+    c1.close >= c2.close;
+
+  const trendDown =
+    c0.close < c1.close &&
+    c1.close <= c2.close;
+
+  let score = 0;
+  const flags = [];
+
+  // 1) EMA slope
+  const emaSlopeOK = Math.abs(emaSlope / emaLast) * 100 > 0.03;
+  if (emaSlopeOK) score += 1;
+  else flags.push("EMA_FLAT");
+
+  // 2) ATR
+  const atrOK = atr14 && atrSMA20 ? atr14 > atrSMA20 : false;
+  if (atrOK) score += 1;
+  else flags.push("LOW_ATR");
+
+  // 3) Magnitud
+  const magOK = atr14 ? avgBody > atr14 * 0.4 : false;
+  if (magOK) score += 1;
+  else flags.push("LOW_MAG");
+
+  // 4) No flush
+  const noFlush = wickRatio0 < 0.6;
+  if (noFlush) score += 1;
+  else flags.push("FLUSH");
+
+  // 5) Tendència clara
+  const trendOK = trendUp || trendDown;
+  if (trendOK) score += 1;
+  else flags.push("NO_TREND");
+
+  const label = flags.length === 0 ? "BTC_GOOD" : "BTC_" + flags.join("_");
+
+  return { score, label };
+}
+
+
+
+// -------------------------------------------------------------
+// DETECT MSES COMPLET + FILTRE BTC
+// -------------------------------------------------------------
+export async function detectMSES(
+  candlesRaw,
+  symbol,
+  timeframe,
+  prevState = {},
+  btcContext = null
+) {
   if (!candlesRaw || candlesRaw.length < 10)
     return { signals: [], state: prevState };
 
@@ -160,6 +155,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}, 
   const window              = cfg.cfgwindow;
   const distPctMax          = cfg.cfgdistpct;
   const debug               = cfg.cfgdebug;
+  const cfgBTCExposure      = cfg.cfgbtcexposure || 0;
 
   const ratio  = 0.6;
   const emaLen = 20;
@@ -175,15 +171,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}, 
   const c1 = candles[n - 2];
   const c2 = candles[n - 3];
   const c3 = candles[n - 4];
-
-  if (debug) {
-    console.log("=== DEBUG ===");
-    console.log("c3:", c3);
-    console.log("c2:", c2);
-    console.log("c1:", c1);
-    console.log("c0:", c0);
-    console.log("==============");
-  }
 
   // Indecisió
   const indecision = (mid, first) => {
@@ -225,27 +212,20 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}, 
   let esWeak = false;
 
   if (useMagnitudeFilter) {
-
-    // IMPORTANT: només calculem magnitud si el patró és vàlid
     if (msValid || esValid) {
+      const bodyFirst = Math.abs(c3.close - c3.open);
+      const bodyThird = Math.abs(c1.close - c1.open);
 
-        // c3 = primera vela del patró
-        // c1 = tercera vela del patró
-        const bodyFirst = Math.abs(c3.close - c3.open);
-        const bodyThird = Math.abs(c1.close - c1.open);
+      const magOK = bodyThird > bodyFirst * ratio;
 
-        const magOK = bodyThird > bodyFirst * ratio;
-
-        msWeak     = msValid && !magOK;
-        esWeak     = esValid && !magOK;
-        msFiltered = msValid && magOK;
-        esFiltered = esValid && magOK;
+      msWeak     = msValid && !magOK;
+      esWeak     = esValid && !magOK;
+      msFiltered = msValid && magOK;
+      esFiltered = esValid && magOK;
     }
   }
 
-  // 🔥 FIX FIAT (1:1 TradingView)
-  // Si és WEAK → NO pot ser forta
-  // Si és forta → NO pot ser WEAK
+  // FIX FIAT
   msFiltered = msValid && !msWeak;
   esFiltered = esValid && !esWeak;
 
@@ -268,10 +248,29 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}, 
     esFiltered = esFiltered && volOK;
   }
 
+  // -------------------------------------------------------------
+  // FILTRE BTC
+  // -------------------------------------------------------------
+  let btcDiscard = false;
+
+  if (
+    symbol !== "BTC-USDT" &&
+    symbol !== "ETH-USDT" &&
+    cfgBTCExposure > 0 &&
+    btcContext
+  ) {
+    if (btcContext.score < cfgBTCExposure) {
+      if (msFiltered) msFiltered = false;
+      if (esFiltered) esFiltered = false;
+      btcDiscard = true;
+    }
+  }
+
   // Motiu
   let motiu = "";
   if (msWeak || esWeak) motiu += "MAG+";
   if (failsDistPct)      motiu += "EMA+";
+  if (btcDiscard)        motiu += "BTC+";
   if (motiu.endsWith("+")) motiu = motiu.slice(0, -1);
 
   // Descarts
@@ -370,7 +369,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}, 
     });
   }
 
-  // MS feble (1:1 TradingView)
+  // MS feble
   if (msWeak && !state.prevMsWeak) {
     signals.push({
       symbol, timeframe,
@@ -378,11 +377,11 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}, 
       timestamp: ts,
       entry: c1.close,
       thirdCandle: c1,
-      reason: motiu
+      reason: "MAG"
     });
   }
 
-  // ES feble (1:1 TradingView)
+  // ES feble
   if (esWeak && !state.prevEsWeak) {
     signals.push({
       symbol, timeframe,
@@ -390,7 +389,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}, 
       timestamp: ts,
       entry: c1.close,
       thirdCandle: c1,
-      reason: motiu
+      reason: "MAG"
     });
   }
 
@@ -441,6 +440,21 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}, 
     });
   }
 
+  // -------------------------------------------------------------
+  // LÍNIA GROGA BTC_STATUS (només si hi ha descart per BTC)
+  // -------------------------------------------------------------
+  if (btcDiscard && btcContext) {
+    signals.push({
+      symbol,
+      timeframe,
+      type: "BTC_STATUS",
+      timestamp: ts,
+      entry: c1.close,
+      thirdCandle: c1,
+      reason: btcContext.label
+    });
+  }
+
   // Update state
   state.prevMsFiltered = msFiltered;
   state.prevEsFiltered = esFiltered;
@@ -450,6 +464,10 @@ export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}, 
 
   state.prevMsValid = msValid;
   state.prevEsValid = esValid;
+
+  return { signals, state };
+}
+
 
   return { signals, state };
 }
