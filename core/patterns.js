@@ -140,7 +140,8 @@ function ema(values, period) {
   return emaArr;
 }
 
-export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}) {
+export async function detectMSES(candlesRaw, symbol, timeframe, prevState = {}, btcContext = null) {
+
   if (!candlesRaw || candlesRaw.length < 10)
     return { signals: [], state: prevState };
 
