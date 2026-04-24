@@ -316,29 +316,29 @@ export async function detectMSES(
     });
   }
 
-  // 3) MS feble
-  if (msWeak && !state.prevMsWeak) {
-    signals.push({
-      symbol, timeframe,
-      type: "M_WEAK",
-      timestamp: ts,
-      entry: c1.close,
-      thirdCandle: c1,
-      reason: "MAG"
-    });
-  }
+  //// 3) MS feble
+  //if (msWeak && !state.prevMsWeak) {
+  //  signals.push({
+  //    symbol, timeframe,
+  //    type: "M_WEAK",
+  //    timestamp: ts,
+  //    entry: c1.close,
+  //    thirdCandle: c1,
+  //    reason: "MAG"
+  //  });
+  //}
 
   // 4) ES feble
-  if (esWeak && !state.prevEsWeak) {
-    signals.push({
-      symbol, timeframe,
-      type: "E_WEAK",
-      timestamp: ts,
-      entry: c1.close,
-      thirdCandle: c1,
-      reason: "MAG"
-    });
-  }
+  //if (esWeak && !state.prevEsWeak) {
+  //  signals.push({
+  //    symbol, timeframe,
+  //    type: "E_WEAK",
+  //    timestamp: ts,
+  //    entry: c1.close,
+  //    thirdCandle: c1,
+  //    reason: "MAG"
+  //  });
+  //}
 
   // 5) DESCARTS
   if (msValid && !msFiltered && !state.prevMsFiltered) {
@@ -364,17 +364,17 @@ export async function detectMSES(
   }
 
   // 6) BTC_STATUS
-  if (btcDiscard) {
-    signals.push({
-      symbol,
-      timeframe,
-      type: "BTC_STATUS",
-      timestamp: ts,
-      entry: c1.close,
-      thirdCandle: c1,
-      reason: "BTC"
-    });
-  }
+  //if (btcDiscard) {
+  //  signals.push({
+  //    symbol,
+  //    timeframe,
+  //    type: "BTC_STATUS",
+  //    timestamp: ts,
+  //    entry: c1.close,
+  //    thirdCandle: c1,
+  //    reason: "BTC"
+  //  });
+  //}
 
   // Update state
   state.prevMsFiltered = msFiltered;
