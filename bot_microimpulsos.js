@@ -5,7 +5,7 @@ import { client, initDB } from "./db/client.js";
 import { alreadySent2 } from "./db/alreadySent2.js";
 import { saveSignal2 } from "./db/saveSignal2.js";
 import { detectMSES, computeBTCContext } from "./core/patterns.js";
-import { getDay } from "./core/utils.js";
+import { getDay, splitSpainDate } from "./core/utils.js";
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
 
 const SYMBOLS = [
@@ -247,7 +247,83 @@ async function mainLoop() {
       }
     }
   }
+
+  // 4) Tracking de senyals obertes (TP/SL, inclosos DISCARD)
+  await checkOpenSignals();
+
 }
+
+async function checkOpenSignals() {
+  const res = await client.query(`
+    SELECT *
+    FROM signals2
+    WHERE closed = false
+  `);
+
+  for (const s of res.rows) {
+    // Per seguretat: si no hi ha tp/sl, no fem res
+    if (s.tp == null && s.sl == null) continue;
+
+    const candles = await getCandlesFromDB(s.symbol, s.timeframe, 1);
+    if (!candles || candles.length === 0) continue;
+
+    const curr = candles[candles.length - 1];
+    const high = curr.high;
+    const low = curr.low;
+
+    let hitTP = false;
+    let hitSL = false;
+
+    const isLong =
+      s.type === "M" ||
+      s.type === "DISCARD_MS" ||
+      s.type === "CLUSTER_UP";
+
+    const isShort =
+      s.type === "E" ||
+      s.type === "DISCARD_ES" ||
+      s.type === "CLUSTER_DOWN";
+
+    if (isLong) {
+      if (s.tp != null && high >= s.tp) hitTP = true;
+      if (s.sl != null && low <= s.sl) hitSL = true;
+    }
+
+    if (isShort) {
+      if (s.tp != null && low <= s.tp) hitTP = true;
+      if (s.sl != null && high >= s.sl) hitSL = true;
+    }
+
+    // CLÚSTERS només tenen TP (sl = null)
+    if ((s.type === "CLUSTER_UP" || s.type === "CLUSTER_DOWN") && s.sl == null) {
+      if (isLong && high >= s.tp) hitTP = true;
+      if (isShort && low <= s.tp) hitTP = true;
+    }
+
+    if (hitTP || hitSL) {
+      const now = Date.now();
+      const { date_es, hora_es, timestamp_es } = splitSpainDate(now);
+
+      await client.query(
+        `
+        UPDATE signals2
+        SET closed = true,
+            result = $1,
+            timestamp_closed = $2,
+            date_es_closed = $3,
+            hora_es_closed = $4
+        WHERE id = $5
+      `,
+        [hitTP ? "TP" : "SL", timestamp_es, date_es, hora_es, s.id]
+      );
+
+      console.log(
+        `[TRACK] ${s.symbol} ${s.type} → ${hitTP ? "TP" : "SL"}`
+      );
+    }
+  }
+}
+
 
 // -------------------------------------------------------------
 // START BOT
