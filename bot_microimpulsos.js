@@ -114,6 +114,33 @@ function calcTargets(type, entry, thirdCandle, atr) {
     }
   }
 
+  else if (type === "DISCARD_MS") {
+    // Calcular com un M normal
+    entryr = entry - body * 0.15;
+
+    if (atr && atr > 0) {
+      sl = low - atr * 1.1;
+      tp = entry + atr * 1.5;
+    } else {
+      sl = low;
+      tp = entry + (entry - sl) * 1.5;
+    }
+  }
+
+  else if (type === "DISCARD_ES") {
+    // Calcular com un E normal
+    entryr = entry + body * 0.15;
+
+    if (atr && atr > 0) {
+      sl = high + atr * 1.1;
+      tp = entry - atr * 1.5;
+    } else {
+      sl = high;
+      tp = entry - (sl - entry) * 1.5;
+    }
+  }
+
+
   // -------------------------------------------------------------
   // CLÚSTERS (no es toquen)
   // -------------------------------------------------------------
