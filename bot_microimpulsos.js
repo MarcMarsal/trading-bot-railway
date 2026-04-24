@@ -87,23 +87,18 @@ function calcTargets(type, entry, thirdCandle, atr) {
   let tp = null;
   let sl = null;
 
-  const atrFactor = 1.1;
-  const tpR = 1.3;
-
+  // -------------------------------------------------------------
+  // OPCIÓ C — SL ancorat a C1 + TP basat en ATR
+  // -------------------------------------------------------------
   if (type === "M") {
     entryr = entry - body * 0.15;
 
     if (atr && atr > 0) {
-      const baseSL = low;
-      const buffer = atr * atrFactor;
-      sl = baseSL - buffer;
-
-      const risk = entryr - sl;
-      tp = entryr + risk * tpR;
+      sl = low - atr * 1.1;
+      tp = entry + atr * 1.5;
     } else {
       sl = low;
-      const risk = entryr - sl;
-      tp = entryr + risk * 1.5;
+      tp = entry + (entry - sl) * 1.5;
     }
   }
 
@@ -111,19 +106,17 @@ function calcTargets(type, entry, thirdCandle, atr) {
     entryr = entry + body * 0.15;
 
     if (atr && atr > 0) {
-      const baseSL = high;
-      const buffer = atr * atrFactor;
-      sl = baseSL + buffer;
-
-      const risk = sl - entryr;
-      tp = entryr - risk * tpR;
+      sl = high + atr * 1.1;
+      tp = entry - atr * 1.5;
     } else {
       sl = high;
-      const risk = sl - entryr;
-      tp = entryr - risk * 1.5;
+      tp = entry - (sl - entry) * 1.5;
     }
   }
 
+  // -------------------------------------------------------------
+  // CLÚSTERS (no es toquen)
+  // -------------------------------------------------------------
   else if (type === "CLUSTER_UP") {
     entryr = entry;
     sl = null;
