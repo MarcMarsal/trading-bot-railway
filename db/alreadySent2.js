@@ -2,7 +2,7 @@
 import { client } from "./client.js";
 
 export async function alreadySent2(symbol, timeframe, type, timestamp) {
-  const ts = Number(timestamp);
+  const ts = Number(timestamp); // assegurem BIGINT
 
   const query = `
     SELECT 1 FROM signals2
@@ -15,7 +15,7 @@ export async function alreadySent2(symbol, timeframe, type, timestamp) {
 
   const params = [symbol, timeframe, type, ts];
 
-  // 🔥 RECONSTRUCCIÓ DE LA QUERY EXACTA
+  // 🔥 CONSTRUCCIÓ DE LA QUERY EXACTA (per debugging)
   const finalQuery =
     query
       .replace("$1", `'${symbol}'`)
@@ -23,8 +23,11 @@ export async function alreadySent2(symbol, timeframe, type, timestamp) {
       .replace("$3", `'${type}'`)
       .replace("$4", ts);
 
-  console.log("alreadySent2 FINAL QUERY:", finalQuery);
+  console.log("\n--- alreadySent2 FINAL QUERY ---");
+  console.log(finalQuery);
+  console.log("--------------------------------\n");
 
+  // 🔥 EXECUCIÓ REAL
   const q = await client.query(query, params);
 
   console.log("alreadySent2 RESULT:", q.rowCount);
