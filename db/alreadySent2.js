@@ -1,9 +1,21 @@
-// db/alreadySent2.js
-import { client } from "./client.js";
-
 export async function alreadySent2(symbol, timeframe, type, timestamp) {
-  const ts = Number(timestamp); // assegurem BIGINT
+  const ts = Number(timestamp);
 
+  // 🔥 Query reconstruïda manualment (només per imprimir)
+  const debugQuery = `
+SELECT 1 FROM signals2
+WHERE symbol = '${symbol}'
+  AND timeframe = '${timeframe}'
+  AND type = '${type}'
+  AND timestamp = ${ts}
+LIMIT 1;
+`;
+
+  console.log("\n--- alreadySent2 FINAL QUERY ---");
+  console.log(debugQuery);
+  console.log("--------------------------------\n");
+
+  // 🔥 Query real amb paràmetres (aquesta és la que s'executa)
   const query = `
     SELECT 1 FROM signals2
     WHERE symbol = $1
@@ -14,20 +26,6 @@ export async function alreadySent2(symbol, timeframe, type, timestamp) {
   `;
 
   const params = [symbol, timeframe, type, ts];
-
-  // 🔥 CONSTRUCCIÓ DE LA QUERY EXACTA (per debugging)
-  const finalQuery =
-    query
-      .replace("$1", `'${symbol}'`)
-      .replace("$2", `'${timeframe}'`)
-      .replace("$3", `'${type}'`)
-      .replace("$4", ts);
-
-  console.log("\n--- alreadySent2 FINAL QUERY ---");
-  console.log(finalQuery);
-  console.log("--------------------------------\n");
-
-  // 🔥 EXECUCIÓ REAL
   const q = await client.query(query, params);
 
   console.log("alreadySent2 RESULT:", q.rowCount);
