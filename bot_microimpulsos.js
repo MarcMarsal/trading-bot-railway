@@ -180,16 +180,11 @@ async function processSymbol(symbol, timeframe, btcContext) {
   if (!signals || signals.length === 0) return;
 
   for (const sig of signals) {
-    //const dateKey = getDay(sig.timestamp);
-    const dateKey = getDay(sig.timestamp * 1000);
-
     const exists = await alreadySent2(
       symbol,
       timeframe,
       sig.type,
-      sig.entry,
-      dateKey,
-      "mses"
+      sig.timestamp
     );
 
     if (!exists) {
