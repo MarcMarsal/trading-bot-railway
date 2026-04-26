@@ -1,7 +1,10 @@
-export async function alreadySent2(symbol, timeframe, type, timestamp) {
-  const ts = Number(timestamp);
+// db/alreadySent2.js
+import { client } from "./client.js";
 
-  // 🔥 Query reconstruïda manualment (només per imprimir)
+export async function alreadySent2(symbol, timeframe, type, timestamp) {
+  const ts = Number(timestamp); // assegurem BIGINT
+
+  // Només per veure la query exacta
   const debugQuery = `
 SELECT 1 FROM signals2
 WHERE symbol = '${symbol}'
@@ -15,7 +18,6 @@ LIMIT 1;
   console.log(debugQuery);
   console.log("--------------------------------\n");
 
-  // 🔥 Query real amb paràmetres (aquesta és la que s'executa)
   const query = `
     SELECT 1 FROM signals2
     WHERE symbol = $1
@@ -32,3 +34,4 @@ LIMIT 1;
 
   return q.rowCount > 0;
 }
+
