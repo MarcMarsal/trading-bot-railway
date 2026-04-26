@@ -10,6 +10,7 @@ export async function alreadySent2(symbol, timeframe, type, timestamp) {
       AND timestamp = $4
     LIMIT 1
   `;
+  console.log("alreadySent2 CHECK:", symbol, timeframe, type, timestamp);
 
   const params = [symbol, timeframe, type, timestamp];
   const q = await client.query(query, params);
