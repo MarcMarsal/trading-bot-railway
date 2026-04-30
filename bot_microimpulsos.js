@@ -90,67 +90,85 @@ function calcTargets(type, entry, thirdCandle, atr) {
 // -------------------------------------------------------------
 // PROCESSAR UN SÍMBOL (FIAT v1)
 // -------------------------------------------------------------
-async function processSymbol(symbol, timeframe) {
+// processSymbol.js (FIAT v1 final)
+
+import { getCandlesFromDB } from "./db/getCandlesFromDB.js";
+import { detectMSES } from "./core/patterns.js";
+import { calcTargets } from "./core/calcTargets.js";
+import { alreadySent2 } from "./db/alreadySent2.js";
+import { saveSignal2 } from "./db/saveSignal2.js";
+import { calcATR } from "./core/atr.js";
+
+export async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 80);
   if (!candles || candles.length < 40) return;
 
   // Ordenar veles de més antiga a més nova
   candles.sort((a, b) => a.timestamp - b.timestamp);
 
+  // ATR per targets
   const atr = calcATR(candles, 14);
 
-  // FIAT v1: detectem MS/ES + score + isGood
+  // FIAT v1: MS/ES + scoring
   const { signals } = await detectMSES(candles, symbol, timeframe);
   if (!signals || signals.length === 0) return;
 
   for (const sig of signals) {
 
-    // ❗ IMPORTANT: sig.type ha de ser "M" o "E"
+    // Tipus RAW FIAT v1: "M" o "E"
     if (sig.type !== "M" && sig.type !== "E") {
-      console.log("Tipus inesperat:", sig.type);
+      console.log("[FIAT] Tipus inesperat:", sig.type);
       continue;
     }
 
-    // Comprovació de duplicats amb el tipus RAW
+    // Convertir a tipus FINAL (GOOD/DISCARD)
+    const finalType =
+      sig.type === "M"
+        ? (sig.isGood ? "M_GOOD" : "M_DISCARD")
+        : (sig.isGood ? "E_GOOD" : "E_DISCARD");
+
+    // Comprovació de duplicats amb tipus FINAL i timestamp_ms
     const exists = await alreadySent2(
       symbol,
       timeframe,
-      sig.type,        // <-- AIXÒ és el correcte
-      sig.timestamp
+      finalType,
+      sig.timestamp   // <-- JA és ms
     );
 
-    if (!exists) {
-      console.log("[FIAT]", symbol, timeframe, sig.type, sig.timestamp);
-
-      const { entryr, tp, sl } = calcTargets(
-        sig.type,
-        sig.entry,
-        sig.thirdCandle,
-        atr
-      );
-
-      // Convertim a tipus final GOOD/DISCARD
-      const finalType =
-        sig.type === "M"
-          ? (sig.isGood ? "M_GOOD" : "M_DISCARD")
-          : (sig.isGood ? "E_GOOD" : "E_DISCARD");
-
-      await saveSignal2({
-        symbol,
-        timeframe,
-        type: finalType,
-        entry: sig.entry,
-        entryr,
-        tp,
-        sl,
-        timestamp: sig.timestamp,
-        reason: "",
-        score: sig.score,
-        isGood: sig.isGood
-      });
+    if (exists) {
+      // Ja existeix → no enviar ni guardar
+      continue;
     }
+
+    // Log FIAT v1
+    console.log("[FIAT]", symbol, timeframe, finalType, sig.timestamp);
+
+    // Calcular targets FIAT v1
+    const { entryr, tp, sl } = calcTargets(
+      sig.type,        // RAW per targets
+      sig.entry,
+      sig.thirdCandle,
+      atr
+    );
+
+    // Guardar senyal FIAT v1
+    await saveSignal2({
+      symbol,
+      timeframe,
+      type: finalType,
+      entry: sig.entry,
+      entryr,
+      tp,
+      sl,
+      timestamp: Math.floor(sig.timestamp / 1000), // segons
+      timestamp_ms: sig.timestamp,                 // mil·lisegons
+      score: sig.score,
+      isGood: sig.isGood,
+      reason: ""
+    });
   }
 }
+
 
 
 // -------------------------------------------------------------
