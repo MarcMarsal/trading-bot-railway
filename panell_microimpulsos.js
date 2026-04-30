@@ -16,15 +16,18 @@ async function getActiveSignals() {
     SELECT
       symbol, timeframe, type,
       entry, entryr, tp, sl,
-      timestamp_ms, score, is_good
+      timestamp_ms,
+      created_at,
+      score, is_good
     FROM signals2
-    ORDER BY timestamp_ms DESC
+    ORDER BY created_at DESC
     LIMIT 20
     `
   );
 
   return q.rows;
 }
+
 
 // Generar taula
 function renderActiveSignalsTable(signals) {
