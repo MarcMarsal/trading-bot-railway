@@ -31,8 +31,12 @@ export function formatSpainTime(tsMs) {
   const d = new Date(n);
   if (isNaN(d.getTime())) return "-";
 
-  return d.toLocaleTimeString("es-ES", { hour12: false });
+  return d.toLocaleTimeString("es-ES", {
+    hour12: false,
+    timeZone: "Europe/Madrid"
+  });
 }
+
 
 export function splitSpainDate(tsMs) {
   const n = Number(String(tsMs).trim());
