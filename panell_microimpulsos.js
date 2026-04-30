@@ -34,7 +34,7 @@ function renderActiveSignalsTable(signals) {
   let rows = "";
 
   for (const s of signals) {
-
+    console.log("CREATED_AT RAW:", s.symbol, s.created_at, typeof s.created_at);
     // Colors FIAT v1
     let rowClass = "";
 
