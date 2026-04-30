@@ -18,13 +18,33 @@ export function body(o, c) {
 // -----------------------------
 // DATE HELPERS (igual que abans)
 // -----------------------------
+// -----------------------------
+// DATE HELPERS FIAT v1 (robustos)
+// -----------------------------
 export function formatSpainTime(tsMs) {
-  const d = new Date(tsMs);
+  if (tsMs === null || tsMs === undefined) return "-";
+
+  // Convertir a número de forma segura
+  const n = Number(String(tsMs).trim());
+  if (!Number.isFinite(n)) return "-";
+
+  const d = new Date(n);
+  if (isNaN(d.getTime())) return "-";
+
   return d.toLocaleTimeString("es-ES", { hour12: false });
 }
 
 export function splitSpainDate(tsMs) {
-  const d = new Date(tsMs);
+  const n = Number(String(tsMs).trim());
+  const d = new Date(n);
+
+  if (isNaN(d.getTime())) {
+    return {
+      date_es: "-",
+      hora_es: "-",
+      timestamp_es: n
+    };
+  }
 
   const date_es = d.toLocaleDateString("es-ES");
   const hora_es = d.toLocaleTimeString("es-ES", { hour12: false });
@@ -32,11 +52,13 @@ export function splitSpainDate(tsMs) {
   return {
     date_es,
     hora_es,
-    timestamp_es: tsMs
+    timestamp_es: n
   };
 }
 
 export function getDay(tsMs) {
-  const d = new Date(tsMs);
-  return d.getDay(); // 0 = diumenge
+  const n = Number(String(tsMs).trim());
+  const d = new Date(n);
+  if (isNaN(d.getTime())) return null;
+  return d.getDay();
 }
