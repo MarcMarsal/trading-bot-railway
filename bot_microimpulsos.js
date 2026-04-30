@@ -94,6 +94,7 @@ async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 80);
   if (!candles || candles.length < 40) return;
 
+  // Ordenar veles de més antiga a més nova
   candles.sort((a, b) => a.timestamp - b.timestamp);
 
   const atr = calcATR(candles, 14);
@@ -103,10 +104,18 @@ async function processSymbol(symbol, timeframe) {
   if (!signals || signals.length === 0) return;
 
   for (const sig of signals) {
+
+    // ❗ IMPORTANT: sig.type ha de ser "M" o "E"
+    if (sig.type !== "M" && sig.type !== "E") {
+      console.log("Tipus inesperat:", sig.type);
+      continue;
+    }
+
+    // Comprovació de duplicats amb el tipus RAW
     const exists = await alreadySent2(
       symbol,
       timeframe,
-      sig.type,
+      sig.type,        // <-- AIXÒ és el correcte
       sig.timestamp
     );
 
@@ -120,7 +129,7 @@ async function processSymbol(symbol, timeframe) {
         atr
       );
 
-      // FIAT v1: GOOD/DISCARD com a tipus diferents
+      // Convertim a tipus final GOOD/DISCARD
       const finalType =
         sig.type === "M"
           ? (sig.isGood ? "M_GOOD" : "M_DISCARD")
@@ -142,6 +151,7 @@ async function processSymbol(symbol, timeframe) {
     }
   }
 }
+
 
 // -------------------------------------------------------------
 // TRACKING TP/SL
