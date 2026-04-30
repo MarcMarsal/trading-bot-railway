@@ -1,387 +1,194 @@
-// core/patterns.js — VERSIÓ 1:1 TRADINGVIEW (MS, ES, FEBLES, DESCARTADES, CLÚSTERS)
-import { client } from "../db/client.js";
+// core/patterns.js — FIAT v1 PUR (1:1 TradingView)
 
-// Helpers
-function isBull(o, c) { return c > o; }
-function isBear(o, c) { return c < o; }
-function body(o, c)   { return Math.abs(c - o); }
-
-
-// ATR
-function calcATRArray(candles, period = 14) {
-  if (candles.length < period + 1) return [];
-  const atrs = [];
-  for (let i = 1; i < candles.length; i++) {
-    const h  = candles[i].high;
-    const l  = candles[i].low;
-    const pc = candles[i - 1].close;
-    const tr = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
-    if (i >= period) {
-      const slice  = atrs.slice(-(period - 1));
-      const prevTR = [...slice, tr];
-      const atr    = prevTR.reduce((a, b) => a + b, 0) / prevTR.length;
-      atrs.push(atr);
-    } else {
-      atrs.push(tr);
-    }
-  }
-  return atrs;
-}
-
-// SMA
-function sma(arr, period) {
-  if (!arr || arr.length < period) return null;
-  const slice = arr.slice(arr.length - period);
-  return slice.reduce((a, b) => a + b, 0) / period;
-}
-
-// EMA
-function ema(values, period) {
-  if (!values || values.length === 0) return [];
-  const k = 2 / (period + 1);
-  const emaArr = [];
-  let prev = values[0];
-  emaArr.push(prev);
-  for (let i = 1; i < values.length; i++) {
-    const v = values[i] * k + prev * (1 - k);
-    emaArr.push(v);
-    prev = v;
-  }
-  return emaArr;
-}
+import { ema, sma, calcATRArray } from "./ta.js";   // Assumim helpers separats
+import { isBull, isBear, body } from "./utils.js";  // Helpers simples
 
 // -------------------------------------------------------------
-// CONTEXT BTC (score + label FIAT)
+// DETECT MSES FIAT v1 (1:1 TradingView)
 // -------------------------------------------------------------
-export function computeBTCContext(candles) {
-  if (!candles || candles.length < 40) {
-    return { score: 0, label: "BTC_NOT_ENOUGH_DATA" };
-  }
+export async function detectMSES(candlesRaw, symbol, timeframe) {
+  if (!candlesRaw || candlesRaw.length < 40)
+    return { signals: [] };
 
-  // Treballem només amb veles TANCADES
-  const closed = candles.slice(0, -1); // excloem la vela oberta
-  const n = closed.length;
-
-  // Mapping FIAT (igual que detectMSES)
-  const c1 = closed[n - 1]; // 1a tancada
-  const c2 = closed[n - 2]; // 2a tancada
-  const c3 = closed[n - 3]; // 3a tancada
-
-  // EMA FIAT (sense vela oberta)
-  const closes = closed.map(c => c.close);
-  const emaLen = 20;
-  const emaFast = ema(closes, emaLen);
-  const emaLast = emaFast[emaFast.length - 1];
-  const emaPrev = emaFast[emaFast.length - 2];
-  const emaSlope = emaLast - emaPrev;
-
-  // ATR FIAT (sense vela oberta)
-  const atrArr = calcATRArray(closed, 14);
-  const atr14 = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
-  const atrSMA20 = sma(atrArr, 20);
-
-  // Magnitud FIAT
-  const body1 = body(c1.open, c1.close);
-  const body2 = body(c2.open, c2.close);
-  const body3 = body(c3.open, c3.close);
-  const avgBody = (body1 + body2 + body3) / 3;
-
-  // Flush FIAT
-  const range1 = c1.high - c1.low;
-  const upperWick1 = c1.high - Math.max(c1.open, c1.close);
-  const lowerWick1 = Math.min(c1.open, c1.close) - c1.low;
-  const wickRatio1 = range1 > 0 ? (upperWick1 + lowerWick1) / range1 : 0;
-
-  // Tendència FIAT (igual que detectMSES)
-  const trendUp =
-    c1.close > c2.close &&
-    c2.close >= c3.close;
-
-  const trendDown =
-    c1.close < c2.close &&
-    c2.close <= c3.close;
-
-  let score = 0;
-  const flags = [];
-
-  // 1) EMA slope
-  const emaSlopeOK = Math.abs(emaSlope / emaLast) * 100 > 0.03;
-  if (emaSlopeOK) score += 1;
-  else flags.push("EMA_FLAT");
-
-  // 2) ATR
-  const atrOK = atr14 && atrSMA20 ? atr14 > atrSMA20 : false;
-  if (atrOK) score += 1;
-  else flags.push("LOW_ATR");
-
-  // 3) Magnitud
-  const magOK = atr14 ? avgBody > atr14 * 0.4 : false;
-  if (magOK) score += 1;
-  else flags.push("LOW_MAG");
-
-  // 4) No flush
-  const noFlush = wickRatio1 < 0.6;
-  if (noFlush) score += 1;
-  else flags.push("FLUSH");
-
-  // 5) Tendència clara
-  const trendOK = trendUp || trendDown;
-  if (trendOK) score += 1;
-  else flags.push("NO_TREND");
-
-  const label = flags.length === 0 ? "BTC_GOOD" : "BTC_" + flags.join("_");
-
-  return { score, label };
-}
-
-
-// -------------------------------------------------------------
-// DETECT MSES COMPLET + FILTRE BTC
-// -------------------------------------------------------------
-export async function detectMSES(
-  candlesRaw,
-  symbol,
-  timeframe,
-  prevState = {},
-  btcContext = null
-) {
-  if (!candlesRaw || candlesRaw.length < 10)
-    return { signals: [], state: prevState };
-
-  // Load config
-  const cfgRes = await client.query(
-    "SELECT * FROM config_crypto WHERE symbol = $1",
-    [symbol]
-  );
-  if (cfgRes.rows.length === 0)
-    return { signals: [], state: prevState };
-
-  const cfg = cfgRes.rows[0];
-
-  const useMagnitudeFilter  = cfg.cfgmagnitude;
-  const useVolatilityFilter = cfg.cfgvol;
-  const window              = cfg.cfgwindow;
-  const distPctMax          = cfg.cfgdistpct;
-  const cfgBTCExposure      = cfg.cfgbtcexposure || 0;
-
-  const ratio  = 0.6;
-  const emaLen = 20;
-
-  // Sort candles
-  let candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
+  // Ordenar veles
+  const candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
-  if (n < 7) return { signals: [], state: prevState };
+  // -------------------------------------------------------------
+  // 1) MAPPING DE VELES (1:1 TradingView)
+  // -------------------------------------------------------------
+  const c0 = candles[n - 1]; // vela actual (oberta)
+  const c1 = candles[n - 2]; // 1a tancada
+  const c2 = candles[n - 3]; // 2a tancada
+  const c3 = candles[n - 4]; // 3a tancada
 
-  // Mapping 1:1 Pine
-  const c0 = candles[n - 1];
-  const c1 = candles[n - 2];
-  const c2 = candles[n - 3];
-  const c3 = candles[n - 4];
-
-  // Indecisió
+  // -------------------------------------------------------------
+  // 2) DETECCIÓ MS / ES (RAW)
+  // -------------------------------------------------------------
   const indecision = (mid, first) => {
     const r = first.high - first.low;
     if (r === 0) return true;
     return Math.abs(mid.close - mid.open) < r * 0.3;
   };
 
-  // MS / ES condicions base
-  const msCond =
+  const msRaw =
     isBear(c3.open, c3.close) &&
     indecision(c2, c3) &&
     isBull(c1.open, c1.close);
 
-  const esCond =
+  const esRaw =
     isBull(c3.open, c3.close) &&
     indecision(c2, c3) &&
     isBear(c1.open, c1.close);
 
-  // Tendència
-  const trendUp =
-    c0.close > c1.close &&
-    c1.close >= c2.close;
+  // -------------------------------------------------------------
+  // 3) MAGNITUD FIAT
+  // -------------------------------------------------------------
+  const bodyFirst = Math.abs(c3.close - c3.open);
+  const bodyThird = Math.abs(c1.close - c1.open);
+  const magOK = bodyThird > bodyFirst * 0.6;
 
-  const trendDown =
-    c0.close < c1.close &&
-    c1.close <= c2.close;
-
-  const trendNeutral = !trendUp && !trendDown;
-
-  let msValid = msCond && (trendUp || trendNeutral);
-  let esValid = esCond && (trendDown || trendNeutral);
-
-  // Magnitud
-  let msWeak = false;
-  let esWeak = false;
-
-  if (useMagnitudeFilter) {
-    if (msValid || esValid) {
-      const bodyFirst = Math.abs(c3.close - c3.open);
-      const bodyThird = Math.abs(c1.close - c1.open);
-
-      const magOK = bodyThird > bodyFirst * ratio;
-
-      msWeak = msValid && !magOK;
-      esWeak = esValid && !magOK;
-    }
-  }
-
-  // EMA (només motiu)
+  // -------------------------------------------------------------
+  // 4) MACD FIAT + SATURACIÓ
+  // -------------------------------------------------------------
   const closes = candles.map(c => c.close);
-  const emaFast = ema(closes, emaLen);
-  const emaLast = emaFast[emaFast.length - 2];
 
-  const distPct = Math.abs((c0.close - emaLast) / emaLast) * 100;
-  const failsDistPct = distPct > distPctMax;
+  const ema12 = ema(closes, 12);
+  const ema26 = ema(closes, 26);
+  const macdLine = ema12.map((v, i) => v - ema26[i]);
+  const signalLine = ema(macdLine, 9);
+  const hist = macdLine.map((v, i) => v - signalLine[i]);
 
-  // Volatilitat
-  const atrArr   = calcATRArray(candles, 14);
-  const atr14    = atrArr.length > 0 ? atrArr[atrArr.length - 1] : null;
-  const atrSMA20 = sma(atrArr, 20);
-  const volOK    = atr14 && atrSMA20 ? atr14 > atrSMA20 : true;
+  const histSmooth = ema(hist, 5);
+  const histStdev = stdev(histSmooth, 20);
 
-  let msFiltered = msValid && !msWeak;
-  let esFiltered = esValid && !esWeak;
+  const bullishSat = histSmooth[histSmooth.length - 1] > histStdev * 2.5;
+  const bearishSat = histSmooth[histSmooth.length - 1] < -histStdev * 2.5;
 
-  if (useVolatilityFilter) {
-    msFiltered = msFiltered && volOK;
-    esFiltered = esFiltered && volOK;
-  }
+  const macdSignal = histSmooth[histSmooth.length - 1] > 0 ? 1 :
+                     histSmooth[histSmooth.length - 1] < 0 ? -1 : 0;
 
   // -------------------------------------------------------------
-  // FILTRE BTC (només descarta si hi havia senyal real)
+  // 5) TENDÈNCIA 12 HORES (1:1 TradingView)
   // -------------------------------------------------------------
-  let btcDiscard = false;
+  const tfMinutes = timeframe === "1H" ? 60 : 1440;
+  const bars12h = Math.floor(12 * 60 / tfMinutes);
 
-  if (
-    symbol !== "BTC-USDT" &&
-    symbol !== "ETH-USDT" &&
-    cfgBTCExposure > 0 &&
-    btcContext
-  ) {
-    const scoreBad = btcContext.score < cfgBTCExposure;
+  const enough = n > bars12h + 5;
 
-    if (scoreBad) {
-      btcDiscard = (msFiltered || esFiltered);
-      msFiltered = false;
-      esFiltered = false;
-    }
-  }
+  const closeNow = c0.close;
+  const closePast = enough ? candles[n - 1 - bars12h].close : closeNow;
 
-  // Motiu
-  let motiu = "";
-  if (msWeak || esWeak) motiu += "MAG+";
-  if (failsDistPct)      motiu += "EMA+";
-  if (btcDiscard)        motiu += "BTC+";
-  if (motiu.endsWith("+")) motiu = motiu.slice(0, -1);
+  const avgNow = sma(closes.slice(-bars12h), bars12h);
+  const avgPast = enough ? sma(closes.slice(-(bars12h * 2), -bars12h), bars12h) : avgNow;
 
-  // Estat
-  const state = { ...prevState };
+  const highNow = Math.max(...candles.slice(-bars12h).map(c => c.high));
+  const highPast = enough ? Math.max(...candles.slice(-(bars12h * 2), -bars12h).map(c => c.high)) : highNow;
 
-  if (state.prevMsFiltered === undefined) state.prevMsFiltered = false;
-  if (state.prevEsFiltered === undefined) state.prevEsFiltered = false;
+  const lowNow = Math.min(...candles.slice(-bars12h).map(c => c.low));
+  const lowPast = enough ? Math.min(...candles.slice(-(bars12h * 2), -bars12h).map(c => c.low)) : lowNow;
 
-  if (state.prevMsWeak === undefined) state.prevMsWeak = false;
-  if (state.prevEsWeak === undefined) state.prevEsWeak = false;
+  const trendUp12h =
+    closeNow > closePast &&
+    avgNow > avgPast &&
+    highNow > highPast;
 
+  const trendDown12h =
+    closeNow < closePast &&
+    avgNow < avgPast &&
+    lowNow < lowPast;
+
+  const trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
+
+  // -------------------------------------------------------------
+  // 6) FIAT SCORING (1:1 TradingView)
+  // -------------------------------------------------------------
+  const magSignal = magOK ? 1 : -1;
+  const satSignal = bullishSat ? 1 : bearishSat ? -1 : 0;
+
+  // Exposicions FIAT (igual que l’indicador)
+  const { magExp, macdExp, trendExp } = getExposures(symbol);
+
+  const magPts = magSignal === 1 ? magExp : 0;
+  const macdPts = macdSignal === 1 ? macdExp : 0;
+  const trendPts = trendSignal === 1 ? trendExp : 0;
+  const satPts = satSignal === 1 ? 1 : 0;
+
+  let score = magPts + macdPts + trendPts + satPts;
+
+  if (macdPts > 0 && trendPts > 0) score += 1;
+  if (macdPts > 0 && satPts > 0) score += 1;
+
+  const isGood = score >= 1;
+
+  // -------------------------------------------------------------
+  // 7) GENERAR SENYALS (1:1 TradingView)
+  // -------------------------------------------------------------
   const signals = [];
-  const ts = c1.timestamp;
+  const ts = c1.timestamp; // EXACTAMENT igual que l’indicador
 
-  // -------------------------------------------------------------
-  // PIPELINE FIAT
-  // -------------------------------------------------------------
-
-  // 1) MS bona
-  if (msFiltered && !state.prevMsFiltered) {
+  if (msRaw) {
     signals.push({
-      symbol, timeframe,
+      symbol,
+      timeframe,
       type: "M",
       timestamp: ts,
       entry: c1.close,
       thirdCandle: c1,
-      reason: motiu
+      score,
+      isGood
     });
   }
 
-  // 2) ES bona
-  if (esFiltered && !state.prevEsFiltered) {
+  if (esRaw) {
     signals.push({
-      symbol, timeframe,
+      symbol,
+      timeframe,
       type: "E",
       timestamp: ts,
       entry: c1.close,
       thirdCandle: c1,
-      reason: motiu
+      score,
+      isGood
     });
   }
 
-  //// 3) MS feble
-  //if (msWeak && !state.prevMsWeak) {
-  //  signals.push({
-  //    symbol, timeframe,
-  //    type: "M_WEAK",
-  //    timestamp: ts,
-  //    entry: c1.close,
-  //    thirdCandle: c1,
-  //    reason: "MAG"
-  //  });
-  //}
+  return { signals };
+}
 
-  // 4) ES feble
-  //if (esWeak && !state.prevEsWeak) {
-  //  signals.push({
-  //    symbol, timeframe,
-  //    type: "E_WEAK",
-  //    timestamp: ts,
-  //    entry: c1.close,
-  //    thirdCandle: c1,
-  //    reason: "MAG"
-  //  });
-  //}
+// -------------------------------------------------------------
+// UTILITATS FIAT (exposicions per cripto)
+// -------------------------------------------------------------
+function getExposures(symbol) {
+  const list = [
+    "BTC-USDT","SUI-USDT","SOL-USDT","XRP-USDT","AVAX-USDT",
+    "APT-USDT","INJ-USDT","SEI-USDT","ADA-USDT","LINK-USDT",
+    "BNB-USDT","ETH-USDT","NEAR-USDT","HBAR-USDT","RENDER-USDT",
+    "ASTER-USDT","BCH-USDT","VIRTUAL-USDT","ATOM-USDT",
+    "OP-USDT","ARB-USDT","DOT-USDT"
+  ];
 
-  // 5) DESCARTS
-  if (msValid && !msFiltered && !state.prevMsFiltered) {
-    signals.push({
-      symbol, timeframe,
-      type: "DISCARD_MS",
-      timestamp: ts,
-      entry: c1.close,
-      thirdCandle: c1,
-      reason: motiu
-    });
-  }
+  const magExpArr   = [2,1,2,1,2,1,2,1,1,2,1,2,2,1,2,1,1,1,2,1,1,1];
+  const macdExpArr  = [2,2,2,1,2,2,2,2,1,2,1,2,2,1,2,1,2,1,2,2,2,1];
+  const trendExpArr = [2,2,3,1,3,2,3,2,1,3,2,2,2,2,2,2,2,2,2,2,2,2];
 
-  if (esValid && !esFiltered && !state.prevEsFiltered) {
-    signals.push({
-      symbol, timeframe,
-      type: "DISCARD_ES",
-      timestamp: ts,
-      entry: c1.close,
-      thirdCandle: c1,
-      reason: motiu
-    });
-  }
+  const idx = list.indexOf(symbol);
+  if (idx === -1) return { magExp: 1, macdExp: 1, trendExp: 1 };
 
-  // 6) BTC_STATUS
-  //if (btcDiscard) {
-  //  signals.push({
-  //    symbol,
-  //    timeframe,
-  //    type: "BTC_STATUS",
-  //    timestamp: ts,
-  //    entry: c1.close,
-  //    thirdCandle: c1,
-  //    reason: "BTC"
-  //  });
-  //}
+  return {
+    magExp: magExpArr[idx],
+    macdExp: macdExpArr[idx],
+    trendExp: trendExpArr[idx]
+  };
+}
 
-  // Update state
-  state.prevMsFiltered = msFiltered;
-  state.prevEsFiltered = esFiltered;
-
-  state.prevMsWeak = msWeak;
-  state.prevEsWeak = esWeak;
-
-  return { signals, state };
+// -------------------------------------------------------------
+// STDEV helper
+// -------------------------------------------------------------
+function stdev(arr, period) {
+  if (!arr || arr.length < period) return 0;
+  const slice = arr.slice(-period);
+  const mean = slice.reduce((a, b) => a + b, 0) / period;
+  const variance = slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / period;
+  return Math.sqrt(variance);
 }
