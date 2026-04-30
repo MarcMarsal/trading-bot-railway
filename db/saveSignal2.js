@@ -25,7 +25,8 @@ export async function saveSignal2({
   isGood = null
 }) {
   const tsMs = Number(timestamp);
-  const tsSec = Math.floor(tsMs / 1000);
+  //const tsSec = Math.floor(tsMs / 1000);
+  const tsSec = Math.floor(tsMs);
 
   const { date_es, hora_es, timestamp_es } = splitSpainDate(tsMs);
 
