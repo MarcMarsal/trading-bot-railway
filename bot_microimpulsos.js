@@ -152,7 +152,8 @@ export async function processSymbol(symbol, timeframe) {
       entryr,
       tp,
       sl,
-      timestamp: Math.floor(sig.timestamp / 1000), // segons
+      //timestamp: Math.floor(sig.timestamp / 1000), // segons
+      timestamp: sig.timestamp,
       timestamp_ms: sig.timestamp,                 // mil·lisegons
       score: sig.score,
       isGood: sig.isGood,
