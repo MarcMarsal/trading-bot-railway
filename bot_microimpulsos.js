@@ -201,8 +201,8 @@ async function checkOpenSignals() {
     }
 
     if (hitTP || hitSL) {
-      const now = Date.now();
-      const { date_es, hora_es, timestamp_es } = splitSpainDate(now);
+      const nowMs = Date.now();
+      const { date_es, hora_es } = splitSpainDate(nowMs);
 
       await client.query(
         `
@@ -214,7 +214,7 @@ async function checkOpenSignals() {
             hora_es_closed = $4
         WHERE id = $5
       `,
-        [hitTP ? "TP" : "SL", timestamp_es, date_es, hora_es, s.id]
+        [hitTP ? "TP" : "SL", nowMs, date_es, hora_es, s.id]
       );
 
       console.log(`[TRACK] ${s.symbol} ${s.type} → ${hitTP ? "TP" : "SL"}`);
