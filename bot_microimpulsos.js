@@ -91,14 +91,6 @@ function calcTargets(type, entry, thirdCandle, atr) {
 // PROCESSAR UN SÍMBOL (FIAT v1)
 // -------------------------------------------------------------
 // processSymbol.js (FIAT v1 final)
-
-import { getCandlesFromDB } from "./db/getCandlesFromDB.js";
-import { detectMSES } from "./core/patterns.js";
-import { calcTargets } from "./core/calcTargets.js";
-import { alreadySent2 } from "./db/alreadySent2.js";
-import { saveSignal2 } from "./db/saveSignal2.js";
-import { calcATR } from "./core/atr.js";
-
 export async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 80);
   if (!candles || candles.length < 40) return;
