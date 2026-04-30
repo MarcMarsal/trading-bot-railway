@@ -56,7 +56,7 @@ function renderActiveSignalsTable(signals) {
         <td>${fmt(s.entryr)}</td>
         <td>${fmt(s.tp)}</td>
         <td>${fmt(s.sl)}</td>
-        <td>${formatSpainTime(s.timestamp_ms)}</td>
+        <td>${formatSpainTime(s.created_at)}</td>
         <td>${fmt(s.score)}</td>
         <td>${s.is_good ? "GOOD" : "DISCARD"}</td>
         <td>
