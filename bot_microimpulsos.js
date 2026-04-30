@@ -1,39 +1,24 @@
-// bot_microimpulsos.js — VERSIÓ SL/TP MS/ES ANCORAT A C1 + ATR + FILTRE BTC
+// bot_microimpulsos.js — FIAT v1 PUR (1:1 TradingView)
 
 import cron from "node-cron";
 import { client, initDB } from "./db/client.js";
 import { alreadySent2 } from "./db/alreadySent2.js";
 import { saveSignal2 } from "./db/saveSignal2.js";
-import { detectMSES, computeBTCContext } from "./core/patterns.js";
-import { getDay, splitSpainDate } from "./core/utils.js";
+import { detectMSES } from "./core/patterns.js";
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
 
+// -------------------------------------------------------------
+// CONFIG
+// -------------------------------------------------------------
 const SYMBOLS = [
-  "BTC-USDT", "SUI-USDT", "SOL-USDT", "XRP-USDT", "AVAX-USDT",
-  "APT-USDT", "INJ-USDT", "SEI-USDT", "ADA-USDT", "LINK-USDT",
-  "BNB-USDT", "ETH-USDT", "NEAR-USDT", "HBAR-USDT", "RENDER-USDT",
-  "ASTER-USDT", "BCH-USDT", "VIRTUAL-USDT","ATOM-USDT",
+  "BTC-USDT","SUI-USDT","SOL-USDT","XRP-USDT","AVAX-USDT",
+  "APT-USDT","INJ-USDT","SEI-USDT","ADA-USDT","LINK-USDT",
+  "BNB-USDT","ETH-USDT","NEAR-USDT","HBAR-USDT","RENDER-USDT",
+  "ASTER-USDT","BCH-USDT","VIRTUAL-USDT","ATOM-USDT",
   "OP-USDT","ARB-USDT","DOT-USDT"
 ];
 
 const TIMEFRAMES = ["1H"];
-
-// -------------------------------------------------------------
-// ESTAT GLOBAL PER MSES (clusters i transicions)
-// -------------------------------------------------------------
-const msesStates = {};
-
-function key(symbol, timeframe) {
-  return `${symbol}-${timeframe}`;
-}
-
-function getMsesState(symbol, timeframe) {
-  return msesStates[key(symbol, timeframe)] || {};
-}
-
-function setMsesState(symbol, timeframe, state) {
-  msesStates[key(symbol, timeframe)] = state || {};
-}
 
 // -------------------------------------------------------------
 // LLEGIR VELAS DE LA DB
@@ -51,7 +36,7 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
 }
 
 // -------------------------------------------------------------
-// ATR14 SIMPLE
+// ATR14 SIMPLE (per TP/SL)
 // -------------------------------------------------------------
 function calcATR(candles, period = 14) {
   if (!candles || candles.length <= period) return null;
@@ -77,7 +62,7 @@ function calcATR(candles, period = 14) {
 }
 
 // -------------------------------------------------------------
-// CÀLCUL ENTRYR / TP / SL (només per M, E, CLÚSTERS)
+// CÀLCUL ENTRYR / TP / SL (1:1 TradingView)
 // -------------------------------------------------------------
 function calcTargets(type, entry, thirdCandle, atr) {
   const { open, close, high, low } = thirdCandle;
@@ -87,96 +72,34 @@ function calcTargets(type, entry, thirdCandle, atr) {
   let tp = null;
   let sl = null;
 
-  // -------------------------------------------------------------
-  // OPCIÓ C — SL ancorat a C1 + TP basat en ATR
-  // -------------------------------------------------------------
   if (type === "M") {
     entryr = entry - body * 0.15;
-
-    if (atr && atr > 0) {
-      sl = low - atr * 1.1;
-      tp = entry + atr * 1.5;
-    } else {
-      sl = low;
-      tp = entry + (entry - sl) * 1.5;
-    }
+    sl = low - atr * 1.1;
+    tp = entry + atr * 1.5;
   }
 
-  else if (type === "E") {
+  if (type === "E") {
     entryr = entry + body * 0.15;
-
-    if (atr && atr > 0) {
-      sl = high + atr * 1.1;
-      tp = entry - atr * 1.5;
-    } else {
-      sl = high;
-      tp = entry - (sl - entry) * 1.5;
-    }
-  }
-
-  else if (type === "DISCARD_MS") {
-    // Calcular com un M normal
-    entryr = entry - body * 0.15;
-
-    if (atr && atr > 0) {
-      sl = low - atr * 1.1;
-      tp = entry + atr * 1.5;
-    } else {
-      sl = low;
-      tp = entry + (entry - sl) * 1.5;
-    }
-  }
-
-  else if (type === "DISCARD_ES") {
-    // Calcular com un E normal
-    entryr = entry + body * 0.15;
-
-    if (atr && atr > 0) {
-      sl = high + atr * 1.1;
-      tp = entry - atr * 1.5;
-    } else {
-      sl = high;
-      tp = entry - (sl - entry) * 1.5;
-    }
-  }
-
-
-  // -------------------------------------------------------------
-  // CLÚSTERS (no es toquen)
-  // -------------------------------------------------------------
-  else if (type === "CLUSTER_UP") {
-    entryr = entry;
-    sl = null;
-    tp = entry + entry * 0.025;
-  }
-
-  else if (type === "CLUSTER_DOWN") {
-    entryr = entry;
-    sl = null;
-    tp = entry - entry * 0.025;
+    sl = high + atr * 1.1;
+    tp = entry - atr * 1.5;
   }
 
   return { entryr, tp, sl };
 }
 
 // -------------------------------------------------------------
-// PROCESSAR UN SÍMBOL (ARA REP btcContext)
+// PROCESSAR UN SÍMBOL (FIAT v1)
 // -------------------------------------------------------------
-async function processSymbol(symbol, timeframe, btcContext) {
+async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 80);
-  if (!candles || candles.length < 30) return;
+  if (!candles || candles.length < 40) return;
 
   candles.sort((a, b) => a.timestamp - b.timestamp);
 
   const atr = calcATR(candles, 14);
 
-  let msesState = getMsesState(symbol, timeframe);
-
-  const { signals, state: newMsesState } =
-    await detectMSES(candles, symbol, timeframe, msesState, btcContext);
-
-  setMsesState(symbol, timeframe, newMsesState);
-
+  // FIAT v1: detectem MS/ES + score + isGood
+  const { signals } = await detectMSES(candles, symbol, timeframe);
   if (!signals || signals.length === 0) return;
 
   for (const sig of signals) {
@@ -188,7 +111,7 @@ async function processSymbol(symbol, timeframe, btcContext) {
     );
 
     if (!exists) {
-      console.log("[MSES]", symbol, timeframe, sig.type, sig.timestamp);
+      console.log("[FIAT]", symbol, timeframe, sig.type, sig.timestamp);
 
       const { entryr, tp, sl } = calcTargets(
         sig.type,
@@ -197,58 +120,32 @@ async function processSymbol(symbol, timeframe, btcContext) {
         atr
       );
 
+      // FIAT v1: GOOD/DISCARD com a tipus diferents
+      const finalType =
+        sig.type === "M"
+          ? (sig.isGood ? "M_GOOD" : "M_DISCARD")
+          : (sig.isGood ? "E_GOOD" : "E_DISCARD");
+
       await saveSignal2({
         symbol,
         timeframe,
-        type: sig.type,
+        type: finalType,
         entry: sig.entry,
         entryr,
         tp,
         sl,
         timestamp: sig.timestamp,
-        reason: sig.reason,
-        sensitivity: 50,
-        status: "mses",
+        reason: "",
+        score: sig.score,
+        isGood: sig.isGood
       });
     }
   }
 }
 
 // -------------------------------------------------------------
-// LOOP PRINCIPAL (ARA CALCULA BTC CONTEXT 1 SOLA VEGADA)
+// TRACKING TP/SL
 // -------------------------------------------------------------
-async function mainLoop() {
-  // 1) Actualitzar veles
-  for (const symbol of SYMBOLS) {
-    for (const timeframe of TIMEFRAMES) {
-      await fetchAndStoreCandles(symbol, timeframe);
-    }
-  }
-
-  // 2) Calcular context BTC
-  let btcContext = null;
-  for (const timeframe of TIMEFRAMES) {
-    const btcCandles = await getCandlesFromDB("BTC-USDT", timeframe, 80);
-    btcCandles.sort((a, b) => a.timestamp - b.timestamp);
-    btcContext = computeBTCContext(btcCandles);
-  }
-
-  // 3) Processar totes les criptos amb el context BTC
-  for (const symbol of SYMBOLS) {
-    for (const timeframe of TIMEFRAMES) {
-      try {
-        await processSymbol(symbol, timeframe, btcContext);
-      } catch (err) {
-        console.log("Error processant", symbol, timeframe, err.message);
-      }
-    }
-  }
-
-  // 4) Tracking de senyals obertes (TP/SL, inclosos DISCARD)
-  await checkOpenSignals();
-
-}
-
 async function checkOpenSignals() {
   const res = await client.query(`
     SELECT *
@@ -257,7 +154,6 @@ async function checkOpenSignals() {
   `);
 
   for (const s of res.rows) {
-    // Per seguretat: si no hi ha tp/sl, no fem res
     if (s.tp == null && s.sl == null) continue;
 
     const candles = await getCandlesFromDB(s.symbol, s.timeframe, 1);
@@ -270,15 +166,8 @@ async function checkOpenSignals() {
     let hitTP = false;
     let hitSL = false;
 
-    const isLong =
-      s.type === "M" ||
-      s.type === "DISCARD_MS" ||
-      s.type === "CLUSTER_UP";
-
-    const isShort =
-      s.type === "E" ||
-      s.type === "DISCARD_ES" ||
-      s.type === "CLUSTER_DOWN";
+    const isLong = s.type.startsWith("M");
+    const isShort = s.type.startsWith("E");
 
     if (isLong) {
       if (s.tp != null && high >= s.tp) hitTP = true;
@@ -288,12 +177,6 @@ async function checkOpenSignals() {
     if (isShort) {
       if (s.tp != null && low <= s.tp) hitTP = true;
       if (s.sl != null && high >= s.sl) hitSL = true;
-    }
-
-    // CLÚSTERS només tenen TP (sl = null)
-    if ((s.type === "CLUSTER_UP" || s.type === "CLUSTER_DOWN") && s.sl == null) {
-      if (isLong && high >= s.tp) hitTP = true;
-      if (isShort && low <= s.tp) hitTP = true;
     }
 
     if (hitTP || hitSL) {
@@ -313,20 +196,43 @@ async function checkOpenSignals() {
         [hitTP ? "TP" : "SL", timestamp_es, date_es, hora_es, s.id]
       );
 
-      console.log(
-        `[TRACK] ${s.symbol} ${s.type} → ${hitTP ? "TP" : "SL"}`
-      );
+      console.log(`[TRACK] ${s.symbol} ${s.type} → ${hitTP ? "TP" : "SL"}`);
     }
   }
 }
 
+// -------------------------------------------------------------
+// LOOP PRINCIPAL
+// -------------------------------------------------------------
+async function mainLoop() {
+  // 1) Actualitzar veles
+  for (const symbol of SYMBOLS) {
+    for (const timeframe of TIMEFRAMES) {
+      await fetchAndStoreCandles(symbol, timeframe);
+    }
+  }
+
+  // 2) Processar totes les criptos
+  for (const symbol of SYMBOLS) {
+    for (const timeframe of TIMEFRAMES) {
+      try {
+        await processSymbol(symbol, timeframe);
+      } catch (err) {
+        console.log("Error processant", symbol, timeframe, err.message);
+      }
+    }
+  }
+
+  // 3) Tracking TP/SL
+  await checkOpenSignals();
+}
 
 // -------------------------------------------------------------
 // START BOT
 // -------------------------------------------------------------
 async function startBot() {
   await initDB();
-  console.log("Bot MS/ES/CLÚSTER FIAT en marxa (SL/TP MS/ES ancorat a C1 + ATR + FILTRE BTC)");
+  console.log("Bot FIAT v1 en marxa (MS/ES + FIAT scoring + GOOD/DISCARD)");
 
   cron.schedule("* * * * *", mainLoop);
 }
