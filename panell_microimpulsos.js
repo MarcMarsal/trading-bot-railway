@@ -1,4 +1,4 @@
-// panell_microimpulsos.js — VERSIÓ FINAL 1:1 TRADINGVIEW
+// panell_microimpulsos.js — FIAT v1 PUR (1:1 amb el bot)
 
 import http from "http";
 import { initDB, client } from "./db/client.js";
@@ -9,16 +9,17 @@ function fmt(n) {
   return n !== null && n !== undefined ? Number(n).toFixed(4) : "-";
 }
 
-// Llegir últimes 20 alertes
+// Llegir últimes 20 alertes FIAT v1
 async function getActiveSignals() {
   const q = await client.query(
     `
-   SELECT symbol, timeframe, type,
-       entry, entryr, tp, sl,
-       timestamp, reason, created_at
-   FROM signals2
-   ORDER BY timestamp DESC, symbol ASC
-   LIMIT 20
+    SELECT
+      symbol, timeframe, type,
+      entry, entryr, tp, sl,
+      timestamp_ms, score, is_good
+    FROM signals2
+    ORDER BY timestamp_ms DESC
+    LIMIT 20
     `
   );
 
@@ -31,31 +32,17 @@ function renderActiveSignalsTable(signals) {
 
   for (const s of signals) {
 
-    // URL Bitunix
-    //const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${s.symbol}`;
-    const symbolNoDash = s.symbol.replace("-", "");
-    const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${symbolNoDash}`;
-
-
-    // Classes de color segons tipus
+    // Colors FIAT v1
     let rowClass = "";
 
-    if (s.type === "M") rowClass = "ms-up";
-    if (s.type === "E") rowClass = "ms-down";
+    if (s.type === "M_GOOD") rowClass = "m-good";
+    if (s.type === "M_DISCARD") rowClass = "m-discard";
 
-    if (s.type === "M_WEAK") rowClass = "weak-up";
-    if (s.type === "E_WEAK") rowClass = "weak-down";
+    if (s.type === "E_GOOD") rowClass = "e-good";
+    if (s.type === "E_DISCARD") rowClass = "e-discard";
 
-    if (s.type === "DISCARD_MS") rowClass = "discard-up";
-    if (s.type === "DISCARD_ES") rowClass = "discard-down";
-
-    if (s.type === "CLUSTER_UP") rowClass = "cluster-up";
-    if (s.type === "CLUSTER_DOWN") rowClass = "cluster-down";
-
-    if (s.type === "BTC_STATUS") rowClass = "btc-status";
-
-    // SL manual per clústers
-    const slDisplay = s.type.includes("CLUSTER") ? "manual" : fmt(s.sl);
+    const symbolNoDash = s.symbol.replace("-", "");
+    const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${symbolNoDash}`;
 
     rows += `
       <tr class="${rowClass}">
@@ -65,9 +52,10 @@ function renderActiveSignalsTable(signals) {
         <td>${fmt(s.entry)}</td>
         <td>${fmt(s.entryr)}</td>
         <td>${fmt(s.tp)}</td>
-        <td>${slDisplay}</td>
-        <td>${formatSpainTime(s.timestamp * 1000)}</td>
-        <td>${s.reason || "-"}</td>
+        <td>${fmt(s.sl)}</td>
+        <td>${formatSpainTime(s.timestamp_ms)}</td>
+        <td>${fmt(s.score)}</td>
+        <td>${s.is_good ? "GOOD" : "DISCARD"}</td>
         <td>
           <button onclick="openBitunix('${bitunixUrl}', '${fmt(s.entryr)}')">
             Obrir Bitunix
@@ -78,7 +66,7 @@ function renderActiveSignalsTable(signals) {
   }
 
   return `
-    <h2>Últimes 20 alertes</h2>
+    <h2>Últimes 20 alertes FIAT v1</h2>
     <table>
       <thead>
         <tr>
@@ -86,11 +74,12 @@ function renderActiveSignalsTable(signals) {
           <th>TF</th>
           <th>Tipus</th>
           <th>Entrada</th>
-          <th>Entrada (retroces)</th>
+          <th>EntradaR</th>
           <th>TP</th>
           <th>SL</th>
           <th>Creat a</th>
-          <th>Motiu</th>
+          <th>Score</th>
+          <th>Classificació</th>
           <th>Acció</th>
         </tr>
       </thead>
@@ -147,20 +136,12 @@ async function startPanel() {
             background-color: #006600;
           }
 
-          /* Colors per tipus */
-          .ms-up { color: #00ff00; }
-          .ms-down { color: #ff4444; }
+          /* Colors FIAT v1 */
+          .m-good { color: #00ff00; }
+          .m-discard { color: #66ccff; }
 
-          .weak-up { color: #3399ff; }
-          .weak-down { color: #3399ff; }
-
-          .discard-up { color: #66ccff; }
-          .discard-down { color: #66ccff; }
-
-          .cluster-up { color: #00ff88; font-weight: bold; }
-          .cluster-down { color: #ff6666; font-weight: bold; }
-
-          .btc-status { color: #ffcc00; font-weight: bold; }
+          .e-good { color: #ff4444; }
+          .e-discard { color: #66ccff; }
 
         </style>
 
@@ -186,7 +167,7 @@ async function startPanel() {
 
       </head>
       <body>
-        <h1>Panell Microimpulsos FIAT</h1>
+        <h1>Panell Microimpulsos FIAT v1</h1>
         <p><b>Última actualització:</b> ${lastUpdate}</p>
 
         ${signalsHTML}
@@ -201,10 +182,10 @@ async function startPanel() {
     }
 
     res.writeHead(200);
-    res.end("Panell Microimpulsos FIAT OK");
+    res.end("Panell FIAT v1 OK");
   }).listen(process.env.PORT || 3000);
 
-  console.log("Panell Microimpulsos FIAT en marxa (versió 1:1 TradingView)");
+  console.log("Panell Microimpulsos FIAT v1 en marxa");
 }
 
 startPanel();
