@@ -14,11 +14,19 @@ async function getActiveSignals() {
   const q = await client.query(
     `
     SELECT
-      symbol, timeframe, type,
-      entry, entryr, tp, sl,
+      id,
+      symbol,
+      type,
+      entry,
+      entryr,
+      tp,
+      sl,
       timestamp_ms,
+      date_es,
+      hora_es,
       created_at,
-      score, is_good
+      score,
+      is_good
     FROM signals2
     ORDER BY created_at DESC
     LIMIT 20
@@ -34,13 +42,10 @@ function renderActiveSignalsTable(signals) {
   let rows = "";
 
   for (const s of signals) {
-    console.log("CREATED_AT RAW:", s.symbol, s.created_at, typeof s.created_at);
-    // Colors FIAT v1
     let rowClass = "";
 
     if (s.type === "M_GOOD") rowClass = "m-good";
     if (s.type === "M_DISCARD") rowClass = "m-discard";
-
     if (s.type === "E_GOOD") rowClass = "e-good";
     if (s.type === "E_DISCARD") rowClass = "e-discard";
 
@@ -49,13 +54,15 @@ function renderActiveSignalsTable(signals) {
 
     rows += `
       <tr class="${rowClass}">
+        <td>${s.id}</td>
         <td>${s.symbol}</td>
-        <td>${s.timeframe}</td>
         <td>${s.type}</td>
         <td>${fmt(s.entry)}</td>
         <td>${fmt(s.entryr)}</td>
         <td>${fmt(s.tp)}</td>
         <td>${fmt(s.sl)}</td>
+        <td>${s.date_es}</td>
+        <td>${s.hora_es}</td>
         <td>${formatSpainTime(s.created_at)}</td>
         <td>${fmt(s.score)}</td>
         <td>${s.is_good ? "GOOD" : "DISCARD"}</td>
@@ -73,14 +80,16 @@ function renderActiveSignalsTable(signals) {
     <table>
       <thead>
         <tr>
+          <th>ID</th>
           <th>Symbol</th>
-          <th>TF</th>
           <th>Tipus</th>
           <th>Entrada</th>
           <th>EntradaR</th>
           <th>TP</th>
           <th>SL</th>
-          <th>Creat a</th>
+          <th>Data vela</th>
+          <th>Hora vela</th>
+          <th>Creat (ES)</th>
           <th>Score</th>
           <th>Classificació</th>
           <th>Acció</th>
