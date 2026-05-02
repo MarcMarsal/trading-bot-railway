@@ -50,15 +50,38 @@ export function splitSpainDate(tsMs) {
     };
   }
 
-  const date_es = d.toLocaleDateString("es-ES");
-  const hora_es = d.toLocaleTimeString("es-ES", { hour12: false });
+  const dateFormatter = new Intl.DateTimeFormat("es-ES", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+
+  const timeFormatter = new Intl.DateTimeFormat("es-ES", {
+    timeZone: "Europe/Madrid",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  });
+
+  const dateParts = dateFormatter.formatToParts(d);
+  const day   = dateParts.find(p => p.type === "day").value;
+  const month = dateParts.find(p => p.type === "month").value;
+  const year  = dateParts.find(p => p.type === "year").value;
+
+  const timeParts = timeFormatter.formatToParts(d);
+  const hour   = timeParts.find(p => p.type === "hour").value;
+  const minute = timeParts.find(p => p.type === "minute").value;
+  const second = timeParts.find(p => p.type === "second").value;
 
   return {
-    date_es,
-    hora_es,
+    date_es: `${day}/${month}/${year}`,
+    hora_es: `${hour}:${minute}:${second}`,
     timestamp_es: n
   };
 }
+
 
 export function getDay(tsMs) {
   const n = Number(String(tsMs).trim());
