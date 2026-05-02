@@ -16,8 +16,8 @@ export async function alreadySent2(symbol, timeframe, type, timestampMs) {
   const params = [symbol, timeframe, type, tsMs];
 
   // 🔥 DEBUG FIAT v1 — veure exactament què s'està buscant
-  console.log("[alreadySent2] QUERY:", query.trim());
-  console.log("[alreadySent2] PARAMS:", params);
+  //console.log("[alreadySent2] QUERY:", query.trim());
+  //console.log("[alreadySent2] PARAMS:", params);
 
   const q = await client.query(query, params);
 
