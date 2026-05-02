@@ -170,6 +170,43 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
   return { signals };
 }
 
+function getExposuresAndWeights(symbol) {
+  const list = [
+    "BTC-USDT","SUI-USDT","SOL-USDT","XRP-USDT","AVAX-USDT",
+    "APT-USDT","INJ-USDT","SEI-USDT","ADA-USDT","LINK-USDT",
+    "BNB-USDT","ETH-USDT","NEAR-USDT","HBAR-USDT","RENDER-USDT",
+    "ASTER-USDT","BCH-USDT","VIRTUAL-USDT","ATOM-USDT",
+    "OP-USDT","ARB-USDT","DOT-USDT"
+  ];
+
+  const magExpArr   = [2,1,2,1,2, 1,2,1,1,2, 1,2,2,1,2, 1,1,1,2, 1,1,1];
+  const macdExpArr  = [2,2,2,1,2, 2,2,2,1,2, 1,2,2,1,2, 1,2,1,2, 2,2,1];
+  const trendExpArr = [2,2,3,1,3, 2,3,2,1,3, 2,2,2,2,2, 2,2,2,2, 2,2,2];
+
+  const magWeightArr   = [1,0,1,0,1,1,1,0,0,1,1,1,0,0,1,0,1,0,1,1,0,0];
+  const macdWeightArr  = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
+  const trendWeightArr = [2,3,2,3,2,2,2,3,3,2,2,2,4,3,2,4,2,4,2,2,3,3];
+
+  const idx = list.indexOf(symbol);
+  if (idx === -1) {
+    return {
+      magExp: 1, macdExp: 1, trendExp: 1,
+      magW: 1, macdW: 1, trendW: 1
+    };
+  }
+
+  return {
+    magExp:  magExpArr[idx],
+    macdExp: macdExpArr[idx],
+    trendExp: trendExpArr[idx],
+    magW:    magWeightArr[idx],
+    macdW:   macdWeightArr[idx],
+    trendW:  trendWeightArr[idx]
+  };
+}
+
+
+
 // -------------------------------------------------------------
 // UTILITATS FIAT (exposicions per cripto)
 // -------------------------------------------------------------
