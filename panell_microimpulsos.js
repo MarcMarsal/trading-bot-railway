@@ -28,7 +28,7 @@ async function getActiveSignals() {
       score,
       is_good
     FROM signals2
-    ORDER BY created_at DESC
+    ORDER BY timestamp_ms DESC
     LIMIT 20
     `
   );
