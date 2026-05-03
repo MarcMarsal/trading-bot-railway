@@ -123,7 +123,6 @@ export async function processSymbol(symbol, timeframe) {
     const exists = await alreadySent2(
       symbol,
       timeframe,
-      finalType,
       sig.timestamp   // <-- JA és ms
     );
 
