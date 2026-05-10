@@ -122,6 +122,24 @@ if (i >= bars12h * 2) {
     trendUp12h ? 1 :
     trendDown12h ? -1 : 0;
 }
+// DEBUG FIAT — només ASTER
+if (symbol === "ASTER-USDT" && (msRaw || esRaw)) {
+  console.log("=== DEBUG ASTER ===");
+  console.log("i:", i);
+  console.log("timestamp:", candles[i - 1].timestamp);
+  console.log("trendUp12h:", trendUp12h);
+  console.log("trendDown12h:", trendDown12h);
+  console.log("trendSignal:", trendSignal);
+  console.log("avgNow:", avgNow);
+  console.log("avgPast:", avgPast);
+  console.log("highNow:", highNow);
+  console.log("highPast:", highPast);
+  console.log("lowNow:", lowNow);
+  console.log("lowPast:", lowPast);
+  console.log("closeNow:", closeNow);
+  console.log("closePast:", closePast);
+  console.log("====================");
+}
 
 
     // -----------------------------
