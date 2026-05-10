@@ -79,34 +79,31 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth >  hStdev * 2.5 ?  1 :
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
-   // -------------------------------------------------------------
-// TENDÈNCIA 12 HORES — FIAT 1:1 TRADINGVIEW
-// -------------------------------------------------------------
+ // -----------------------------
+// TENDÈNCIA 12 HORES — FIAT 1:1 TradingView
+// -----------------------------
 const tfMinutes = timeframe === "1H" ? 60 : 1440;
 const bars12h = Math.floor(12 * 60 / tfMinutes);
 
-// Necessitem 24h de dades per comparar NOW vs PAST
-if (i < bars12h * 2) {
-  trendSignal = 0;
-} else {
-  // EXACTAMENT com fa el Pine: rangs sense +1 ni i+1
+// trendSignal inicialment neutre
+let trendSignal = 0;
+
+if (i >= bars12h * 2) {
+  // Rangs EXACTES de 12h NOW i 12h PAST (sense +1 ni i+1)
   const closesNow = closes.slice(i - bars12h, i);
   const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
 
   const avgNow = sma(closesNow, bars12h);
   const avgPast = sma(closesPast, bars12h);
 
-  const highsNow = candles.slice(i - bars12h, i).map(c => c.high);
-  const highsPast = candles.slice(i - bars12h * 2, i - bars12h).map(c => c.high);
+  const windowNow = candles.slice(i - bars12h, i);
+  const windowPast = candles.slice(i - bars12h * 2, i - bars12h);
 
-  const lowsNow = candles.slice(i - bars12h, i).map(c => c.low);
-  const lowsPast = candles.slice(i - bars12h * 2, i - bars12h).map(c => c.low);
+  const highNow = Math.max(...windowNow.map(c => c.high));
+  const highPast = Math.max(...windowPast.map(c => c.high));
 
-  const highNow = Math.max(...highsNow);
-  const highPast = Math.max(...highsPast);
-
-  const lowNow = Math.min(...lowsNow);
-  const lowPast = Math.min(...lowsPast);
+  const lowNow = Math.min(...windowNow.map(c => c.low));
+  const lowPast = Math.min(...windowPast.map(c => c.low));
 
   const closeNow = candles[i - 1].close;
   const closePast = candles[i - bars12h - 1].close;
@@ -125,6 +122,7 @@ if (i < bars12h * 2) {
     trendUp12h ? 1 :
     trendDown12h ? -1 : 0;
 }
+
 
     // -----------------------------
     // FIAT SCORING 0–10 (1:1 Pine)
