@@ -79,59 +79,52 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth >  hStdev * 2.5 ?  1 :
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
-    // -----------------------------
-    // TENDÈNCIA 12 HORES (1:1 Pine)
-// -----------------------------
-    const tfMinutes = timeframe === "1H" ? 60 : 1440;
-    const bars12h = Math.floor(12 * 60 / tfMinutes);
+   // -------------------------------------------------------------
+// TENDÈNCIA 12 HORES — FIAT 1:1 TRADINGVIEW
+// -------------------------------------------------------------
+const tfMinutes = timeframe === "1H" ? 60 : 1440;
+const bars12h = Math.floor(12 * 60 / tfMinutes);
 
-    const enough = i > bars12h;
+// Necessitem 24h de dades per comparar NOW vs PAST
+if (i < bars12h * 2) {
+  trendSignal = 0;
+} else {
+  // EXACTAMENT com fa el Pine: rangs sense +1 ni i+1
+  const closesNow = closes.slice(i - bars12h, i);
+  const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
 
-    const closeNow = c0.close;
-    const closePast = enough ? candles[i - bars12h].close : closeNow;
+  const avgNow = sma(closesNow, bars12h);
+  const avgPast = sma(closesPast, bars12h);
 
-    const avgNow = sma(closes.slice(i - bars12h + 1, i + 1), bars12h);
-    const avgPast = enough
-      ? sma(closes.slice(i - bars12h * 2 + 1, i - bars12h + 1), bars12h)
-      : avgNow;
+  const highsNow = candles.slice(i - bars12h, i).map(c => c.high);
+  const highsPast = candles.slice(i - bars12h * 2, i - bars12h).map(c => c.high);
 
-    const highNow = Math.max(
-      ...candles.slice(i - bars12h + 1, i + 1).map(c => c.high)
-    );
-    const highPast = enough
-      ? Math.max(
-          ...candles
-            .slice(i - bars12h * 2 + 1, i - bars12h + 1)
-            .map(c => c.high)
-        )
-      : highNow;
+  const lowsNow = candles.slice(i - bars12h, i).map(c => c.low);
+  const lowsPast = candles.slice(i - bars12h * 2, i - bars12h).map(c => c.low);
 
-    const lowNow = Math.min(
-      ...candles.slice(i - bars12h + 1, i + 1).map(c => c.low)
-    );
-    const lowPast = enough
-      ? Math.min(
-          ...candles
-            .slice(i - bars12h * 2 + 1, i - bars12h + 1)
-            .map(c => c.low)
-        )
-      : lowNow;
+  const highNow = Math.max(...highsNow);
+  const highPast = Math.max(...highsPast);
 
-    const trendUp12h =
-      closeNow > closePast &&
-      avgNow > avgPast &&
-      highNow > highPast;
+  const lowNow = Math.min(...lowsNow);
+  const lowPast = Math.min(...lowsPast);
 
-    const trendDown12h =
-      closeNow < closePast &&
-      avgNow < avgPast &&
-      lowNow < lowPast;
+  const closeNow = candles[i - 1].close;
+  const closePast = candles[i - bars12h - 1].close;
 
-    const trendSignal =
-      trendUp12h ? 1 :
-      trendDown12h ? -1 : 0;
-    
-    console.log(symbol, i, trendUp12h, trendDown12h, trendSignal);
+  const trendUp12h =
+    closeNow > closePast &&
+    avgNow > avgPast &&
+    highNow > highPast;
+
+  const trendDown12h =
+    closeNow < closePast &&
+    avgNow < avgPast &&
+    lowNow < lowPast;
+
+  trendSignal =
+    trendUp12h ? 1 :
+    trendDown12h ? -1 : 0;
+}
 
     // -----------------------------
     // FIAT SCORING 0–10 (1:1 Pine)
