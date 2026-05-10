@@ -130,6 +130,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     const trendSignal =
       trendUp12h ? 1 :
       trendDown12h ? -1 : 0;
+    
+    console.log(symbol, i, trendUp12h, trendDown12h, trendSignal);
 
     // -----------------------------
     // FIAT SCORING 0–10 (1:1 Pine)
