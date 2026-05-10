@@ -1,4 +1,4 @@
-// bot_microimpulsos.js — FIAT v1 PUR (1:1 TradingView)
+// bot_microimpulsos.js — FIAT v1 1:1 TradingView
 
 import cron from "node-cron";
 import { client, initDB } from "./db/client.js";
@@ -6,17 +6,21 @@ import { alreadySent2 } from "./db/alreadySent2.js";
 import { saveSignal2 } from "./db/saveSignal2.js";
 import { detectMSES } from "./core/patterns.js";
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
+import { splitSpainDate } from "./core/utils.js";
 
 // -------------------------------------------------------------
 // CONFIG
 // -------------------------------------------------------------
-const SYMBOLS = [
+const AVAILABLE_CRYPTOS = [
   "BTC-USDT","SUI-USDT","SOL-USDT","XRP-USDT","AVAX-USDT",
   "APT-USDT","INJ-USDT","SEI-USDT","ADA-USDT","LINK-USDT",
   "BNB-USDT","ETH-USDT","NEAR-USDT","HBAR-USDT","RENDER-USDT",
   "ASTER-USDT","BCH-USDT","VIRTUAL-USDT","ATOM-USDT",
   "OP-USDT","ARB-USDT","DOT-USDT"
 ];
+
+// Avui: totes activades per validar 1:1
+const ACTIVE_CRYPTOS = [...AVAILABLE_CRYPTOS];
 
 const TIMEFRAMES = ["1H"];
 
@@ -36,7 +40,7 @@ async function getCandlesFromDB(symbol, timeframe, limit) {
 }
 
 // -------------------------------------------------------------
-// ATR14 SIMPLE (per TP/SL)
+// ATR14 SIMPLE (per TP/SL) — mantenim la versió que ja funcionava
 // -------------------------------------------------------------
 function calcATR(candles, period = 14) {
   if (!candles || candles.length <= period) return null;
@@ -62,27 +66,56 @@ function calcATR(candles, period = 14) {
 }
 
 // -------------------------------------------------------------
+// TP/SL ROUTER FIAT (1:1 TradingView)
+// -------------------------------------------------------------
+function tpSlFixed(isLong, entry) {
+  const tp = isLong ? entry * 1.02 : entry * 0.98;
+  const sl = isLong ? entry * 0.99 : entry * 1.01;
+  return { tp, sl };
+}
+
+function tpSlAtr(isLong, entry, body, atr, high, low) {
+  const sl = isLong ? low - atr * 1.1 : high + atr * 1.1;
+  const tp = isLong ? entry + atr * 1.5 : entry - atr * 1.5;
+  return { tp, sl };
+}
+
+function tpSlRouter(symbol, type, entry, body, atr, high, low) {
+  const isLong = type === "M";
+
+  // IMPORTANT: mantenim el símbol amb guionet
+  if (symbol === "SOL-USDT") {
+    return tpSlAtr(isLong, entry, body, atr, high, low);
+  } else if (symbol === "BTC-USDT") {
+    return tpSlFixed(isLong, entry);
+  } else {
+    return tpSlAtr(isLong, entry, body, atr, high, low);
+  }
+}
+
+// -------------------------------------------------------------
 // CÀLCUL ENTRYR / TP / SL (1:1 TradingView)
 // -------------------------------------------------------------
-function calcTargets(type, entry, thirdCandle, atr) {
+function calcTargets(symbol, type, thirdCandle, atr) {
   const { open, close, high, low } = thirdCandle;
   const body = Math.abs(close - open);
 
-  let entryr = null;
-  let tp = null;
-  let sl = null;
+  const entry = close; // c1.close, igual que sig.entry
 
-  if (type === "M") {
-    entryr = entry - body * 0.15;
-    sl = low - atr * 1.1;
-    tp = entry + atr * 1.5;
-  }
+  const entryr =
+    type === "M"
+      ? entry - body * 0.15
+      : entry + body * 0.15;
 
-  if (type === "E") {
-    entryr = entry + body * 0.15;
-    sl = high + atr * 1.1;
-    tp = entry - atr * 1.5;
-  }
+  const { tp, sl } = tpSlRouter(
+    symbol,
+    type,
+    entry,
+    body,
+    atr,
+    high,
+    low
+  );
 
   return { entryr, tp, sl };
 }
@@ -90,7 +123,6 @@ function calcTargets(type, entry, thirdCandle, atr) {
 // -------------------------------------------------------------
 // PROCESSAR UN SÍMBOL (FIAT v1)
 // -------------------------------------------------------------
-// processSymbol.js (FIAT v1 final)
 export async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 80);
   if (!candles || candles.length < 40) return;
@@ -100,13 +132,13 @@ export async function processSymbol(symbol, timeframe) {
 
   // ATR per targets
   const atr = calcATR(candles, 14);
+  if (atr == null) return;
 
-  // FIAT v1: MS/ES + scoring
+  // FIAT v1: MS/ES + scoring (1:1 TradingView)
   const { signals } = await detectMSES(candles, symbol, timeframe);
   if (!signals || signals.length === 0) return;
 
   for (const sig of signals) {
-
     // Tipus RAW FIAT v1: "M" o "E"
     if (sig.type !== "M" && sig.type !== "E") {
       console.log("[FIAT] Tipus inesperat:", sig.type);
@@ -123,21 +155,20 @@ export async function processSymbol(symbol, timeframe) {
     const exists = await alreadySent2(
       symbol,
       timeframe,
-      sig.timestamp   // <-- JA és ms
+      sig.timestamp   // ms
     );
 
     if (exists) {
-      // Ja existeix → no enviar ni guardar
       continue;
     }
 
     // Log FIAT v1
     console.log("[FIAT]", symbol, timeframe, finalType, sig.timestamp);
 
-    // Calcular targets FIAT v1
+    // Calcular targets FIAT v1 (1:1 TradingView)
     const { entryr, tp, sl } = calcTargets(
-      sig.type,        // RAW per targets
-      sig.entry,
+      symbol,
+      sig.type,
       sig.thirdCandle,
       atr
     );
@@ -151,17 +182,14 @@ export async function processSymbol(symbol, timeframe) {
       entryr,
       tp,
       sl,
-      //timestamp: Math.floor(sig.timestamp / 1000), // segons
       timestamp: sig.timestamp,
-      timestamp_ms: sig.timestamp,                 // mil·lisegons
+      timestamp_ms: sig.timestamp,
       score: sig.score,
       isGood: sig.isGood,
       reason: ""
     });
   }
 }
-
-
 
 // -------------------------------------------------------------
 // TRACKING TP/SL
@@ -225,15 +253,15 @@ async function checkOpenSignals() {
 // LOOP PRINCIPAL
 // -------------------------------------------------------------
 async function mainLoop() {
-  // 1) Actualitzar veles
-  for (const symbol of SYMBOLS) {
+  // 1) Actualitzar veles (totes les criptos activades)
+  for (const symbol of ACTIVE_CRYPTOS) {
     for (const timeframe of TIMEFRAMES) {
       await fetchAndStoreCandles(symbol, timeframe);
     }
   }
 
-  // 2) Processar totes les criptos
-  for (const symbol of SYMBOLS) {
+  // 2) Processar totes les criptos activades
+  for (const symbol of ACTIVE_CRYPTOS) {
     for (const timeframe of TIMEFRAMES) {
       try {
         await processSymbol(symbol, timeframe);
@@ -252,8 +280,9 @@ async function mainLoop() {
 // -------------------------------------------------------------
 async function startBot() {
   await initDB();
-  console.log("Bot FIAT v1 en marxa (MS/ES + FIAT scoring + GOOD/DISCARD)");
+  console.log("Bot FIAT v1 en marxa (MS/ES + FIAT scoring + GOOD/DISCARD, 1:1 TradingView)");
 
+  // Cada minut, com abans
   cron.schedule("* * * * *", mainLoop);
 }
 
