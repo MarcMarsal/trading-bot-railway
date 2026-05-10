@@ -249,6 +249,9 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
   const macdW  = MACD_WEIGHT_ARR[safeIdx];
   const trendW = TREND_WEIGHT_ARR[safeIdx];
 
+  // -----------------------------
+  // PUNTS BASE (igual que Pine)
+  // -----------------------------
   const magPts =
     magSignal === 1 ? magExp * magW : 0;
 
@@ -259,15 +262,37 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
     trendSignal === 1 ?  trendExp * trendW :
     trendSignal === -1 ? -trendExp * trendW : 0;
 
+  // Inversió de signe segons MS/ES (igual que Pine)
   const trendPts = isMs ? trendBase : -trendBase;
 
   const satPts = satSignal === 1 ? 1 : 0;
 
+  // -----------------------------
+  // SUMA FIAT
+  // -----------------------------
   let rawScore = magPts + macdPts + trendPts + satPts;
 
+  // -----------------------------
+  // BONIFICACIONS FIAT (igual que Pine)
+  // -----------------------------
   if (macdPts > 0 && trendPts > 0) rawScore += 1;
   if (macdPts > 0 && satPts > 0)   rawScore += 1;
 
+  // -----------------------------
+  // AJUST CRÍTIC FIAT (el que faltava)
+  // Manté el signe negatiu quan el context és contrari
+  // EXACTAMENT com fa TradingView
+  // -----------------------------
+  if (isMs && rawScore < 0) {
+    rawScore = -Math.abs(rawScore);
+  }
+  if (!isMs && rawScore < 0) {
+    rawScore = -Math.abs(rawScore);
+  }
+
+  // -----------------------------
+  // RESULTAT FINAL
+  // -----------------------------
   const score  = rawScore;
   const isGood = rawScore >= 1;
 
