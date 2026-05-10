@@ -79,41 +79,53 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth >  hStdev * 2.5 ?  1 :
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
- // -----------------------------
-// TENDÈNCIA 12 HORES — FIAT 1:1 TradingView
-// -----------------------------
+// -------------------------------------------------------------
+// TENDÈNCIA 12 HORES — FIAT 1:1 TRADINGVIEW
+// -------------------------------------------------------------
 const tfMinutes = timeframe === "1H" ? 60 : 1440;
 const bars12h = Math.floor(12 * 60 / tfMinutes);
 
-// trendSignal inicialment neutre
+// Variables inicialitzades perquè existeixin al DEBUG
+let trendUp12h = false;
+let trendDown12h = false;
 let trendSignal = 0;
 
+let avgNow = 0;
+let avgPast = 0;
+let highNow = 0;
+let highPast = 0;
+let lowNow = 0;
+let lowPast = 0;
+let closeNow = 0;
+let closePast = 0;
+
 if (i >= bars12h * 2) {
-  // Rangs EXACTES de 12h NOW i 12h PAST (sense +1 ni i+1)
+
+  // Rangs EXACTES com al Pine (sense +1 ni i+1)
   const closesNow = closes.slice(i - bars12h, i);
   const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
 
-  const avgNow = sma(closesNow, bars12h);
-  const avgPast = sma(closesPast, bars12h);
+  avgNow = sma(closesNow, bars12h);
+  avgPast = sma(closesPast, bars12h);
 
   const windowNow = candles.slice(i - bars12h, i);
   const windowPast = candles.slice(i - bars12h * 2, i - bars12h);
 
-  const highNow = Math.max(...windowNow.map(c => c.high));
-  const highPast = Math.max(...windowPast.map(c => c.high));
+  highNow = Math.max(...windowNow.map(c => c.high));
+  highPast = Math.max(...windowPast.map(c => c.high));
 
-  const lowNow = Math.min(...windowNow.map(c => c.low));
-  const lowPast = Math.min(...windowPast.map(c => c.low));
+  lowNow = Math.min(...windowNow.map(c => c.low));
+  lowPast = Math.min(...windowPast.map(c => c.low));
 
-  const closeNow = candles[i - 1].close;
-  const closePast = candles[i - bars12h - 1].close;
+  closeNow = candles[i - 1].close;
+  closePast = candles[i - bars12h - 1].close;
 
-  const trendUp12h =
+  trendUp12h =
     closeNow > closePast &&
     avgNow > avgPast &&
     highNow > highPast;
 
-  const trendDown12h =
+  trendDown12h =
     closeNow < closePast &&
     avgNow < avgPast &&
     lowNow < lowPast;
@@ -122,7 +134,10 @@ if (i >= bars12h * 2) {
     trendUp12h ? 1 :
     trendDown12h ? -1 : 0;
 }
+
+// -------------------------------------------------------------
 // DEBUG FIAT — només ASTER
+// -------------------------------------------------------------
 if (symbol === "ASTER-USDT" && (msRaw || esRaw)) {
   console.log("=== DEBUG ASTER ===");
   console.log("i:", i);
