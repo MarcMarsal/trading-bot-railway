@@ -296,6 +296,11 @@ function stdev(arr, period) {
   if (!arr || arr.length < period) return 0;
   const slice = arr.slice(-period);
   const mean = slice.reduce((a, b) => a + b, 0) / period;
-  const variance = slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / period;
+
+  const variance =
+    slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) /
+    (period - 1); // <-- clau: mostral, com ta.stdev
+
   return Math.sqrt(variance);
 }
+
