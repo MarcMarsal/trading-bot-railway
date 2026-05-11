@@ -162,6 +162,17 @@ if (i >= bars12h * 2) {
         score: scoreMs.score,
         isGood: scoreMs.isGood
       });
+      // DEBUG FIAT — només ATOM
+      if (symbol === "ATOM-USDT") {
+        console.log("=== DEBUG ATOM MS ===");
+        console.log("magSignal:", magSignal);
+        console.log("magPts:", scoreMs.magPts);
+        console.log("macdPts:", scoreMs.macdPts);
+        console.log("trendPts:", scoreMs.trendPts);
+        console.log("satPts:", scoreMs.satPts);
+        console.log("score:", scoreMs.score);
+        console.log("=====================");
+      }
     }
 
     if (esNew) {
@@ -286,17 +297,7 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
   // -----------------------------
   const score  = rawScore;
   const isGood = rawScore >= 1;
-  if (symbol === "ATOM-USDT") {
-  console.log("=== DEBUG ATOM FIAT ===");
-  console.log("isMs:", isMs);
-  console.log("magSignal:", magSignal);
-  console.log("magPts:", magPts);
-  console.log("macdPts:", macdPts);
-  console.log("trendPts:", trendPts);
-  console.log("satPts:", satPts);
-  console.log("rawScore:", rawScore);
-  console.log("=======================");
-}
+  
 
   return { score, isGood, magPts, macdPts, trendPts, satPts };
 }
