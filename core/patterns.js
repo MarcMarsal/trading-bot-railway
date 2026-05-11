@@ -3,6 +3,11 @@
 import { ema, sma } from "./ta.js";
 import { isBull, isBear } from "./utils.js";
 
+// Helper d'arrodoniment FIAT (4 decimals, com TradingView en USDT)
+function r4(x) {
+  return Math.round(x * 10000) / 10000;
+}
+
 // -------------------------------------------------------------
 // DETECT MSES FIAT v1 (1:1 TradingView)
 // -------------------------------------------------------------
@@ -58,10 +63,10 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       isBear(c1.open, c1.close);
 
     // -----------------------------
-    // MAGNITUD FIAT
+    // MAGNITUD FIAT (1:1 Pine + arrodoniment)
     // -----------------------------
-    const bodyFirst = Math.abs(c3.close - c3.open);
-    const bodyThird = Math.abs(c1.close - c1.open);
+    const bodyFirst = Math.abs(r4(c3.close) - r4(c3.open)); // 1a vela del patró
+    const bodyThird = Math.abs(r4(c1.close) - r4(c1.open)); // 3a vela del patró
     const magOK = bodyThird > bodyFirst * 0.6;
     const magSignal = magOK ? 1 : -1;
 
@@ -79,54 +84,52 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth >  hStdev * 2.5 ?  1 :
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
-// -------------------------------------------------------------
-// TENDÈNCIA 12 HORES — FIAT 1:1 TRADINGVIEW (2 de 3 criteris)
-// -------------------------------------------------------------
-const tfMinutes = timeframe === "1H" ? 60 : 1440;
-const bars12h = Math.floor(12 * 60 / tfMinutes);
+    // -------------------------------------------------------------
+    // TENDÈNCIA 12 HORES — FIAT 1:1 TRADINGVIEW (2 de 3 criteris)
+    // -------------------------------------------------------------
+    const tfMinutes = timeframe === "1H" ? 60 : 1440;
+    const bars12h = Math.floor(12 * 60 / tfMinutes);
 
-let trendSignal = 0;
+    let trendSignal = 0;
 
-if (i >= bars12h * 2) {
+    if (i >= bars12h * 2) {
 
-  const closesNow = closes.slice(i - bars12h, i);
-  const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
+      const closesNow = closes.slice(i - bars12h, i);
+      const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
 
-  const avgNow = sma(closesNow, bars12h);
-  const avgPast = sma(closesPast, bars12h);
+      const avgNow = sma(closesNow, bars12h);
+      const avgPast = sma(closesPast, bars12h);
 
-  const windowNow = candles.slice(i - bars12h, i);
-  const windowPast = candles.slice(i - bars12h * 2, i - bars12h);
+      const windowNow = candles.slice(i - bars12h, i);
+      const windowPast = candles.slice(i - bars12h * 2, i - bars12h);
 
-  const highNow = Math.max(...windowNow.map(c => c.high));
-  const highPast = Math.max(...windowPast.map(c => c.high));
+      const highNow = Math.max(...windowNow.map(c => c.high));
+      const highPast = Math.max(...windowPast.map(c => c.high));
 
-  const lowNow = Math.min(...windowNow.map(c => c.low));
-  const lowPast = Math.min(...windowPast.map(c => c.low));
+      const lowNow = Math.min(...windowNow.map(c => c.low));
+      const lowPast = Math.min(...windowPast.map(c => c.low));
 
-  const closeNow = candles[i - 1].close;
-  const closePast = candles[i - bars12h - 1].close;
+      const closeNow = candles[i - 1].close;
+      const closePast = candles[i - bars12h - 1].close;
 
-  let bullish = 0;
-  let bearish = 0;
+      let bullish = 0;
+      let bearish = 0;
 
-  if (closeNow > closePast) bullish++; else bearish++;
-  if (avgNow > avgPast) bullish++; else bearish++;
-  if (highNow > highPast) bullish++; else bearish++;
+      if (closeNow > closePast) bullish++; else bearish++;
+      if (avgNow > avgPast) bullish++; else bearish++;
+      if (highNow > highPast) bullish++; else bearish++;
 
-  // El criteri del low només s'aplica per baixista
-  if (lowNow < lowPast) bearish++;
+      // El criteri del low només s'aplica per baixista
+      if (lowNow < lowPast) bearish++;
 
-  if (bullish >= 2) trendSignal = 1;
-  else if (bearish >= 2) trendSignal = -1;
-  else trendSignal = 0;
-}
+      if (bullish >= 2) trendSignal = 1;
+      else if (bearish >= 2) trendSignal = -1;
+      else trendSignal = 0;
+    }
 
     // -----------------------------
     // FIAT SCORING 0–10 (1:1 Pine)
     // -----------------------------
-    // Calculem score per MS i per ES per separat,
-    // igual que fa TradingView amb f_scoreFiat_router(true/false,...)
     const scoreMs = scoreFiatRouter(
       true,          // isMs
       magSignal,
@@ -162,17 +165,6 @@ if (i >= bars12h * 2) {
         score: scoreMs.score,
         isGood: scoreMs.isGood
       });
-      // DEBUG FIAT — només ATOM
-      if (symbol === "ATOM-USDT") {
-        console.log("=== DEBUG ATOM MS ===");
-        console.log("magSignal:", magSignal);
-        console.log("magPts:", scoreMs.magPts);
-        console.log("macdPts:", scoreMs.macdPts);
-        console.log("trendPts:", scoreMs.trendPts);
-        console.log("satPts:", scoreMs.satPts);
-        console.log("score:", scoreMs.score);
-        console.log("=====================");
-      }
     }
 
     if (esNew) {
@@ -180,7 +172,7 @@ if (i >= bars12h * 2) {
         symbol,
         timeframe,
         type: "E",
-        timestamp: c1.timestamp,   // sempre ms, vela tancada
+        timestamp: c1.timestamp,
         entry: c1.close,
         thirdCandle: c1,
         score: scoreEs.score,
@@ -280,24 +272,8 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
   if (macdPts > 0 && trendPts > 0) rawScore += 1;
   if (macdPts > 0 && satPts > 0)   rawScore += 1;
 
-  // -----------------------------
-  // AJUST CRÍTIC FIAT (el que faltava)
-  // Manté el signe negatiu quan el context és contrari
-  // EXACTAMENT com fa TradingView
-  // -----------------------------
-  if (isMs && rawScore < 0) {
-    rawScore = -Math.abs(rawScore);
-  }
-  if (!isMs && rawScore < 0) {
-    rawScore = -Math.abs(rawScore);
-  }
-
-  // -----------------------------
-  // RESULTAT FINAL
-  // -----------------------------
   const score  = rawScore;
   const isGood = rawScore >= 1;
-  
 
   return { score, isGood, magPts, macdPts, trendPts, satPts };
 }
@@ -306,8 +282,6 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
 function scoreFiatRouter(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol) {
   const sym = symbol.replace("-", ""); // només per routing intern
 
-  // Ara mateix SOL/LINK/BTC usen la mateixa lògica base,
-  // però deixem el router preparat per optimitzar BTC/LINK més endavant.
   if (sym === "SOLUSDT" || sym === "LINKUSDT") {
     return scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol);
   } else if (sym === "BTCUSDT") {
@@ -327,8 +301,7 @@ function stdev(arr, period) {
 
   const variance =
     slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) /
-    (period - 1); // <-- clau: mostral, com ta.stdev
+    (period - 1);
 
   return Math.sqrt(variance);
 }
-
