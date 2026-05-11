@@ -78,30 +78,30 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
 // -----------------------------
 // TENDÈNCIA 12 HORES — FIAT ORIGINAL 1:1 TRADINGVIEW
 // -----------------------------
-// -----------------------------
-// TENDÈNCIA 12 HORES — FIAT ORIGINAL 1:1 TRADINGVIEW
-// -----------------------------
 const tfMinutes = timeframe === "1H" ? 60 : 1440;
 const bars12h = Math.floor(12 * 60 / tfMinutes);
 
 let trendSignal = 0;
 
+// Pine: closeNow = close[0]
+const closeNow = candles[i - 1].close;
+
+// Pine: closePast = close[bars12h]
 if (i >= bars12h + 1) {
+  const closePast = candles[i - 1 - bars12h].close;
 
-  const closeNow  = candles[i - 1].close;
-  const closePast = candles[i - bars12h - 1].close;
+  // Pine: avgNow = sma(close, bars12h)
+  const avgNow = sma(closes.slice(i - bars12h, i), bars12h);
 
-  const closesNow  = closes.slice(i - bars12h, i);
-  const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
-
-  const avgNow  = sma(closesNow, bars12h);
-  const avgPast = sma(closesPast, bars12h);
+  // Pine: avgPast = sma(close[bars12h], bars12h)
+  const avgPast = sma(closes.slice(i - bars12h * 2, i - bars12h), bars12h);
 
   const trendUp12h   = closeNow > closePast && avgNow > avgPast;
   const trendDown12h = closeNow < closePast && avgNow < avgPast;
 
   trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
 }
+
 
 
     // -----------------------------
