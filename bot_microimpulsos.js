@@ -8,9 +8,6 @@ import { detectMSES } from "./core/patterns.js";
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
 import { splitSpainDate } from "./core/utils.js";
 
-// 🔥 AFEGIR AIXÒ
-global.panel = {};
-
 // -------------------------------------------------------------
 // CONFIG
 // -------------------------------------------------------------
@@ -138,11 +135,9 @@ export async function processSymbol(symbol, timeframe) {
   if (atr == null) return;
 
   // FIAT v1: MS/ES + scoring (1:1 TradingView)
-  
-  const { signals, trendDebug } = await detectMSES(candles, symbol, timeframe);
+ 
+  const signals = await detectMSES(candles, symbol, timeframe);
 
-if (trendDebug) {
-  panel.trendDebug = trendDebug;
 
 }
   if (!signals || signals.length === 0) return;
@@ -172,7 +167,7 @@ if (trendDebug) {
     }
 
     // Log FIAT v1
-    console.log("[FIAT]", symbol, timeframe, finalType, sig.timestamp);
+    //console.log("[FIAT]", symbol, timeframe, finalType, sig.timestamp);
 
     // Calcular targets FIAT v1 (1:1 TradingView)
     const { entryr, tp, sl } = calcTargets(
