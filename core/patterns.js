@@ -75,9 +75,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth >  hStdev * 2.5 ?  1 :
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
-    // -----------------------------
-// TENDÈNCIA 12 HORES — FIAT ORIGINAL 1:1 TRADINGVIEW
-// -----------------------------
 // -----------------------------
 // TENDÈNCIA 12 HORES — FIAT ORIGINAL 1:1 TRADINGVIEW
 // -----------------------------
@@ -86,20 +83,15 @@ const bars12h = Math.floor(12 * 60 / tfMinutes);
 
 let trendSignal = 0;
 
-if (i >= bars12h) {
+if (i >= bars12h + 1) {
 
-  // closeNow = close
   const closeNow = candles[i - 1].close;
-
-  // closePast = close[bars12h]
   const closePast = candles[i - bars12h - 1].close;
 
-  // avgNow = sma(close, bars12h)
   const closesNow = closes.slice(i - bars12h, i);
-  const avgNow = sma(closesNow, bars12h);
-
-  // avgPast = sma(close[bars12h], bars12h)
   const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
+
+  const avgNow = sma(closesNow, bars12h);
   const avgPast = sma(closesPast, bars12h);
 
   const trendUp12h = closeNow > closePast && avgNow > avgPast;
