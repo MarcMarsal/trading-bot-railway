@@ -118,17 +118,21 @@ if (i >= 1) {
   // -----------------------------
 // DEBUG AL PANELL
 // -----------------------------
-panel.trendDebug = {
-  i,
-  closeNow,
-  closePast,
-  avgNow,
-  avgPast,
-  pastIndex,
-  nowTs,
-  targetTs,
-  pastTs: candles[pastIndex].timestamp
-};
+// -----------------------------
+  // DEBUG AL PANELL (NOMÉS SI EXISTEIX)
+  // -----------------------------
+  if (typeof panel !== "undefined" && panel) {
+    panel.trendDebug = {
+      i,
+      closeNow,
+      closePast,
+      avgNow,
+      avgPast,
+      pastIndex,
+      nowTs,
+      targetTs,
+      pastTs: candles[pastIndex].timestamp
+    };
 
 }
 
