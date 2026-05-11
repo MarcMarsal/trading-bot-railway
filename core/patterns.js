@@ -3,6 +3,19 @@
 import { ema, sma } from "./ta.js";
 import { isBull, isBear } from "./utils.js";
 
+function stdev(arr, period) {
+  if (!arr || arr.length < period) return 0;
+  const slice = arr.slice(-period);
+  const mean = slice.reduce((a, b) => a + b, 0) / period;
+
+  const variance =
+    slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) /
+    (period - 1);
+
+  return Math.sqrt(variance);
+}
+
+
 // -------------------------------------------------------------
 // DETECT MSES FIAT v1 (1:1 TradingView)
 // -------------------------------------------------------------
