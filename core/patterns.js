@@ -209,7 +209,7 @@ if (i >= 1) {
     prevEsRaw = esRaw;
   }
 
-  return { signalssignals,
+  return { signals,
   trendDebug: {
     i,
     closeNow,
