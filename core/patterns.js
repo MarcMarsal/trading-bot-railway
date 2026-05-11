@@ -35,13 +35,11 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
   let prevEsRaw = false;
 
   // Loop FIAT-clean (igual que TradingView)
-  // IMPORTANT: només veles tancades, mai intravela
   for (let i = 4; i < n; i++) {
 
-    const c0 = candles[i];     // vela actual (no usada per patró MS/ES)
     const c1 = candles[i - 1]; // 3a vela del patró (entry)
     const c2 = candles[i - 2];
-    const c3 = candles[i - 3];
+    const c3 = candles[i - 3]; // 1a vela del patró
 
     // -----------------------------
     // MS / ES RAW (1:1 TradingView)
@@ -65,8 +63,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     // -----------------------------
     // MAGNITUD FIAT (1:1 Pine + arrodoniment)
     // -----------------------------
-    const bodyFirst = Math.abs(r4(c3.close) - r4(c3.open)); // 1a vela del patró
-    const bodyThird = Math.abs(r4(c1.close) - r4(c1.open)); // 3a vela del patró
+    const bodyFirst = Math.abs(r4(c3.close) - r4(c3.open)); // 1a vela
+    const bodyThird = Math.abs(r4(c1.close) - r4(c1.open)); // 3a vela
     const magOK = bodyThird > bodyFirst * 0.6;
     const magSignal = magOK ? 1 : -1;
 
@@ -119,7 +117,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       if (avgNow > avgPast) bullish++; else bearish++;
       if (highNow > highPast) bullish++; else bearish++;
 
-      // El criteri del low només s'aplica per baixista
       if (lowNow < lowPast) bearish++;
 
       if (bullish >= 2) trendSignal = 1;
@@ -131,7 +128,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     // FIAT SCORING 0–10 (1:1 Pine)
     // -----------------------------
     const scoreMs = scoreFiatRouter(
-      true,          // isMs
+      true,
       magSignal,
       macdSignal,
       trendSignal,
@@ -140,7 +137,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     );
 
     const scoreEs = scoreFiatRouter(
-      false,         // isMs
+      false,
       magSignal,
       macdSignal,
       trendSignal,
@@ -149,7 +146,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     );
 
     // -----------------------------
-    // NOVA SENYAL (1:1 TradingView)
+    // NOVA SENYAL
     // -----------------------------
     const msNew = msRaw && !prevMsRaw;
     const esNew = esRaw && !prevEsRaw;
@@ -159,7 +156,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         symbol,
         timeframe,
         type: "M",
-        timestamp: c1.timestamp,   // sempre ms, vela tancada
+        timestamp: c1.timestamp,
         entry: c1.close,
         thirdCandle: c1,
         score: scoreMs.score,
@@ -256,7 +253,6 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
     trendSignal === 1 ?  trendExp * trendW :
     trendSignal === -1 ? -trendExp * trendW : 0;
 
-  // Inversió de signe segons MS/ES (igual que Pine)
   const trendPts = isMs ? trendBase : -trendBase;
 
   const satPts = satSignal === 1 ? 1 : 0;
@@ -267,7 +263,7 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
   let rawScore = magPts + macdPts + trendPts + satPts;
 
   // -----------------------------
-  // BONIFICACIONS FIAT (igual que Pine)
+  // BONIFICACIONS FIAT
   // -----------------------------
   if (macdPts > 0 && trendPts > 0) rawScore += 1;
   if (macdPts > 0 && satPts > 0)   rawScore += 1;
@@ -278,21 +274,12 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
   return { score, isGood, magPts, macdPts, trendPts, satPts };
 }
 
-// Router FIAT per cripto (igual que Pine, preparat per SOL/LINK/BTC)
 function scoreFiatRouter(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol) {
-  const sym = symbol.replace("-", ""); // només per routing intern
-
-  if (sym === "SOLUSDT" || sym === "LINKUSDT") {
-    return scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol);
-  } else if (sym === "BTCUSDT") {
-    return scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol);
-  } else {
-    return scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol);
-  }
+  return scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol);
 }
 
 // -------------------------------------------------------------
-// STDEV helper (equivalent a ta.stdev(histSmooth, 20))
+// STDEV helper
 // -------------------------------------------------------------
 function stdev(arr, period) {
   if (!arr || arr.length < period) return 0;
