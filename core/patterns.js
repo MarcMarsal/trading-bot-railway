@@ -1,9 +1,10 @@
-// core/patterns.js — FIAT v1 1:1 TradingView
+// core/patterns.js — FIAT v1 1:1 TradingView + SAVE FIAT PTS
 
 import { ema, sma } from "./ta.js";
 import { isBull, isBear } from "./utils.js";
+import { saveSignal2 } from "../db/saveSignal2.js";
 
-// Helper d'arrodoniment FIAT (4 decimals, com TradingView en USDT)
+// Helper d'arrodoniment FIAT (4 decimals)
 function r4(x) {
   return Math.round(x * 10000) / 10000;
 }
@@ -15,11 +16,9 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
   if (!candlesRaw || candlesRaw.length < 40)
     return { signals: [] };
 
-  // Ordenar veles de més antiga a més nova
   const candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
-  // Precalcular arrays
   const closes = candles.map(c => c.close);
 
   const ema12 = ema(closes, 12);
@@ -34,15 +33,14 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
   let prevMsRaw = false;
   let prevEsRaw = false;
 
-  // Loop FIAT-clean (igual que TradingView)
   for (let i = 4; i < n; i++) {
 
-    const c1 = candles[i - 1]; // 3a vela del patró (entry)
+    const c1 = candles[i - 1];
     const c2 = candles[i - 2];
-    const c3 = candles[i - 3]; // 1a vela del patró
+    const c3 = candles[i - 3];
 
     // -----------------------------
-    // MS / ES RAW (1:1 TradingView)
+    // MS / ES RAW
     // -----------------------------
     const rangeFirst = c3.high - c3.low;
     const indecisionOK =
@@ -61,10 +59,10 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       isBear(c1.open, c1.close);
 
     // -----------------------------
-    // MAGNITUD FIAT (1:1 Pine + arrodoniment)
+    // MAGNITUD FIAT
     // -----------------------------
-    const bodyFirst = Math.abs(r4(c3.close) - r4(c3.open)); // 1a vela
-    const bodyThird = Math.abs(r4(c1.close) - r4(c1.open)); // 3a vela
+    const bodyFirst = Math.abs(r4(c3.close) - r4(c3.open));
+    const bodyThird = Math.abs(r4(c1.close) - r4(c1.open));
     const magOK = bodyThird > bodyFirst * 0.6;
     const magSignal = magOK ? 1 : -1;
 
@@ -83,7 +81,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
     // -------------------------------------------------------------
-    // TENDÈNCIA 12 HORES — FIAT 1:1 TRADINGVIEW (2 de 3 criteris)
+    // TENDÈNCIA 12 HORES
     // -------------------------------------------------------------
     const tfMinutes = timeframe === "1H" ? 60 : 1440;
     const bars12h = Math.floor(12 * 60 / tfMinutes);
@@ -125,7 +123,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     }
 
     // -----------------------------
-    // FIAT SCORING 0–10 (1:1 Pine)
+    // FIAT SCORING 0–10
     // -----------------------------
     const scoreMs = scoreFiatRouter(
       true,
@@ -151,29 +149,75 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     const msNew = msRaw && !prevMsRaw;
     const esNew = esRaw && !prevEsRaw;
 
+    // -----------------------------
+    // GUARDAR MS
+    // -----------------------------
     if (msNew) {
+      const S = scoreMs;
+
+      await saveSignal2({
+        symbol,
+        timeframe,
+        type: S.isGood ? "M_GOOD" : "M_DISCARD",
+        entry: c1.close,
+        entryr: c1.close,
+        tp: null,
+        sl: null,
+        timestamp: c1.timestamp,
+        score: S.score,
+        isGood: S.isGood,
+
+        // 🔥 FIAT POINTS
+        mag_pts: S.magPts,
+        macd_pts: S.macdPts,
+        trend_pts: S.trendPts,
+        sat_pts: S.satPts
+      });
+
       signals.push({
         symbol,
         timeframe,
         type: "M",
         timestamp: c1.timestamp,
         entry: c1.close,
-        thirdCandle: c1,
-        score: scoreMs.score,
-        isGood: scoreMs.isGood
+        score: S.score,
+        isGood: S.isGood
       });
     }
 
+    // -----------------------------
+    // GUARDAR ES
+    // -----------------------------
     if (esNew) {
+      const S = scoreEs;
+
+      await saveSignal2({
+        symbol,
+        timeframe,
+        type: S.isGood ? "E_GOOD" : "E_DISCARD",
+        entry: c1.close,
+        entryr: c1.close,
+        tp: null,
+        sl: null,
+        timestamp: c1.timestamp,
+        score: S.score,
+        isGood: S.isGood,
+
+        // 🔥 FIAT POINTS
+        mag_pts: S.magPts,
+        macd_pts: S.macdPts,
+        trend_pts: S.trendPts,
+        sat_pts: S.satPts
+      });
+
       signals.push({
         symbol,
         timeframe,
         type: "E",
         timestamp: c1.timestamp,
         entry: c1.close,
-        thirdCandle: c1,
-        score: scoreEs.score,
-        isGood: scoreEs.isGood
+        score: S.score,
+        isGood: S.isGood
       });
     }
 
@@ -185,7 +229,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
 }
 
 // -------------------------------------------------------------
-// FIAT SCORING 0–10 (1:1 Pine Script)
+// FIAT SCORING 0–10
 // -------------------------------------------------------------
 
 const CRYPTO_LIST = [
@@ -240,9 +284,6 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
   const macdW  = MACD_WEIGHT_ARR[safeIdx];
   const trendW = TREND_WEIGHT_ARR[safeIdx];
 
-  // -----------------------------
-  // PUNTS BASE (igual que Pine)
-  // -----------------------------
   const magPts =
     magSignal === 1 ? magExp * magW : 0;
 
@@ -257,21 +298,19 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
 
   const satPts = satSignal === 1 ? 1 : 0;
 
-  // -----------------------------
-  // SUMA FIAT
-  // -----------------------------
   let rawScore = magPts + macdPts + trendPts + satPts;
 
-  // -----------------------------
-  // BONIFICACIONS FIAT
-  // -----------------------------
   if (macdPts > 0 && trendPts > 0) rawScore += 1;
   if (macdPts > 0 && satPts > 0)   rawScore += 1;
 
-  const score  = rawScore;
-  const isGood = rawScore >= 1;
-
-  return { score, isGood, magPts, macdPts, trendPts, satPts };
+  return {
+    score: rawScore,
+    isGood: rawScore >= 1,
+    magPts,
+    macdPts,
+    trendPts,
+    satPts
+  };
 }
 
 function scoreFiatRouter(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol) {
