@@ -286,6 +286,17 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
   // -----------------------------
   const score  = rawScore;
   const isGood = rawScore >= 1;
+  if (symbol === "ATOM-USDT") {
+  console.log("=== DEBUG ATOM FIAT ===");
+  console.log("isMs:", isMs);
+  console.log("magSignal:", magSignal);
+  console.log("magPts:", magPts);
+  console.log("macdPts:", macdPts);
+  console.log("trendPts:", trendPts);
+  console.log("satPts:", satPts);
+  console.log("rawScore:", rawScore);
+  console.log("=======================");
+}
 
   return { score, isGood, magPts, macdPts, trendPts, satPts };
 }
