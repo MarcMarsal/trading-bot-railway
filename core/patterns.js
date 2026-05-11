@@ -1,5 +1,3 @@
-// core/patterns.js — FIAT v1 1:1 TradingView (VERSIÓ ESTABLE)
-
 import { ema, sma } from "./ta.js";
 import { isBull, isBear } from "./utils.js";
 
