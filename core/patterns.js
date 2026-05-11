@@ -1,8 +1,7 @@
-// core/patterns.js — FIAT v1 1:1 TradingView + SAVE FIAT PTS
+// core/patterns.js — FIAT v1 1:1 TradingView (PUR, sense guardar a BD)
 
 import { ema, sma } from "./ta.js";
 import { isBull, isBear } from "./utils.js";
-import { saveSignal2 } from "../db/saveSignal2.js";
 
 // Helper d'arrodoniment FIAT (4 decimals)
 function r4(x) {
@@ -150,27 +149,10 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     const esNew = esRaw && !prevEsRaw;
 
     // -----------------------------
-    // GUARDAR MS
+    // RETORNAR MS
     // -----------------------------
     if (msNew) {
       const S = scoreMs;
-
-      await saveSignal2({
-        symbol,
-        timeframe,
-        type: "M",          // 🔙 tornem al flux original: només "M"
-        entry: c1.close,
-        entryr: c1.close,
-        tp: null,
-        sl: null,
-        timestamp: c1.timestamp,
-        score: S.score,
-        isGood: S.isGood,
-        mag_pts: S.magPts,
-        macd_pts: S.macdPts,
-        trend_pts: S.trendPts,
-        sat_pts: S.satPts
-      });
 
       signals.push({
         symbol,
@@ -179,32 +161,19 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         timestamp: c1.timestamp,
         entry: c1.close,
         score: S.score,
-        isGood: S.isGood
-      });
-    }
-
-    // -----------------------------
-    // GUARDAR ES
-    // -----------------------------
-    if (esNew) {
-      const S = scoreEs;
-
-      await saveSignal2({
-        symbol,
-        timeframe,
-        type: "E",          // 🔙 només "E"
-        entry: c1.close,
-        entryr: c1.close,
-        tp: null,
-        sl: null,
-        timestamp: c1.timestamp,
-        score: S.score,
         isGood: S.isGood,
         mag_pts: S.magPts,
         macd_pts: S.macdPts,
         trend_pts: S.trendPts,
         sat_pts: S.satPts
       });
+    }
+
+    // -----------------------------
+    // RETORNAR ES
+    // -----------------------------
+    if (esNew) {
+      const S = scoreEs;
 
       signals.push({
         symbol,
@@ -213,7 +182,11 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         timestamp: c1.timestamp,
         entry: c1.close,
         score: S.score,
-        isGood: S.isGood
+        isGood: S.isGood,
+        mag_pts: S.magPts,
+        macd_pts: S.macdPts,
+        trend_pts: S.trendPts,
+        sat_pts: S.satPts
       });
     }
 
