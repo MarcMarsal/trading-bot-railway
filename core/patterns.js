@@ -90,6 +90,7 @@ let trendSignal = 0;
 
 if (i >= bars12h * 2) {
 
+  // --- càlculs FIAT ---
   const closesNow = closes.slice(i - bars12h, i);
   const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
 
@@ -114,14 +115,85 @@ if (i >= bars12h * 2) {
   if (closeNow > closePast) bullish++; else bearish++;
   if (avgNow > avgPast) bullish++; else bearish++;
   if (highNow > highPast) bullish++; else bearish++;
-
-  // El criteri del low només s'aplica per baixista
   if (lowNow < lowPast) bearish++;
 
+  let trendSignal = 0;
   if (bullish >= 2) trendSignal = 1;
   else if (bearish >= 2) trendSignal = -1;
-  else trendSignal = 0;
 
+  // --- FIAT: càlcul finestra exacta TradingView ---
+  const pastIndex = i - bars12h;
+  const nowTs = candles[i - 1].timestamp;
+  const targetTs = candles[i - bars12h].timestamp;
+
+  // --- NOMÉS INSERIR SI HI HA SENYAL ---
+  if (msNew || esNew) {
+    try {
+      await client.query(
+        `
+        INSERT INTO debug_trend (
+          symbol, timeframe,
+          close_now, close_past,
+          avg_now, avg_past,
+          high_now, high_past,
+          low_now, low_past,
+          past_index, now_ts, target_ts, past_ts,
+          bullish_count, bearish_count, trend_signal,
+          updated_at
+        )
+        VALUES (
+          $1, $2,
+          $3, $4,
+          $5, $6,
+          $7, $8,
+          $9, $10,
+          $11, $12, $13, $14,
+          $15, $16, $17,
+          NOW()
+        )
+        ON CONFLICT (symbol) DO UPDATE SET
+          close_now = EXCLUDED.close_now,
+          close_past = EXCLUDED.close_past,
+          avg_now = EXCLUDED.avg_now,
+          avg_past = EXCLUDED.avg_past,
+          high_now = EXCLUDED.high_now,
+          high_past = EXCLUDED.high_past,
+          low_now = EXCLUDED.low_now,
+          low_past = EXCLUDED.low_past,
+          past_index = EXCLUDED.past_index,
+          now_ts = EXCLUDED.now_ts,
+          target_ts = EXCLUDED.target_ts,
+          past_ts = EXCLUDED.past_ts,
+          bullish_count = EXCLUDED.bullish_count,
+          bearish_count = EXCLUDED.bearish_count,
+          trend_signal = EXCLUDED.trend_signal,
+          updated_at = NOW()
+        `,
+        [
+          symbol,
+          timeframe,
+          closeNow,
+          closePast,
+          avgNow,
+          avgPast,
+          highNow,
+          highPast,
+          lowNow,
+          lowPast,
+          pastIndex,
+          nowTs,
+          targetTs,
+          candles[pastIndex].timestamp,
+          bullish,
+          bearish,
+          trendSignal
+        ]
+      );
+    } catch (err) {
+      console.log("[DEBUG_TREND ERROR]", err.message);
+    }
+  }
+}
 
 
 
@@ -168,78 +240,7 @@ if (i >= bars12h * 2) {
         score: scoreMs.score,
         isGood: scoreMs.isGood
       });
-      // -------------------------------------------------------------
-// INSERT DIRECTE A debug_trend (sense retornar res)
-// -------------------------------------------------------------
-  const pastIndex = i - bars12h;
-const nowTs = candles[i - 1].timestamp;
-const targetTs = candles[i - bars12h].timestamp;
-
-try {
-  await client.query(
-    `
-    INSERT INTO debug_trend (
-      symbol, timeframe,
-      close_now, close_past,
-      avg_now, avg_past,
-      high_now, high_past,
-      low_now, low_past,
-      past_index, now_ts, target_ts, past_ts,
-      bullish_count, bearish_count, trend_signal,
-      updated_at
-    )
-    VALUES (
-      $1, $2,
-      $3, $4,
-      $5, $6,
-      $7, $8,
-      $9, $10,
-      $11, $12, $13, $14,
-      $15, $16, $17,
-      NOW()
-    )
-    ON CONFLICT (symbol) DO UPDATE SET
-      close_now = EXCLUDED.close_now,
-      close_past = EXCLUDED.close_past,
-      avg_now = EXCLUDED.avg_now,
-      avg_past = EXCLUDED.avg_past,
-      high_now = EXCLUDED.high_now,
-      high_past = EXCLUDED.high_past,
-      low_now = EXCLUDED.low_now,
-      low_past = EXCLUDED.low_past,
-      past_index = EXCLUDED.past_index,
-      now_ts = EXCLUDED.now_ts,
-      target_ts = EXCLUDED.target_ts,
-      past_ts = EXCLUDED.past_ts,
-      bullish_count = EXCLUDED.bullish_count,
-      bearish_count = EXCLUDED.bearish_count,
-      trend_signal = EXCLUDED.trend_signal,
-      updated_at = NOW()
-    `,
-    [
-      symbol,
-      timeframe,
-      closeNow,
-      closePast,
-      avgNow,
-      avgPast,
-      highNow,
-      highPast,
-      lowNow,
-      lowPast,
-      pastIndex,
-      nowTs,
-      targetTs,
-      candles[pastIndex].timestamp,
-      bullish,
-      bearish,
-      trendSignal
-    ]
-  );
-} catch (err) {
-  console.log("[DEBUG_TREND ERROR]", err.message);
-}
-
+     
     }
 
     if (esNew) {
@@ -253,77 +254,7 @@ try {
         score: scoreEs.score,
         isGood: scoreEs.isGood
       });
-      // -------------------------------------------------------------
-// INSERT DIRECTE A debug_trend (sense retornar res)
-// -------------------------------------------------------------
-  const pastIndex = i - bars12h;
-const nowTs = candles[i - 1].timestamp;
-const targetTs = candles[i - bars12h].timestamp;
-
-try {
-  await client.query(
-    `
-    INSERT INTO debug_trend (
-      symbol, timeframe,
-      close_now, close_past,
-      avg_now, avg_past,
-      high_now, high_past,
-      low_now, low_past,
-      past_index, now_ts, target_ts, past_ts,
-      bullish_count, bearish_count, trend_signal,
-      updated_at
-    )
-    VALUES (
-      $1, $2,
-      $3, $4,
-      $5, $6,
-      $7, $8,
-      $9, $10,
-      $11, $12, $13, $14,
-      $15, $16, $17,
-      NOW()
-    )
-    ON CONFLICT (symbol) DO UPDATE SET
-      close_now = EXCLUDED.close_now,
-      close_past = EXCLUDED.close_past,
-      avg_now = EXCLUDED.avg_now,
-      avg_past = EXCLUDED.avg_past,
-      high_now = EXCLUDED.high_now,
-      high_past = EXCLUDED.high_past,
-      low_now = EXCLUDED.low_now,
-      low_past = EXCLUDED.low_past,
-      past_index = EXCLUDED.past_index,
-      now_ts = EXCLUDED.now_ts,
-      target_ts = EXCLUDED.target_ts,
-      past_ts = EXCLUDED.past_ts,
-      bullish_count = EXCLUDED.bullish_count,
-      bearish_count = EXCLUDED.bearish_count,
-      trend_signal = EXCLUDED.trend_signal,
-      updated_at = NOW()
-    `,
-    [
-      symbol,
-      timeframe,
-      closeNow,
-      closePast,
-      avgNow,
-      avgPast,
-      highNow,
-      highPast,
-      lowNow,
-      lowPast,
-      pastIndex,
-      nowTs,
-      targetTs,
-      candles[pastIndex].timestamp,
-      bullish,
-      bearish,
-      trendSignal
-    ]
-  );
-} catch (err) {
-  console.log("[DEBUG_TREND ERROR]", err.message);
-}
+  
 
     }
 
