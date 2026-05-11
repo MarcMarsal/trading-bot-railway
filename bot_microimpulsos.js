@@ -135,7 +135,10 @@ export async function processSymbol(symbol, timeframe) {
   if (atr == null) return;
 
   // FIAT v1: MS/ES + scoring (1:1 TradingView)
-  const { signals } = await detectMSES(candles, symbol, timeframe);
+  const { signals,trendDebug } = await detectMSES(candles, symbol, timeframe);
+  if (trendDebug) {
+  panel.trendDebug = trendDebug;
+}
   if (!signals || signals.length === 0) return;
 
   for (const sig of signals) {
