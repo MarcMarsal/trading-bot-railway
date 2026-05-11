@@ -140,10 +140,7 @@ export async function processSymbol(symbol, timeframe) {
 
 if (trendDebug) {
   panel.trendDebug = trendDebug;
-}
 
-
-    
 }
   if (!signals || signals.length === 0) return;
 
