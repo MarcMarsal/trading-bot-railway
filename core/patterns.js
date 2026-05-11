@@ -209,7 +209,18 @@ if (i >= 1) {
     prevEsRaw = esRaw;
   }
 
-  return { signals };
+  return { signalssignals,
+  trendDebug: {
+    i,
+    closeNow,
+    closePast,
+    avgNow,
+    avgPast,
+    pastIndex,
+    nowTs,
+    targetTs,
+    pastTs: candles[pastIndex].timestamp
+  } };
 }
 
 // -------------------------------------------------------------
