@@ -158,7 +158,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       await saveSignal2({
         symbol,
         timeframe,
-        type: S.isGood ? "M_GOOD" : "M_DISCARD",
+        type: "M",          // 🔙 tornem al flux original: només "M"
         entry: c1.close,
         entryr: c1.close,
         tp: null,
@@ -166,8 +166,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         timestamp: c1.timestamp,
         score: S.score,
         isGood: S.isGood,
-
-        // 🔥 FIAT POINTS
         mag_pts: S.magPts,
         macd_pts: S.macdPts,
         trend_pts: S.trendPts,
@@ -194,7 +192,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       await saveSignal2({
         symbol,
         timeframe,
-        type: S.isGood ? "E_GOOD" : "E_DISCARD",
+        type: "E",          // 🔙 només "E"
         entry: c1.close,
         entryr: c1.close,
         tp: null,
@@ -202,8 +200,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         timestamp: c1.timestamp,
         score: S.score,
         isGood: S.isGood,
-
-        // 🔥 FIAT POINTS
         mag_pts: S.magPts,
         macd_pts: S.macdPts,
         trend_pts: S.trendPts,
