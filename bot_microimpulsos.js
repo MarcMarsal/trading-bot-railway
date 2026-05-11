@@ -8,6 +8,9 @@ import { detectMSES } from "./core/patterns.js";
 import { fetchAndStoreCandles } from "./core/fetchcandles.js";
 import { splitSpainDate } from "./core/utils.js";
 
+// 🔥 AFEGIR AIXÒ
+global.panel = {};
+
 // -------------------------------------------------------------
 // CONFIG
 // -------------------------------------------------------------
