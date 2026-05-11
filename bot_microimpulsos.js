@@ -175,19 +175,26 @@ export async function processSymbol(symbol, timeframe) {
 
     // Guardar senyal FIAT v1
     await saveSignal2({
-      symbol,
-      timeframe,
-      type: finalType,
-      entry: sig.entry,
-      entryr,
-      tp,
-      sl,
-      timestamp: sig.timestamp,
-      timestamp_ms: sig.timestamp,
-      score: sig.score,
-      isGood: sig.isGood,
-      reason: ""
-    });
+       symbol,
+       timeframe,
+       type: finalType,
+       entry: sig.entry,
+       entryr,
+       tp,
+       sl,
+       timestamp: sig.timestamp,
+       timestamp_ms: sig.timestamp,
+       score: sig.score,
+       isGood: sig.isGood,
+       reason: "",
+
+       // 🔥 FIAT: afegim els punts
+       mag_pts: sig.mag_pts,
+       macd_pts: sig.macd_pts,
+       trend_pts: sig.trend_pts,
+       sat_pts: sig.sat_pts
+     });
+
   }
 }
 
