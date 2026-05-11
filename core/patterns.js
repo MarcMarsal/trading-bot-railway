@@ -165,56 +165,52 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
 }
 
 // -------------------------------------------------------------
-// FIAT scoring base
+// FIAT ARRAYS + getIdx()
 // -------------------------------------------------------------
 
-// (arrays CRYPTO_LIST, MAG_EXP_ARR, etc. — els deixo iguals)
+const CRYPTO_LIST = [
+  "BTC-USDT","SUI-USDT","SOL-USDT","XRP-USDT","AVAX-USDT",
+  "APT-USDT","INJ-USDT","SEI-USDT","ADA-USDT","LINK-USDT",
+  "BNB-USDT","ETH-USDT","NEAR-USDT","HBAR-USDT","RENDER-USDT",
+  "ASTER-USDT","BCH-USDT","VIRTUAL-USDT","ATOM-USDT",
+  "OP-USDT","ARB-USDT","DOT-USDT"
+];
 
-function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol) {
-  const idx = getIdx(symbol);
-  const safeIdx = idx === -1 ? 0 : idx;
+const MAG_EXP_ARR   = [2,1,2,1,2, 1,2,1,1,2, 1,2,2,1,2, 1,1,1,2, 1,1,1];
+const MACD_EXP_ARR  = [2,2,2,1,2, 2,2,2,1,2, 1,2,2,1,2, 1,2,1,2, 2,2,1];
+const TREND_EXP_ARR = [2,2,3,1,3, 2,3,2,1,3, 2,2,2,2,2, 2,2,2,2, 2,2,2];
 
-  const magExp   = MAG_EXP_ARR[safeIdx];
-  const macdExp  = MACD_EXP_ARR[safeIdx];
-  const trendExp = TREND_EXP_ARR[safeIdx];
+const MAG_WEIGHT_ARR = [
+  1,0,1,0,1,
+  1,1,0,0,1,
+  1,1,0,0,1,
+  0,1,0,1,1,
+  0,0
+];
 
-  const magW   = MAG_WEIGHT_ARR[safeIdx];
-  const macdW  = MACD_WEIGHT_ARR[safeIdx];
-  const trendW = TREND_WEIGHT_ARR[safeIdx];
+const MACD_WEIGHT_ARR = [
+  1,1,1,1,1,
+  1,1,1,1,1,
+  1,1,1,1,1,
+  1,1,1,1,1,
+  1,1
+];
 
-  const magPts =
-    magSignal === 1 ? magExp * magW : 0;
+const TREND_WEIGHT_ARR = [
+  2,3,2,3,2,
+  2,2,3,3,2,
+  2,2,4,3,2,
+  4,2,4,2,2,
+  3,3
+];
 
-  const macdPts =
-    macdSignal === 1 ? macdExp * macdW : 0;
-
-  const trendBase =
-    trendSignal === 1 ?  trendExp * trendW :
-    trendSignal === -1 ? -trendExp * trendW : 0;
-
-  const trendPts = isMs ? trendBase : -trendBase;
-
-  const satPts = satSignal === 1 ? 1 : 0;
-
-  let rawScore = magPts + macdPts + trendPts + satPts;
-
-  if (macdPts > 0 && trendPts > 0) rawScore += 1;
-  if (macdPts > 0 && satPts > 0)   rawScore += 1;
-
-  return {
-    score: rawScore,
-    isGood: rawScore >= 1,
-    magPts,
-    macdPts,
-    trendPts,
-    satPts
-  };
+function getIdx(symbol) {
+  return CRYPTO_LIST.indexOf(symbol);
 }
 
-function scoreFiatRouter(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol) {
-  return scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol);
-}
-
+// -------------------------------------------------------------
+// STDEV
+// -------------------------------------------------------------
 function stdev(arr, period) {
   if (!arr || arr.length < period) return 0;
   const slice = arr.slice(-period);
