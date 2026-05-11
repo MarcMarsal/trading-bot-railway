@@ -115,6 +115,21 @@ if (i >= 1) {
   const trendDown12h = closeNow < closePast && avgNow < avgPast;
 
   trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
+  // -----------------------------
+// DEBUG AL PANELL
+// -----------------------------
+panel.trendDebug = {
+  i,
+  closeNow,
+  closePast,
+  avgNow,
+  avgPast,
+  pastIndex,
+  nowTs,
+  targetTs,
+  pastTs: candles[pastIndex].timestamp
+};
+
 }
 
 
