@@ -87,6 +87,7 @@ if (i >= bars12h * 2) {
 
   const closesNow = closes.slice(i - bars12h, i);
   const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
+  
 
   const avgNow = sma(closesNow, bars12h);
   const avgPast = sma(closesPast, bars12h);
@@ -98,8 +99,9 @@ if (i >= bars12h * 2) {
   const highPast = Math.max(...windowPast.map(c => c.high));
 
   const closeNow = candles[i - 1].close;
-  const closePast = candles[i - bars12h - 1].close;
-
+  //const closePast = candles[i - bars12h - 1].close;
+  const closePast = candles[i - bars12h].close;
+  
   // FIAT: suma de criteris (+1 / -1)
   let sum = 0;
 
