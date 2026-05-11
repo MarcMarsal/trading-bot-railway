@@ -201,6 +201,15 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       const closeNow = candles[i - 1].close;
       const closePast = candles[i - bars12h - 1].close;
 
+      let bullish = 0;
+      let bearish = 0;
+
+      if (closeNow > closePast) bullish++; else bearish++;
+      if (avgNow > avgPast) bullish++; else bearish++;
+      if (highNow > highPast) bullish++; else bearish++;
+      if (lowNow < lowPast) bearish++;
+
+
       try {
         await client.query(
           `
