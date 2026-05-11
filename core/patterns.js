@@ -118,10 +118,10 @@ if (i >= bars12h * 2) {
   else trendSignal = 0;
 
   // FIAT: filtre de moviment petit (1:1 TradingView)
-  const atr12 = Math.abs(closeNow - closePast);
-  if (atr12 < atr * 0.5) {
+  if (Math.abs(closeNow - closePast) < Math.abs(avgNow - avgPast) * 0.2) {
     trendSignal = 0;
   }
+
 }
 
     // -----------------------------
