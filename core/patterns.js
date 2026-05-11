@@ -2,7 +2,7 @@
 
 import { ema, sma } from "./ta.js";
 import { isBull, isBear } from "./utils.js";
-import { client } from "./db/client.js";
+import { client } from "../db/client.js";
 
 // -------------------------------------------------------------
 // DETECT MSES FIAT v1 (1:1 TradingView)
