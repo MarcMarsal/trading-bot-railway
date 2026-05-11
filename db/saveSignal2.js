@@ -13,7 +13,7 @@ import { sendTelegram } from "../telegram/send.js";
 export async function saveSignal2({
   symbol,
   timeframe,
-  type,        // "M" o "E"
+  type,        // "M_GOOD", "M_DISCARD", "E_GOOD", "E_DISCARD"
   entry,
   entryr,
   tp,
@@ -21,7 +21,13 @@ export async function saveSignal2({
   timestamp,   // ms (moment de la vela)
   reason = "",
   score = null,
-  isGood = null
+  isGood = null,
+
+  // 🔥 NOUS CAMPS FIAT
+  mag_pts = null,
+  macd_pts = null,
+  trend_pts = null,
+  sat_pts = null
 }) {
   const tsMs = Number(timestamp);   // ms de la vela
   const createdAt = Date.now();     // ms de creació real
@@ -47,6 +53,10 @@ export async function saveSignal2({
       reason,
       score,
       is_good,
+      mag_pts,
+      macd_pts,
+      trend_pts,
+      sat_pts,
       created_at,      -- ms de creació real
       closed
     )
@@ -55,7 +65,8 @@ export async function saveSignal2({
       $4,$5,$6,$7,
       $8,$9,$10,$11,$12,
       $13,$14,$15,
-      $16,
+      $16,$17,$18,$19,
+      $20,
       false
     )
     ON CONFLICT DO NOTHING
@@ -76,6 +87,13 @@ export async function saveSignal2({
       reason,
       score,
       isGood,
+
+      // 🔥 NOUS CAMPS FIAT
+      mag_pts,
+      macd_pts,
+      trend_pts,
+      sat_pts,
+
       createdAt      // moment real de creació
     ]
   );
