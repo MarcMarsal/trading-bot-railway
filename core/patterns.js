@@ -125,6 +125,10 @@ if (i >= bars12h * 2) {
 // -------------------------------------------------------------
 // INSERT DIRECTE A debug_trend (sense retornar res)
 // -------------------------------------------------------------
+  const pastIndex = i - bars12h - 1;
+const nowTs = candles[i - 1].timestamp;
+const targetTs = candles[i - bars12h].timestamp;
+
 try {
   await client.query(
     `
