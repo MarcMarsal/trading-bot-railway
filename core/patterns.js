@@ -12,7 +12,13 @@ function r4(x) {
 // DETECT MSES FIAT v1 (1:1 TradingView)
 // -------------------------------------------------------------
 export async function detectMSES(candlesRaw, symbol, timeframe) {
+
+  // 🔥 FIX 1 — evitar crash si no hi ha dades
   if (!candlesRaw || candlesRaw.length < 40)
+    return { signals: [] };
+
+  // 🔥 FIX 2 — evitar crash MS/ES si hi ha menys de 3 veles
+  if (candlesRaw.length < 4)
     return { signals: [] };
 
   const candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
