@@ -76,7 +76,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
 // -----------------------------
-// TENDÈNCIA 12 HORES — FIAT TRANSPORTABLE (TIMESTAMP)
+// TENDÈNCIA 12 HORES — FIAT TRANSPORTABLE (LIMITAT COM PINE)
 // -----------------------------
 const tfMinutes = timeframe === "1H" ? 60 : 1440;
 const bars12h = Math.floor(12 * 60 / tfMinutes);
@@ -88,11 +88,12 @@ if (i >= 1) {
   const nowTs = candles[i - 1].timestamp;
   const targetTs = nowTs - 12 * 60 * 60 * 1000;
 
-  // Buscar la vela amb timestamp més proper a targetTs
+  // 🔹 Limitem la cerca a 2 * bars12h barres enrere (com Pine)
+  const limit = Math.min(i, bars12h * 2);
   let pastIndex = 0;
   let bestDiff = Infinity;
 
-  for (let k = 0; k < i; k++) {
+  for (let k = 0; k < limit; k++) {
     const diff = Math.abs(candles[k].timestamp - targetTs);
     if (diff < bestDiff) {
       bestDiff = diff;
@@ -115,7 +116,6 @@ if (i >= 1) {
 
   trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
 }
-
 
 
 
