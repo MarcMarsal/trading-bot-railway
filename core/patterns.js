@@ -31,11 +31,10 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
   let prevEsRaw = false;
 
   // Loop FIAT-clean (igual que TradingView)
-  // IMPORTANT: només veles tancades, mai intravela
   for (let i = 4; i < n; i++) {
 
-    const c0 = candles[i];     // vela actual (no usada per patró MS/ES)
-    const c1 = candles[i - 1]; // 3a vela del patró (entry)
+    const c0 = candles[i];
+    const c1 = candles[i - 1];
     const c2 = candles[i - 2];
     const c3 = candles[i - 3];
 
@@ -80,133 +79,51 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth >  hStdev * 2.5 ?  1 :
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
-// -------------------------------------------------------------
-// TENDÈNCIA 12 HORES — FIAT 1:1 TRADINGVIEW (2 de 3 criteris)
-// -------------------------------------------------------------
-const tfMinutes = timeframe === "1H" ? 60 : 1440;
-const bars12h = Math.floor(12 * 60 / tfMinutes);
+    // -------------------------------------------------------------
+    // TENDÈNCIA 12 HORES — FIAT 1:1 TRADINGVIEW
+    // -------------------------------------------------------------
+    const tfMinutes = timeframe === "1H" ? 60 : 1440;
+    const bars12h = Math.floor(12 * 60 / tfMinutes);
 
-let trendSignal = 0;
+    let trendSignal = 0;
 
-if (i >= bars12h * 2) {
+    if (i >= bars12h * 2) {
 
-  // --- càlculs FIAT ---
-  const closesNow = closes.slice(i - bars12h, i);
-  const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
+      const closesNow = closes.slice(i - bars12h, i);
+      const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
 
-  const avgNow = sma(closesNow, bars12h);
-  const avgPast = sma(closesPast, bars12h);
+      const avgNow = sma(closesNow, bars12h);
+      const avgPast = sma(closesPast, bars12h);
 
-  const windowNow = candles.slice(i - bars12h, i);
-  const windowPast = candles.slice(i - bars12h * 2, i - bars12h);
+      const windowNow = candles.slice(i - bars12h, i);
+      const windowPast = candles.slice(i - bars12h * 2, i - bars12h);
 
-  const highNow = Math.max(...windowNow.map(c => c.high));
-  const highPast = Math.max(...windowPast.map(c => c.high));
+      const highNow = Math.max(...windowNow.map(c => c.high));
+      const highPast = Math.max(...windowPast.map(c => c.high));
 
-  const lowNow = Math.min(...windowNow.map(c => c.low));
-  const lowPast = Math.min(...windowPast.map(c => c.low));
+      const lowNow = Math.min(...windowNow.map(c => c.low));
+      const lowPast = Math.min(...windowPast.map(c => c.low));
 
-  const closeNow = candles[i - 1].close;
-  const closePast = candles[i - bars12h - 1].close;
+      const closeNow = candles[i - 1].close;
+      const closePast = candles[i - bars12h - 1].close;
 
-  let bullish = 0;
-  let bearish = 0;
+      let bullish = 0;
+      let bearish = 0;
 
-  if (closeNow > closePast) bullish++; else bearish++;
-  if (avgNow > avgPast) bullish++; else bearish++;
-  if (highNow > highPast) bullish++; else bearish++;
-  if (lowNow < lowPast) bearish++;
+      if (closeNow > closePast) bullish++; else bearish++;
+      if (avgNow > avgPast) bullish++; else bearish++;
+      if (highNow > highPast) bullish++; else bearish++;
+      if (lowNow < lowPast) bearish++;
 
-  let trendSignal = 0;
-  if (bullish >= 2) trendSignal = 1;
-  else if (bearish >= 2) trendSignal = -1;
-
-  // --- FIAT: càlcul finestra exacta TradingView ---
-  const pastIndex = i - bars12h;
-  const nowTs = candles[i - 1].timestamp;
-  const targetTs = candles[i - bars12h].timestamp;
-
-  // --- NOMÉS INSERIR SI HI HA SENYAL ---
-  if (msNew || esNew) {
-    try {
-      await client.query(
-        `
-        INSERT INTO debug_trend (
-          symbol, timeframe,
-          close_now, close_past,
-          avg_now, avg_past,
-          high_now, high_past,
-          low_now, low_past,
-          past_index, now_ts, target_ts, past_ts,
-          bullish_count, bearish_count, trend_signal,
-          updated_at
-        )
-        VALUES (
-          $1, $2,
-          $3, $4,
-          $5, $6,
-          $7, $8,
-          $9, $10,
-          $11, $12, $13, $14,
-          $15, $16, $17,
-          NOW()
-        )
-        ON CONFLICT (symbol) DO UPDATE SET
-          close_now = EXCLUDED.close_now,
-          close_past = EXCLUDED.close_past,
-          avg_now = EXCLUDED.avg_now,
-          avg_past = EXCLUDED.avg_past,
-          high_now = EXCLUDED.high_now,
-          high_past = EXCLUDED.high_past,
-          low_now = EXCLUDED.low_now,
-          low_past = EXCLUDED.low_past,
-          past_index = EXCLUDED.past_index,
-          now_ts = EXCLUDED.now_ts,
-          target_ts = EXCLUDED.target_ts,
-          past_ts = EXCLUDED.past_ts,
-          bullish_count = EXCLUDED.bullish_count,
-          bearish_count = EXCLUDED.bearish_count,
-          trend_signal = EXCLUDED.trend_signal,
-          updated_at = NOW()
-        `,
-        [
-          symbol,
-          timeframe,
-          closeNow,
-          closePast,
-          avgNow,
-          avgPast,
-          highNow,
-          highPast,
-          lowNow,
-          lowPast,
-          pastIndex,
-          nowTs,
-          targetTs,
-          candles[pastIndex].timestamp,
-          bullish,
-          bearish,
-          trendSignal
-        ]
-      );
-    } catch (err) {
-      console.log("[DEBUG_TREND ERROR]", err.message);
+      if (bullish >= 2) trendSignal = 1;
+      else if (bearish >= 2) trendSignal = -1;
     }
-  }
-}
-
-
-
-
-}
 
     // -----------------------------
-    // FIAT SCORING 0–10 (1:1 Pine)
+    // FIAT SCORING 0–10
     // -----------------------------
-    // Calculem score per MS i per ES per separat,
-    // igual que fa TradingView amb f_scoreFiat_router(true/false,...)
     const scoreMs = scoreFiatRouter(
-      true,          // isMs
+      true,
       magSignal,
       macdSignal,
       trendSignal,
@@ -215,7 +132,7 @@ if (i >= bars12h * 2) {
     );
 
     const scoreEs = scoreFiatRouter(
-      false,         // isMs
+      false,
       magSignal,
       macdSignal,
       trendSignal,
@@ -224,7 +141,7 @@ if (i >= bars12h * 2) {
     );
 
     // -----------------------------
-    // NOVA SENYAL (1:1 TradingView)
+    // NOVA SENYAL
     // -----------------------------
     const msNew = msRaw && !prevMsRaw;
     const esNew = esRaw && !prevEsRaw;
@@ -234,13 +151,12 @@ if (i >= bars12h * 2) {
         symbol,
         timeframe,
         type: "M",
-        timestamp: c1.timestamp,   // sempre ms, vela tancada
+        timestamp: c1.timestamp,
         entry: c1.close,
         thirdCandle: c1,
         score: scoreMs.score,
         isGood: scoreMs.isGood
       });
-     
     }
 
     if (esNew) {
@@ -248,14 +164,107 @@ if (i >= bars12h * 2) {
         symbol,
         timeframe,
         type: "E",
-        timestamp: c1.timestamp,   // sempre ms, vela tancada
+        timestamp: c1.timestamp,
         entry: c1.close,
         thirdCandle: c1,
         score: scoreEs.score,
         isGood: scoreEs.isGood
       });
-  
+    }
 
+    // -------------------------------------------------------------
+    // INSERT FIAT — NOMÉS SI HI HA SENYAL
+    // -------------------------------------------------------------
+    if ((msNew || esNew) && i >= bars12h * 2) {
+
+      // 3 LÍNIES FIAT EXACTAMENT ON TOCA
+      const pastIndex = i - bars12h;
+      const nowTs = candles[i - 1].timestamp;
+      const targetTs = candles[i - bars12h].timestamp;
+
+      // Recalcular valors per guardar-los
+      const closesNow = closes.slice(i - bars12h, i);
+      const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
+
+      const avgNow = sma(closesNow, bars12h);
+      const avgPast = sma(closesPast, bars12h);
+
+      const windowNow = candles.slice(i - bars12h, i);
+      const windowPast = candles.slice(i - bars12h * 2, i - bars12h);
+
+      const highNow = Math.max(...windowNow.map(c => c.high));
+      const highPast = Math.max(...windowPast.map(c => c.high));
+
+      const lowNow = Math.min(...windowNow.map(c => c.low));
+      const lowPast = Math.min(...windowPast.map(c => c.low));
+
+      const closeNow = candles[i - 1].close;
+      const closePast = candles[i - bars12h - 1].close;
+
+      try {
+        await client.query(
+          `
+          INSERT INTO debug_trend (
+            symbol, timeframe,
+            close_now, close_past,
+            avg_now, avg_past,
+            high_now, high_past,
+            low_now, low_past,
+            past_index, now_ts, target_ts, past_ts,
+            bullish_count, bearish_count, trend_signal,
+            updated_at
+          )
+          VALUES (
+            $1, $2,
+            $3, $4,
+            $5, $6,
+            $7, $8,
+            $9, $10,
+            $11, $12, $13, $14,
+            $15, $16, $17,
+            NOW()
+          )
+          ON CONFLICT (symbol) DO UPDATE SET
+            close_now = EXCLUDED.close_now,
+            close_past = EXCLUDED.close_past,
+            avg_now = EXCLUDED.avg_now,
+            avg_past = EXCLUDED.avg_past,
+            high_now = EXCLUDED.high_now,
+            high_past = EXCLUDED.high_past,
+            low_now = EXCLUDED.low_now,
+            low_past = EXCLUDED.low_past,
+            past_index = EXCLUDED.past_index,
+            now_ts = EXCLUDED.now_ts,
+            target_ts = EXCLUDED.target_ts,
+            past_ts = EXCLUDED.past_ts,
+            bullish_count = EXCLUDED.bullish_count,
+            bearish_count = EXCLUDED.bearish_count,
+            trend_signal = EXCLUDED.trend_signal,
+            updated_at = NOW()
+          `,
+          [
+            symbol,
+            timeframe,
+            closeNow,
+            closePast,
+            avgNow,
+            avgPast,
+            highNow,
+            highPast,
+            lowNow,
+            lowPast,
+            pastIndex,
+            nowTs,
+            targetTs,
+            candles[pastIndex].timestamp,
+            bullish,
+            bearish,
+            trendSignal
+          ]
+        );
+      } catch (err) {
+        console.log("[DEBUG_TREND ERROR]", err.message);
+      }
     }
 
     prevMsRaw = msRaw;
@@ -264,6 +273,7 @@ if (i >= bars12h * 2) {
 
   return { signals };
 }
+
 
 // -------------------------------------------------------------
 // FIAT SCORING 0–10 (1:1 Pine Script)
