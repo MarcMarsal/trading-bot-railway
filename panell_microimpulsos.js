@@ -1,8 +1,10 @@
-// panell_microimpulsos.js — FIAT v1 PUR (1:1 amb el bot)
+// panell_microimpulsos.js — FIAT v1 PUR (1:1 amb el bot + DEBUG)
 
 import http from "http";
 import { initDB, client } from "./db/client.js";
 import { formatSpainTime } from "./core/utils.js";
+
+const DEBUG_PANEL = process.env.DEBUG_PANEL === "1";
 
 // Formatador numèric
 function fmt(n) {
@@ -26,7 +28,11 @@ async function getActiveSignals() {
       hora_es,
       created_at,
       score,
-      is_good
+      is_good,
+      mag_pts,
+      macd_pts,
+      trend_pts,
+      sat_pts
     FROM signals2
     ORDER BY timestamp_ms DESC
     LIMIT 20
@@ -35,7 +41,6 @@ async function getActiveSignals() {
 
   return q.rows;
 }
-
 
 // Generar taula
 function renderActiveSignalsTable(signals) {
@@ -66,6 +71,16 @@ function renderActiveSignalsTable(signals) {
         <td>${formatSpainTime(s.created_at)}</td>
         <td>${fmt(s.score)}</td>
         <td>${s.is_good ? "GOOD" : "DISCARD"}</td>
+        ${
+          DEBUG_PANEL
+            ? `
+        <td>${fmt(s.mag_pts)}</td>
+        <td>${fmt(s.macd_pts)}</td>
+        <td>${fmt(s.trend_pts)}</td>
+        <td>${fmt(s.sat_pts)}</td>
+        `
+            : ""
+        }
         <td>
           <button onclick="openBitunix('${bitunixUrl}', '${fmt(s.entryr)}')">
             Obrir Bitunix
@@ -92,6 +107,16 @@ function renderActiveSignalsTable(signals) {
           <th>Creat (ES)</th>
           <th>Score</th>
           <th>Classificació</th>
+          ${
+            DEBUG_PANEL
+              ? `
+          <th>MAG</th>
+          <th>MACD</th>
+          <th>TREND</th>
+          <th>SAT</th>
+          `
+              : ""
+          }
           <th>Acció</th>
         </tr>
       </thead>
