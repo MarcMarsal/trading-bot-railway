@@ -76,48 +76,29 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
 // -----------------------------
-// TENDÈNCIA 12 HORES — FIAT ORIGINAL 1:1 TRADINGVIEW (TIMESTAMP EXACTE)
+// TENDÈNCIA 12 HORES — FIAT TRANSPORTABLE
 // -----------------------------
 const tfMinutes = timeframe === "1H" ? 60 : 1440;
 const bars12h = Math.floor(12 * 60 / tfMinutes);
 
 let trendSignal = 0;
 
-if (i >= 1) {
-
+if (i >= bars12h + 1) {
   const closeNow = candles[i - 1].close;
-  const nowTs = candles[i - 1].timestamp;
+  const closePast = candles[i - 1 - bars12h].close;
 
-  // Timestamp exacte de fa 12 hores
-  const targetTs = nowTs - 12 * 60 * 60 * 1000;
+  const closesNow = closes.slice(i - bars12h, i);
+  const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
 
-  // Buscar la vela amb timestamp EXACTE o la més propera per sota
-  let pastIndex = i - 1;
-  while (pastIndex > 0 && candles[pastIndex].timestamp > targetTs) {
-    pastIndex--;
-  }
+  const avgNow = sma(closesNow, bars12h);
+  const avgPast = sma(closesPast, bars12h);
 
-  // Si no hi ha prou dades, tendència = 0
-  if (pastIndex <= 0) {
-    trendSignal = 0;
-  } else {
+  const trendUp12h = closeNow > closePast && avgNow > avgPast;
+  const trendDown12h = closeNow < closePast && avgNow < avgPast;
 
-    const closePast = candles[pastIndex].close;
-
-    // Finestra per avgNow: últimes 12 hores
-    const avgNowStart = Math.max(0, i - bars12h);
-    const avgNow = sma(closes.slice(avgNowStart, i), i - avgNowStart);
-
-    // Finestra per avgPast: 12 hores abans de pastIndex
-    const avgPastStart = Math.max(0, pastIndex - bars12h);
-    const avgPast = sma(closes.slice(avgPastStart, pastIndex), pastIndex - avgPastStart);
-
-    const trendUp12h   = closeNow > closePast && avgNow > avgPast;
-    const trendDown12h = closeNow < closePast && avgNow < avgPast;
-
-    trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
-  }
+  trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
 }
+
 
 
 
