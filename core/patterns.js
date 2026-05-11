@@ -75,47 +75,54 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth >  hStdev * 2.5 ?  1 :
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
-    // -------------------------------------------------------------
-    // TENDÈNCIA 12 HORES — FIAT 1:1 TRADINGVIEW
-    // -------------------------------------------------------------
-    const tfMinutes = timeframe === "1H" ? 60 : 1440;
-    const bars12h = Math.floor(12 * 60 / tfMinutes);
+    // -----------------------------
+// TENDÈNCIA 12 HORES — FIAT ORIGINAL 1:1 TRADINGVIEW
+// -----------------------------
+const tfMinutes = timeframe === "1H" ? 60 : 1440;
+const bars12h = Math.floor(12 * 60 / tfMinutes);
 
-    let trendSignal = 0;
+let trendSignal = 0;
 
-    if (i >= bars12h * 2) {
+if (i >= bars12h * 2) {
 
-      const closesNow = closes.slice(i - bars12h, i);
-      const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
+  const closesNow = closes.slice(i - bars12h, i);
+  const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
 
-      const avgNow = sma(closesNow, bars12h);
-      const avgPast = sma(closesPast, bars12h);
+  const avgNow = sma(closesNow, bars12h);
+  const avgPast = sma(closesPast, bars12h);
 
-      const windowNow = candles.slice(i - bars12h, i);
-      const windowPast = candles.slice(i - bars12h * 2, i - bars12h);
+  const windowNow = candles.slice(i - bars12h, i);
+  const windowPast = candles.slice(i - bars12h * 2, i - bars12h);
 
-      const highNow = Math.max(...windowNow.map(c => c.high));
-      const highPast = Math.max(...windowPast.map(c => c.high));
+  const highNow = Math.max(...windowNow.map(c => c.high));
+  const highPast = Math.max(...windowPast.map(c => c.high));
 
-      const lowNow = Math.min(...windowNow.map(c => c.low));
-      const lowPast = Math.min(...windowPast.map(c => c.low));
+  const closeNow = candles[i - 1].close;
+  const closePast = candles[i - bars12h - 1].close;
 
-      const closeNow = candles[i - 1].close;
-      const closePast = candles[i - bars12h - 1].close;
+  // FIAT: suma de criteris (+1 / -1)
+  let sum = 0;
 
-      let bullish = 0;
-      let bearish = 0;
+  if (closeNow > closePast) sum += 1;
+  else if (closeNow < closePast) sum -= 1;
 
-      if (closeNow > closePast) bullish++; else bearish++;
-      if (avgNow > avgPast) bullish++; else bearish++;
-      if (highNow > highPast) bullish++; else bearish++;
+  if (avgNow > avgPast) sum += 1;
+  else if (avgNow < avgPast) sum -= 1;
 
-      if (lowNow < lowPast) bearish++;
+  if (highNow > highPast) sum += 1;
+  else if (highNow < highPast) sum -= 1;
 
-      if (bullish >= 2) trendSignal = 1;
-      else if (bearish >= 2) trendSignal = -1;
-      else trendSignal = 0;
-    }
+  // FIAT: normalització
+  if (sum > 0) trendSignal = 1;
+  else if (sum < 0) trendSignal = -1;
+  else trendSignal = 0;
+
+  // FIAT: filtre de moviment petit (1:1 TradingView)
+  const atr12 = Math.abs(closeNow - closePast);
+  if (atr12 < atr * 0.5) {
+    trendSignal = 0;
+  }
+}
 
     // -----------------------------
     // FIAT SCORING 0–10 (1:1 Pine)
