@@ -133,7 +133,7 @@ if (i >= 1) {
       targetTs,
       pastTs: candles[pastIndex].timestamp
     };
-
+  }
 }
 
 
