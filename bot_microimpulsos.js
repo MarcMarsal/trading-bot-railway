@@ -135,11 +135,44 @@ export async function processSymbol(symbol, timeframe) {
   if (atr == null) return;
 
   // FIAT v1: MS/ES + scoring (1:1 TradingView)
- 
-  const signals = await detectMSES(candles, symbol, timeframe);
+  const { signals, trendDebug } = await detectMSES(candles, symbol, timeframe);
 
+  // 🔥 Guardar debug FIAT a la taula
+  if (trendDebug) {
+    await client.query(
+      `
+      INSERT INTO debug_trend (
+        symbol, timeframe, close_now, close_past, avg_now, avg_past,
+        past_index, now_ts, target_ts, past_ts, updated_at
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
+      ON CONFLICT (symbol)
+      DO UPDATE SET
+        close_now = EXCLUDED.close_now,
+        close_past = EXCLUDED.close_past,
+        avg_now = EXCLUDED.avg_now,
+        avg_past = EXCLUDED.avg_past,
+        past_index = EXCLUDED.past_index,
+        now_ts = EXCLUDED.now_ts,
+        target_ts = EXCLUDED.target_ts,
+        past_ts = EXCLUDED.past_ts,
+        updated_at = NOW();
+      `,
+      [
+        symbol,
+        timeframe,
+        trendDebug.closeNow,
+        trendDebug.closePast,
+        trendDebug.avgNow,
+        trendDebug.avgPast,
+        trendDebug.pastIndex,
+        trendDebug.nowTs,
+        trendDebug.targetTs,
+        trendDebug.pastTs
+      ]
+    );
+  }
 
-}
   if (!signals || signals.length === 0) return;
 
   for (const sig of signals) {
@@ -162,12 +195,7 @@ export async function processSymbol(symbol, timeframe) {
       sig.timestamp   // ms
     );
 
-    if (exists) {
-      continue;
-    }
-
-    // Log FIAT v1
-    //console.log("[FIAT]", symbol, timeframe, finalType, sig.timestamp);
+    if (exists) continue;
 
     // Calcular targets FIAT v1 (1:1 TradingView)
     const { entryr, tp, sl } = calcTargets(
@@ -179,28 +207,26 @@ export async function processSymbol(symbol, timeframe) {
 
     // Guardar senyal FIAT v1
     await saveSignal2({
-       symbol,
-       timeframe,
-       type: finalType,
-       entry: sig.entry,
-       entryr,
-       tp,
-       sl,
-       timestamp: sig.timestamp,
-       timestamp_ms: sig.timestamp,
-       score: sig.score,
-       isGood: sig.isGood,
-       reason: "",
-
-       // 🔥 FIAT: afegim els punts
-       mag_pts: sig.mag_pts,
-       macd_pts: sig.macd_pts,
-       trend_pts: sig.trend_pts,
-       sat_pts: sig.sat_pts
-     });
-
+      symbol,
+      timeframe,
+      type: finalType,
+      entry: sig.entry,
+      entryr,
+      tp,
+      sl,
+      timestamp: sig.timestamp,
+      timestamp_ms: sig.timestamp,
+      score: sig.score,
+      isGood: sig.isGood,
+      reason: "",
+      mag_pts: sig.mag_pts,
+      macd_pts: sig.macd_pts,
+      trend_pts: sig.trend_pts,
+      sat_pts: sig.sat_pts
+    });
   }
 }
+
 
 // -------------------------------------------------------------
 // TRACKING TP/SL
