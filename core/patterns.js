@@ -23,6 +23,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
   const histSmooth = ema(hist, 5);
 
   const signals = [];
+  let lastTrendDebug = null;
 
   let prevMsRaw = false;
   let prevEsRaw = false;
@@ -115,25 +116,23 @@ if (i >= 1) {
   const trendDown12h = closeNow < closePast && avgNow < avgPast;
 
   trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
-  // -----------------------------
-// DEBUG AL PANELL
+ 
+
 // -----------------------------
+// DEBUG FIAT (GUARDAR PER RETORNAR)
 // -----------------------------
-  // DEBUG AL PANELL (NOMÉS SI EXISTEIX)
-  // -----------------------------
-  if (typeof panel !== "undefined" && panel) {
-    panel.trendDebug = {
-      i,
-      closeNow,
-      closePast,
-      avgNow,
-      avgPast,
-      pastIndex,
-      nowTs,
-      targetTs,
-      pastTs: candles[pastIndex].timestamp
-    };
-  }
+lastTrendDebug = {
+  i,
+  closeNow,
+  closePast,
+  avgNow,
+  avgPast,
+  pastIndex,
+  nowTs,
+  targetTs,
+  pastTs: candles[pastIndex]?.timestamp ?? null
+};
+
 }
 
 
@@ -209,18 +208,11 @@ if (i >= 1) {
     prevEsRaw = esRaw;
   }
 
-  return { signals,
-  trendDebug: {
-    i,
-    closeNow,
-    closePast,
-    avgNow,
-    avgPast,
-    pastIndex,
-    nowTs,
-    targetTs,
-    pastTs: candles[pastIndex].timestamp
-  } };
+ return {
+  signals,
+  trendDebug: lastTrendDebug
+};
+
 }
 
 // -------------------------------------------------------------
