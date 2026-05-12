@@ -173,6 +173,21 @@ export async function processSymbol(symbol, timeframe) {
       atr
     );
 
+    // 🔥 FIAT — dades que venen de detectMSES (patterns.js)
+    const magPts     = sig.magPts;
+    const macdPts    = sig.macdPts;
+    const trendPts   = sig.trendPts;
+    const satPts     = sig.satPts;
+
+    const closeNow    = sig.closeNow;
+    const closePast   = sig.closePast;
+    const avgNow      = sig.avgNow;
+    const avgPast     = sig.avgPast;
+    const pastIndex   = sig.pastIndex;
+    const pastTs      = sig.pastTs;
+    const targetTs    = sig.targetTs;
+    const trendSignal = sig.trendSignal;
+
     // Guardar senyal FIAT v1
     await saveSignal2({
       symbol,
@@ -183,11 +198,27 @@ export async function processSymbol(symbol, timeframe) {
       tp,
       sl,
       timestamp: sig.timestamp,
-      timestamp_ms: sig.timestamp,
+      reason: "",
       score: sig.score,
       isGood: sig.isGood,
-      reason: ""
+
+      // 🔥 FIAT — punts
+      magPts,
+      macdPts,
+      trendPts,
+      satPts,
+
+      // 🔥 FIAT — dades congelades
+      closeNow,
+      closePast,
+      avgNow,
+      avgPast,
+      pastIndex,
+      pastTs,
+      targetTs,
+      trendSignal
     });
+
   }
 }
 
