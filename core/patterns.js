@@ -128,20 +128,7 @@ if (pastIndexBarsAgo === null || realIndex < bars12h) {
     // finestra per avgPast (inclou la barra idxPast)
     const closesPastWin = closes.slice(idxPast - bars12h + 1, idxPast + 1);
     avgPast = sma(closesPastWin, bars12h);
-
-    // guarda per debug
-    trendDebug.push({
-        i,
-        realIndex,
-        pastIndexBarsAgo,
-        idxPast,
-        closeNow,
-        closePast,
-        avgNow,
-        avgPast,
-        pastTs: candles[idxPast].timestamp,
-        targetTs
-    });
+  
 }
 
 // FIAT — condicions de tendència
