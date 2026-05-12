@@ -65,89 +65,90 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth >  hStdev * 2.5 ?  1 :
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
-    const tfMinutes = timeframe === "1H" ? 60 : 1440;
-    const bars12h = Math.floor(12 * 60 / tfMinutes);
+ 
     let trendSignal = 0;
     // =====================================================================
 //     TENDÈNCIA 12H FIAT — 1:1 TRADINGVIEW
 // =====================================================================
+//
+// FIAT — Tendència 12 hores 1:1 TradingView
+//
 
-// Fem servir la barra de la senyal (c1)
-//const nowTs = c1.timestamp;
-const nowTs = candles[i].timestamp;   // ✔ igual que Pine
+// minuts per barra
+const tfMinutes = timeframeMinutes; // ja ho tens calculat fora
+const bars12h = Math.floor((12 * 60) / tfMinutes);
 
+// índex real de la barra actual (equivalent a bar_index del Pine)
+const realIndex = i;   // 🔥 això és la clau
+
+// timestamps
+const nowTs = candles[realIndex].timestamp;
 const targetTs = nowTs - 12 * 60 * 60 * 1000;
 
-
-// Buscar la barra més propera a targetTs (com Pine)
+// cerca de la barra més propera a targetTs
+let bestDiff = Number.MAX_SAFE_INTEGER;
 let pastIndexBarsAgo = null;
-let bestDiff = Number.MAX_VALUE;
 
-//const maxLookback = Math.min(i - 1, bars12h * 2);
-const maxLookback = Math.min(i, bars12h * 2);   // ✔ igual que Pine
+// límit de cerca igual que Pine
+const maxLookback = Math.min(realIndex, bars12h * 2);
 
 for (let k = 0; k <= maxLookback; k++) {
-  const idx = i - 1 - k;
-  if (idx < 0) break; // 🔥 Evita accedir fora del rang
+    const idx = realIndex - k;
+    if (idx < 0) break;
 
-  const ts = candles[idx].timestamp;
-  const diff = Math.abs(ts - targetTs);
-  if (diff < bestDiff) {
-    bestDiff = diff;
-    pastIndexBarsAgo = k;
-  }
+    const ts = candles[idx].timestamp;
+    const diff = Math.abs(ts - targetTs);
+
+    if (diff < bestDiff) {
+        bestDiff = diff;
+        pastIndexBarsAgo = k;
+    }
 }
 
+// si no hi ha prou dades → tendència = 0
+let closeNow = candles[realIndex].close;
+let closePast = closeNow;
+let avgNow = null;
+let avgPast = null;
 
-    
-const enoughBars = (i - 1) > bars12h;
+if (pastIndexBarsAgo === null || realIndex < bars12h) {
+    // no hi ha prou dades
+    avgNow = sma(closes.slice(realIndex - bars12h + 1, realIndex + 1), bars12h);
+    avgPast = avgNow;
+} else {
+    const idxPast = realIndex - pastIndexBarsAgo;
 
-//let closeNow = c1.close;
-let closeNow = candles[i].close;   // ✔ barra actual, igual que Pine
+    closePast = candles[idxPast].close;
 
-let closePast;
-let avgNow;
-let avgPast;
-
-if (pastIndexBarsAgo == null || !enoughBars) {
-  closePast = closeNow;
-
-  if (i >= bars12h) {
-    //const closesNowWin = closes.slice(i - bars12h, i);
-    //avgNow = sma(closesNowWin, bars12h);
-    const closesNowWin = closes.slice(i - bars12h + 1, i + 1);
+    // finestra per avgNow (inclou barra actual)
+    const closesNowWin = closes.slice(realIndex - bars12h + 1, realIndex + 1);
     avgNow = sma(closesNowWin, bars12h);
 
-    avgPast = avgNow;
-  } else {
-    avgNow = closeNow;
-    avgPast = avgNow;
-  }
-
-} else {
-  //const idxPast = i - 1 - pastIndexBarsAgo;
-  const idxPast = i - pastIndexBarsAgo;  // ✔ igual que Pine
-
-  closePast = candles[idxPast].close;
-
-  //const closesNowWin = closes.slice(i - bars12h, i);
-  //avgNow = sma(closesNowWin, bars12h);
-  const closesNowWin = closes.slice(i - bars12h + 1, i + 1);
-  avgNow = sma(closesNowWin, bars12h);
-
-  const startPast = idxPast - bars12h + 1;
-  if (startPast >= 0) {
-    const closesPastWin = closes.slice(startPast, idxPast + 1);
+    // finestra per avgPast (inclou la barra idxPast)
+    const closesPastWin = closes.slice(idxPast - bars12h + 1, idxPast + 1);
     avgPast = sma(closesPastWin, bars12h);
-  } else {
-    avgPast = avgNow;
-  }
+
+    // guarda per debug
+    trendDebug.push({
+        i,
+        realIndex,
+        pastIndexBarsAgo,
+        idxPast,
+        closeNow,
+        closePast,
+        avgNow,
+        avgPast,
+        pastTs: candles[idxPast].timestamp,
+        targetTs
+    });
 }
 
+// FIAT — condicions de tendència
 const trendUp12h = closeNow > closePast && avgNow > avgPast;
 const trendDown12h = closeNow < closePast && avgNow < avgPast;
 
 trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
+
 
     const scoreMs = scoreFiatRouter(
       true,
