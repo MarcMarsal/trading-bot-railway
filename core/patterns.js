@@ -72,9 +72,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
 //     TENDÈNCIA 12H FIAT — 1:1 TRADINGVIEW
 // =====================================================================
 
-const tfMinutes = timeframe === "1H" ? 60 : 1440;
-const bars12h = Math.floor(12 * 60 / tfMinutes);
-
 // Fem servir la barra de la senyal (c1)
 const nowTs = c1.timestamp;
 const targetTs = nowTs - 12 * 60 * 60 * 1000;
@@ -223,15 +220,15 @@ trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
         trendPts: scoreEs.trendPts,
         satPts: scoreEs.satPts,
 
-        // 🔥 FIAT — dades congelades
-        closeNow,
-        closePast,
-        avgNow,
-        avgPast,
-        pastIndex,
-        pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
-        targetTs,
-        trendSignal
+         // 🔥 FIAT — dades congelades
+       closeNow: closeNowFreeze,
+       closePast: closePastFreeze,
+       avgNow: avgNowFreeze,
+       avgPast: avgPastFreeze,
+       pastIndex,
+       pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
+       targetTs: targetTsFreeze,
+       trendSignal
       });
     }
     // -------------------------------------------------------------
