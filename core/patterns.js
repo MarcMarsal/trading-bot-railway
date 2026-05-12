@@ -210,6 +210,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     // INSERT FIAT — NOMÉS SI HI HA SENYAL
     // -------------------------------------------------------------
     if ((msNew || esNew) && i >= bars12h + 1) {
+      const nowTs = candles[i - 1].timestamp;
  
       let bullish = 0;
       let bearish = 0;
