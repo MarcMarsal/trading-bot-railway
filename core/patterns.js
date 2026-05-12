@@ -158,7 +158,8 @@ trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
     // -------------------------------------------------------------
     // FIAT — DADES CONGELADES (1:1 TradingView)
     let pastIndex = null;
-    let closesNow = closes.slice(i - bars12h, i);
+    let closesNowFreezeArr = closes.slice(i - bars12h, i);
+
     let closesPast = null;
 
     let closeNowFreeze = closeNow;
@@ -243,8 +244,8 @@ trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
 
       if (closeNow > closePast) bullish++; else bearish++;
       if (avgNow > avgPast) bullish++; else bearish++;
-      if (highNow > highPast) bullish++; else bearish++;
-      if (lowNow < lowPast) bearish++;
+
+
 
       try {
         await client.query(
@@ -300,8 +301,8 @@ trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
             lowPast,
             pastIndex,
             nowTs,
-            targetTs,
-            candles[pastIndex].timestamp,
+            targetTsFreeze,
+            pastIndex != null ? candles[pastIndex].timestamp : null,
             bullish,
             bearish,
             trendSignal
