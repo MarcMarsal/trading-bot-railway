@@ -187,7 +187,8 @@ trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
     let targetTsFreeze = targetTs;
 
     if (pastIndexBarsAgo != null) {
-      pastIndex = i - 1 - pastIndexBarsAgo;
+      //pastIndex = i - 1 - pastIndexBarsAgo;
+      pastIndex = i - pastIndexBarsAgo;
 
       if (pastIndex - bars12h + 1 >= 0) {
         closesPast = closes.slice(pastIndex - bars12h + 1, pastIndex + 1);
