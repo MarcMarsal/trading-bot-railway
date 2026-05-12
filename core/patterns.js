@@ -209,32 +209,8 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     // -------------------------------------------------------------
     // INSERT FIAT — NOMÉS SI HI HA SENYAL
     // -------------------------------------------------------------
-    if ((msNew || esNew) && i >= bars12h * 2) {
-
-      // 3 LÍNIES FIAT EXACTAMENT ON TOCA
-      const pastIndex = i - bars12h;
-      const nowTs = candles[i - 1].timestamp;
-      const targetTs = candles[i - bars12h].timestamp;
-
-      // Recalcular valors per guardar-los
-      const closesNow = closes.slice(i - bars12h, i);
-      const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
-
-      const avgNow = sma(closesNow, bars12h);
-      const avgPast = sma(closesPast, bars12h);
-
-      const windowNow = candles.slice(i - bars12h, i);
-      const windowPast = candles.slice(i - bars12h * 2, i - bars12h);
-
-      const highNow = Math.max(...windowNow.map(c => c.high));
-      const highPast = Math.max(...windowPast.map(c => c.high));
-
-      const lowNow = Math.min(...windowNow.map(c => c.low));
-      const lowPast = Math.min(...windowPast.map(c => c.low));
-
-      const closeNow = candles[i - 1].close;
-      const closePast = candles[i - bars12h - 1].close;
-
+    if ((msNew || esNew) && i >= bars12h + 1) {
+ 
       let bullish = 0;
       let bearish = 0;
 
