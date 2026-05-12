@@ -155,7 +155,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         entry: c1.close,
         thirdCandle: c1,
         score: scoreMs.score,
-        isGood: scoreMs.isGood
+        isGood: scoreMs.isGood,
         // 🔥 FIAT — punts
         magPts: scoreMs.magPts,
         macdPts: scoreMs.macdPts,
@@ -183,7 +183,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         entry: c1.close,
         thirdCandle: c1,
         score: scoreEs.score,
-        isGood: scoreEs.isGood
+        isGood: scoreEs.isGood,
         // 🔥 FIAT — punts
         magPts: scoreEs.magPts,
         macdPts: scoreEs.macdPts,
