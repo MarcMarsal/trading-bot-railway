@@ -83,7 +83,9 @@ const targetTs = nowTs - 12 * 60 * 60 * 1000;
 let pastIndexBarsAgo = null;
 let bestDiff = Number.MAX_VALUE;
 
-const maxLookback = Math.min(i - 1, bars12h * 2);
+//const maxLookback = Math.min(i - 1, bars12h * 2);
+const maxLookback = Math.min(i, bars12h * 2);   // ✔ igual que Pine
+
 
 for (let k = 0; k <= maxLookback; k++) {
   const ts = candles[i - 1 - k].timestamp;
