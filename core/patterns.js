@@ -175,7 +175,8 @@ trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
 
     if (pastIndexBarsAgo != null) {
       //pastIndex = i - 1 - pastIndexBarsAgo;
-      pastIndex = i - pastIndexBarsAgo;
+      //pastIndex = i - pastIndexBarsAgo;
+      pastIndex = realIndex - pastIndexBarsAgo;  // 👈 el mateix que idxPast
 
       if (pastIndex - bars12h + 1 >= 0) {
         closesPast = closes.slice(pastIndex - bars12h + 1, pastIndex + 1);
