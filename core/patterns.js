@@ -70,7 +70,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
 
     let trendSignal = 0;
 
-    if (i >= bars12h * 2) {
+    if (i >= bars12h) {
       const closesNowCalc = closes.slice(i - bars12h, i);
       const closesPastCalc = closes.slice(i - bars12h * 2, i - bars12h);
 
@@ -127,7 +127,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         windowNow, windowPast, highNow, highPast,
         lowNow, lowPast, closeNow, closePast, targetTs;
 
-    if (i >= bars12h * 2) {
+    if (i >= bars12h) {
       pastIndex = i - bars12h;
       targetTs = candles[i - bars12h].timestamp;
 
