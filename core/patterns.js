@@ -86,11 +86,11 @@ let bestDiff = Number.MAX_VALUE;
 //const maxLookback = Math.min(i - 1, bars12h * 2);
 const maxLookback = Math.min(i, bars12h * 2);   // ✔ igual que Pine
 
-
 for (let k = 0; k <= maxLookback; k++) {
-  const ts = candles[i - 1 - k].timestamp;
-  //const ts = candles[i - k].timestamp;   // ✔ igual que Pine
+  const idx = i - 1 - k;
+  if (idx < 0) break; // 🔥 Evita accedir fora del rang
 
+  const ts = candles[idx].timestamp;
   const diff = Math.abs(ts - targetTs);
   if (diff < bestDiff) {
     bestDiff = diff;
@@ -98,6 +98,8 @@ for (let k = 0; k <= maxLookback; k++) {
   }
 }
 
+
+    
 const enoughBars = (i - 1) > bars12h;
 
 //let closeNow = c1.close;
