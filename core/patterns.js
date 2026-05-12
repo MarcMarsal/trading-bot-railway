@@ -126,8 +126,18 @@ if (pastIndexBarsAgo === null || realIndex < bars12h) {
     avgNow = sma(closesNowWin, bars12h);
 
     // finestra per avgPast (inclou la barra idxPast)
-    const closesPastWin = closes.slice(idxPast - bars12h + 1, idxPast + 1);
-    avgPast = sma(closesPastWin, bars12h);
+    //const closesPastWin = closes.slice(idxPast - bars12h + 1, idxPast + 1);
+    //avgPast = sma(closesPastWin, bars12h);
+    const startPast = idxPast - bars12h + 1;
+
+    if (startPast >= 0) {
+      const closesPastWin = closes.slice(startPast, idxPast + 1);
+      avgPast = sma(closesPastWin, bars12h);
+    } else {
+      // FIAT: si la finestra “perfecta” no es pot construir, fem servir avgNow
+      avgPast = avgNow;
+    }
+
   
 }
 
