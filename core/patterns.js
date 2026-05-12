@@ -84,7 +84,9 @@ let bestDiff = Number.MAX_VALUE;
 const maxLookback = Math.min(i - 1, bars12h * 2);
 
 for (let k = 0; k <= maxLookback; k++) {
-  const ts = candles[i - 1 - k].timestamp;
+  //const ts = candles[i - 1 - k].timestamp;
+  const ts = candles[i - k].timestamp;   // ✔ igual que Pine
+
   const diff = Math.abs(ts - targetTs);
   if (diff < bestDiff) {
     bestDiff = diff;
@@ -105,8 +107,11 @@ if (pastIndexBarsAgo == null || !enoughBars) {
   closePast = closeNow;
 
   if (i >= bars12h) {
-    const closesNowWin = closes.slice(i - bars12h, i);
+    //const closesNowWin = closes.slice(i - bars12h, i);
+    //avgNow = sma(closesNowWin, bars12h);
+    const closesNowWin = closes.slice(i - bars12h + 1, i + 1);
     avgNow = sma(closesNowWin, bars12h);
+
     avgPast = avgNow;
   } else {
     avgNow = closeNow;
@@ -114,11 +119,14 @@ if (pastIndexBarsAgo == null || !enoughBars) {
   }
 
 } else {
-  const idxPast = i - 1 - pastIndexBarsAgo;
+  //const idxPast = i - 1 - pastIndexBarsAgo;
+  const idxPast = i - pastIndexBarsAgo;  // ✔ igual que Pine
 
   closePast = candles[idxPast].close;
 
-  const closesNowWin = closes.slice(i - bars12h, i);
+  //const closesNowWin = closes.slice(i - bars12h, i);
+  //avgNow = sma(closesNowWin, bars12h);
+  const closesNowWin = closes.slice(i - bars12h + 1, i + 1);
   avgNow = sma(closesNowWin, bars12h);
 
   const startPast = idxPast - bars12h + 1;
