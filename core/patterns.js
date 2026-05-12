@@ -86,8 +86,8 @@ let bestDiff = Number.MAX_VALUE;
 const maxLookback = Math.min(i - 1, bars12h * 2);
 
 for (let k = 0; k <= maxLookback; k++) {
-  //const ts = candles[i - 1 - k].timestamp;
-  const ts = candles[i - k].timestamp;   // ✔ igual que Pine
+  const ts = candles[i - 1 - k].timestamp;
+  //const ts = candles[i - k].timestamp;   // ✔ igual que Pine
 
   const diff = Math.abs(ts - targetTs);
   if (diff < bestDiff) {
