@@ -67,6 +67,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
 
  
     let trendSignal = 0;
+   
     // =====================================================================
 //     TENDÈNCIA 12H FIAT — 1:1 TRADINGVIEW
 // =====================================================================
@@ -75,7 +76,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
 //
 
 // minuts per barra
-const tfMinutes = timeframeMinutes; // ja ho tens calculat fora
+const tfMinutes = timeframe === "1H" ? 60 : 1440;
 const bars12h = Math.floor((12 * 60) / tfMinutes);
 
 // índex real de la barra actual (equivalent a bar_index del Pine)
