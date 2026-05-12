@@ -366,12 +366,12 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
   if (macdPts > 0 && trendPts > 0) rawScore += 1;
   if (macdPts > 0 && satPts > 0)   rawScore += 1;
 
-  if (isMs && rawScore < 0) {
-    rawScore = -Math.abs(rawScore);
-  }
-  if (!isMs && rawScore < 0) {
-    rawScore = -Math.abs(rawScore);
-  }
+  //if (isMs && rawScore < 0) {
+  //  rawScore = -Math.abs(rawScore);
+  //}
+  //if (!isMs && rawScore < 0) {
+  //  rawScore = -Math.abs(rawScore);
+  //}
 
   const score  = rawScore;
   const isGood = rawScore >= 1;
