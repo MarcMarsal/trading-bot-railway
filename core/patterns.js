@@ -68,38 +68,73 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     const tfMinutes = timeframe === "1H" ? 60 : 1440;
     const bars12h = Math.floor(12 * 60 / tfMinutes);
 
-    let trendSignal = 0;
+    // =====================================================================
+//     TENDÈNCIA 12H FIAT — 1:1 TRADINGVIEW
+// =====================================================================
 
-    if (i >= bars12h + 1) {
-      const closesNowCalc = closes.slice(i - bars12h, i);
-      const closesPastCalc = closes.slice(i - bars12h * 2, i - bars12h);
+const tfMinutes = timeframe === "1H" ? 60 : 1440;
+const bars12h = Math.floor(12 * 60 / tfMinutes);
 
-      const avgNowCalc = sma(closesNowCalc, bars12h);
-      const avgPastCalc = sma(closesPastCalc, bars12h);
+// Fem servir la barra de la senyal (c1)
+const nowTs = c1.timestamp;
+const targetTs = nowTs - 12 * 60 * 60 * 1000;
 
-      const windowNowCalc = candles.slice(i - bars12h, i);
-      const windowPastCalc = candles.slice(i - bars12h * 2, i - bars12h);
+// Buscar la barra més propera a targetTs (com Pine)
+let pastIndexBarsAgo = null;
+let bestDiff = Number.MAX_VALUE;
 
-      const highNowCalc = Math.max(...windowNowCalc.map(c => c.high));
-      const highPastCalc = Math.max(...windowPastCalc.map(c => c.high));
+const maxLookback = Math.min(i - 1, bars12h * 2);
 
-      const lowNowCalc = Math.min(...windowNowCalc.map(c => c.low));
-      const lowPastCalc = Math.min(...windowPastCalc.map(c => c.low));
+for (let k = 0; k <= maxLookback; k++) {
+  const ts = candles[i - 1 - k].timestamp;
+  const diff = Math.abs(ts - targetTs);
+  if (diff < bestDiff) {
+    bestDiff = diff;
+    pastIndexBarsAgo = k;
+  }
+}
 
-      const closeNowCalc = candles[i - 1].close;
-      const closePastCalc = candles[i - bars12h - 1].close;
+const enoughBars = (i - 1) > bars12h;
 
-      let bullish = 0;
-      let bearish = 0;
+let closeNow = c1.close;
+let closePast;
+let avgNow;
+let avgPast;
 
-      if (closeNowCalc > closePastCalc) bullish++; else bearish++;
-      if (avgNowCalc > avgPastCalc) bullish++; else bearish++;
-      if (highNowCalc > highPastCalc) bullish++; else bearish++;
-      if (lowNowCalc < lowPastCalc) bearish++;
+if (pastIndexBarsAgo == null || !enoughBars) {
+  closePast = closeNow;
 
-      if (bullish >= 2) trendSignal = 1;
-      else if (bearish >= 2) trendSignal = -1;
-    }
+  if (i >= bars12h) {
+    const closesNowWin = closes.slice(i - bars12h, i);
+    avgNow = sma(closesNowWin, bars12h);
+    avgPast = avgNow;
+  } else {
+    avgNow = closeNow;
+    avgPast = avgNow;
+  }
+
+} else {
+  const idxPast = i - 1 - pastIndexBarsAgo;
+
+  closePast = candles[idxPast].close;
+
+  const closesNowWin = closes.slice(i - bars12h, i);
+  avgNow = sma(closesNowWin, bars12h);
+
+  const startPast = idxPast - bars12h + 1;
+  if (startPast >= 0) {
+    const closesPastWin = closes.slice(startPast, idxPast + 1);
+    avgPast = sma(closesPastWin, bars12h);
+  } else {
+    avgPast = avgNow;
+  }
+}
+
+const trendUp12h = closeNow > closePast && avgNow > avgPast;
+const trendDown12h = closeNow < closePast && avgNow < avgPast;
+
+trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
+
     const scoreMs = scoreFiatRouter(
       true,
       magSignal,
@@ -123,32 +158,25 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     // -------------------------------------------------------------
     // FIAT — CÀLCUL DE DADES CONGELADES (ha d’anar abans de signals.push())
     // -------------------------------------------------------------
-    let pastIndex, closesNow, closesPast, avgNow, avgPast,
-        windowNow, windowPast, highNow, highPast,
-        lowNow, lowPast, closeNow, closePast, targetTs;
+    // FIAT — DADES CONGELADES (1:1 TradingView)
+    let pastIndex = null;
+    let closesNow = closes.slice(i - bars12h, i);
+    let closesPast = null;
 
-    if (i >= bars12h + 1) {
-      pastIndex = i - bars12h;
-      targetTs = candles[i - bars12h].timestamp;
+    let closeNowFreeze = closeNow;
+    let closePastFreeze = closePast;
+    let avgNowFreeze = avgNow;
+    let avgPastFreeze = avgPast;
+    let targetTsFreeze = targetTs;
 
-      closesNow = closes.slice(i - bars12h, i);
-      closesPast = closes.slice(i - bars12h * 2, i - bars12h);
+    if (pastIndexBarsAgo != null) {
+      pastIndex = i - 1 - pastIndexBarsAgo;
 
-      avgNow = sma(closesNow, bars12h);
-      avgPast = sma(closesPast, bars12h);
-
-      windowNow = candles.slice(i - bars12h, i);
-      windowPast = candles.slice(i - bars12h * 2, i - bars12h);
-
-      highNow = Math.max(...windowNow.map(c => c.high));
-      highPast = Math.max(...windowPast.map(c => c.high));
-
-      lowNow = Math.min(...windowNow.map(c => c.low));
-      lowPast = Math.min(...windowPast.map(c => c.low));
-
-      closeNow = candles[i - 1].close;
-      closePast = candles[i - bars12h - 1].close;
+      if (pastIndex - bars12h + 1 >= 0) {
+        closesPast = closes.slice(pastIndex - bars12h + 1, pastIndex + 1);
+      }
     }
+
     if (msNew) {
       signals.push({
         symbol,
@@ -167,14 +195,14 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         satPts: scoreMs.satPts,
 
         // 🔥 FIAT — dades congelades
-        closeNow,
-        closePast,
-        avgNow,
-        avgPast,
-        pastIndex,
-        pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
-        targetTs,
-        trendSignal
+       closeNow: closeNowFreeze,
+       closePast: closePastFreeze,
+       avgNow: avgNowFreeze,
+       avgPast: avgPastFreeze,
+       pastIndex,
+       pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
+       targetTs: targetTsFreeze,
+       trendSignal
       });
     }
 
