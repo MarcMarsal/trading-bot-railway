@@ -1,11 +1,11 @@
-// db/saveSignal2.js — FIAT v1 net i 100% en mil·lisegons
+// db/saveSignal2.js — FIAT v2 complet i 1:1 amb TradingView
 
 import { client } from "./client.js";
 import { splitSpainDate } from "../core/utils.js";
 import { sendTelegram } from "../telegram/send.js";
 
 /**
- * Guarda una senyal FIAT v1 a la taula signals2
+ * Guarda una senyal FIAT v2 a la taula signals2
  *
  * - timestamp = moment de la vela (ms)
  * - created_at = moment real en què el bot crea la senyal (ms)
@@ -21,7 +21,23 @@ export async function saveSignal2({
   timestamp,   // ms (moment de la vela)
   reason = "",
   score = null,
-  isGood = null
+  isGood = null,
+
+  // 🔥 FIAT — punts
+  magPts = null,
+  macdPts = null,
+  trendPts = null,
+  satPts = null,
+
+  // 🔥 FIAT — dades congelades de tendència
+  closeNow = null,
+  closePast = null,
+  avgNow = null,
+  avgPast = null,
+  pastIndex = null,
+  pastTs = null,
+  targetTs = null,
+  trendSignal = null
 }) {
   const tsMs = Number(timestamp);   // ms de la vela
   const createdAt = Date.now();     // ms de creació real
@@ -39,15 +55,32 @@ export async function saveSignal2({
       entryr,
       tp,
       sl,
-      timestamp,       -- ms de la vela
-      timestamp_ms,    -- ms de la vela
-      timestamp_es,    -- ms zona ES (vela)
+      timestamp,
+      timestamp_ms,
+      timestamp_es,
       date_es,
       hora_es,
       reason,
       score,
       is_good,
-      created_at,      -- ms de creació real
+
+      -- 🔥 FIAT — punts
+      mag_pts,
+      macd_pts,
+      trend_pts,
+      sat_pts,
+
+      -- 🔥 FIAT — dades congelades
+      close_now,
+      close_past,
+      avg_now,
+      avg_past,
+      past_index,
+      past_ts,
+      target_ts,
+      trend_signal,
+
+      created_at,
       closed
     )
     VALUES (
@@ -55,7 +88,12 @@ export async function saveSignal2({
       $4,$5,$6,$7,
       $8,$9,$10,$11,$12,
       $13,$14,$15,
-      $16,
+
+      $16,$17,$18,$19,
+
+      $20,$21,$22,$23,$24,$25,$26,$27,
+
+      $28,
       false
     )
     ON CONFLICT DO NOTHING
@@ -68,19 +106,36 @@ export async function saveSignal2({
       entryr,
       tp,
       sl,
-      tsMs,          // timestamp (vela)
-      tsMs,          // timestamp_ms (vela)
-      timestamp_es,  // ms zona ES (vela)
+      tsMs,
+      tsMs,
+      timestamp_es,
       date_es,
       hora_es,
       reason,
       score,
       isGood,
-      createdAt      // moment real de creació
+
+      // 🔥 FIAT — punts
+      magPts,
+      macdPts,
+      trendPts,
+      satPts,
+
+      // 🔥 FIAT — dades congelades
+      closeNow,
+      closePast,
+      avgNow,
+      avgPast,
+      pastIndex,
+      pastTs,
+      targetTs,
+      trendSignal,
+
+      createdAt
     ]
   );
 
-  // 🔔 Enviar alerta Telegram (FIAT v1)
+  // 🔔 Enviar alerta Telegram (FIAT v2)
   await sendTelegram({
     symbol,
     signalType: type,
