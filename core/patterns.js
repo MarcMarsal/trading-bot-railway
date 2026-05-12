@@ -184,14 +184,16 @@ trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
     let targetTsFreeze = targetTs;
 
     if (pastIndexBarsAgo != null) {
-      //pastIndex = i - 1 - pastIndexBarsAgo;
-      //pastIndex = i - pastIndexBarsAgo;
-      pastIndex = realIndex - pastIndexBarsAgo;  // 👈 el mateix que idxPast
+  // 1) FIAT: trobem la barra EXACTA pel targetTs (1:1 TradingView)
+  pastIndex = candles.findIndex(c => c.timestamp === targetTsFreeze);
 
-      if (pastIndex - bars12h + 1 >= 0) {
-        closesPast = closes.slice(pastIndex - bars12h + 1, pastIndex + 1);
-      }
-    }
+  // 2) Si l’hem trobat i hi ha prou historial, recalculam avgPast “de veritat”
+  if (pastIndex >= 0 && pastIndex - bars12h + 1 >= 0) {
+    const closesPastWin = closes.slice(pastIndex - bars12h + 1, pastIndex + 1);
+    avgPastFreeze = sma(closesPastWin, bars12h);
+  }
+}
+
 
     if (msNew) {
       signals.push({
