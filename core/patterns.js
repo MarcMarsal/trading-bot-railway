@@ -11,11 +11,9 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
   if (!candlesRaw || candlesRaw.length < 40)
     return { signals: [] };
 
-  // Ordenar veles de més antiga a més nova
   const candles = [...candlesRaw].sort((a, b) => a.timestamp - b.timestamp);
   const n = candles.length;
 
-  // Precalcular arrays
   const closes = candles.map(c => c.close);
 
   const ema12 = ema(closes, 12);
@@ -30,17 +28,11 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
   let prevMsRaw = false;
   let prevEsRaw = false;
 
-  // Loop FIAT-clean (igual que TradingView)
   for (let i = 4; i < n; i++) {
-
     const c0 = candles[i];
     const c1 = candles[i - 1];
     const c2 = candles[i - 2];
     const c3 = candles[i - 3];
-
-    // -----------------------------
-    // MS / ES RAW (1:1 TradingView)
-    // -----------------------------
     const rangeFirst = c3.high - c3.low;
     const indecisionOK =
       rangeFirst === 0
@@ -57,17 +49,11 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       indecisionOK &&
       isBear(c1.open, c1.close);
 
-    // -----------------------------
-    // MAGNITUD FIAT
-    // -----------------------------
     const bodyFirst = Math.abs(c3.close - c3.open);
     const bodyThird = Math.abs(c1.close - c1.open);
     const magOK = bodyThird > bodyFirst * 0.6;
     const magSignal = magOK ? 1 : -1;
 
-    // -----------------------------
-    // MACD FIAT + SATURACIÓ
-    // -----------------------------
     const hSmooth = histSmooth[i];
     const hStdev = stdev(histSmooth.slice(0, i + 1), 20);
 
@@ -79,49 +65,41 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth >  hStdev * 2.5 ?  1 :
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
-    // -------------------------------------------------------------
-    // TENDÈNCIA 12 HORES — FIAT 1:1 TRADINGVIEW
-    // -------------------------------------------------------------
     const tfMinutes = timeframe === "1H" ? 60 : 1440;
     const bars12h = Math.floor(12 * 60 / tfMinutes);
 
     let trendSignal = 0;
 
     if (i >= bars12h * 2) {
+      const closesNowCalc = closes.slice(i - bars12h, i);
+      const closesPastCalc = closes.slice(i - bars12h * 2, i - bars12h);
 
-      const closesNow = closes.slice(i - bars12h, i);
-      const closesPast = closes.slice(i - bars12h * 2, i - bars12h);
+      const avgNowCalc = sma(closesNowCalc, bars12h);
+      const avgPastCalc = sma(closesPastCalc, bars12h);
 
-      const avgNow = sma(closesNow, bars12h);
-      const avgPast = sma(closesPast, bars12h);
+      const windowNowCalc = candles.slice(i - bars12h, i);
+      const windowPastCalc = candles.slice(i - bars12h * 2, i - bars12h);
 
-      const windowNow = candles.slice(i - bars12h, i);
-      const windowPast = candles.slice(i - bars12h * 2, i - bars12h);
+      const highNowCalc = Math.max(...windowNowCalc.map(c => c.high));
+      const highPastCalc = Math.max(...windowPastCalc.map(c => c.high));
 
-      const highNow = Math.max(...windowNow.map(c => c.high));
-      const highPast = Math.max(...windowPast.map(c => c.high));
+      const lowNowCalc = Math.min(...windowNowCalc.map(c => c.low));
+      const lowPastCalc = Math.min(...windowPastCalc.map(c => c.low));
 
-      const lowNow = Math.min(...windowNow.map(c => c.low));
-      const lowPast = Math.min(...windowPast.map(c => c.low));
-
-      const closeNow = candles[i - 1].close;
-      const closePast = candles[i - bars12h - 1].close;
+      const closeNowCalc = candles[i - 1].close;
+      const closePastCalc = candles[i - bars12h - 1].close;
 
       let bullish = 0;
       let bearish = 0;
 
-      if (closeNow > closePast) bullish++; else bearish++;
-      if (avgNow > avgPast) bullish++; else bearish++;
-      if (highNow > highPast) bullish++; else bearish++;
-      if (lowNow < lowPast) bearish++;
+      if (closeNowCalc > closePastCalc) bullish++; else bearish++;
+      if (avgNowCalc > avgPastCalc) bullish++; else bearish++;
+      if (highNowCalc > highPastCalc) bullish++; else bearish++;
+      if (lowNowCalc < lowPastCalc) bearish++;
 
       if (bullish >= 2) trendSignal = 1;
       else if (bearish >= 2) trendSignal = -1;
     }
-
-    // -----------------------------
-    // FIAT SCORING 0–10
-    // -----------------------------
     const scoreMs = scoreFiatRouter(
       true,
       magSignal,
@@ -140,12 +118,37 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       symbol
     );
 
-    // -----------------------------
-    // NOVA SENYAL
-    // -----------------------------
     const msNew = msRaw && !prevMsRaw;
     const esNew = esRaw && !prevEsRaw;
+    // -------------------------------------------------------------
+    // FIAT — CÀLCUL DE DADES CONGELADES (ha d’anar abans de signals.push())
+    // -------------------------------------------------------------
+    let pastIndex, closesNow, closesPast, avgNow, avgPast,
+        windowNow, windowPast, highNow, highPast,
+        lowNow, lowPast, closeNow, closePast, targetTs;
 
+    if (i >= bars12h * 2) {
+      pastIndex = i - bars12h;
+      targetTs = candles[i - bars12h].timestamp;
+
+      closesNow = closes.slice(i - bars12h, i);
+      closesPast = closes.slice(i - bars12h * 2, i - bars12h);
+
+      avgNow = sma(closesNow, bars12h);
+      avgPast = sma(closesPast, bars12h);
+
+      windowNow = candles.slice(i - bars12h, i);
+      windowPast = candles.slice(i - bars12h * 2, i - bars12h);
+
+      highNow = Math.max(...windowNow.map(c => c.high));
+      highPast = Math.max(...windowPast.map(c => c.high));
+
+      lowNow = Math.min(...windowNow.map(c => c.low));
+      lowPast = Math.min(...windowPast.map(c => c.low));
+
+      closeNow = candles[i - 1].close;
+      closePast = candles[i - bars12h - 1].close;
+    }
     if (msNew) {
       signals.push({
         symbol,
@@ -156,6 +159,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         thirdCandle: c1,
         score: scoreMs.score,
         isGood: scoreMs.isGood,
+
         // 🔥 FIAT — punts
         magPts: scoreMs.magPts,
         macdPts: scoreMs.macdPts,
@@ -168,7 +172,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         avgNow,
         avgPast,
         pastIndex,
-        pastTs: candles[pastIndex].timestamp,
+        pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
         targetTs,
         trendSignal
       });
@@ -184,6 +188,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         thirdCandle: c1,
         score: scoreEs.score,
         isGood: scoreEs.isGood,
+
         // 🔥 FIAT — punts
         magPts: scoreEs.magPts,
         macdPts: scoreEs.macdPts,
@@ -196,12 +201,11 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         avgNow,
         avgPast,
         pastIndex,
-        pastTs: candles[pastIndex].timestamp,
+        pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
         targetTs,
         trendSignal
       });
     }
-
     // -------------------------------------------------------------
     // INSERT FIAT — NOMÉS SI HI HA SENYAL
     // -------------------------------------------------------------
@@ -238,7 +242,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       if (avgNow > avgPast) bullish++; else bearish++;
       if (highNow > highPast) bullish++; else bearish++;
       if (lowNow < lowPast) bearish++;
-
 
       try {
         await client.query(
@@ -312,8 +315,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
 
   return { signals };
 }
-
-
 // -------------------------------------------------------------
 // FIAT SCORING 0–10 (1:1 Pine Script)
 // -------------------------------------------------------------
@@ -370,9 +371,6 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
   const macdW  = MACD_WEIGHT_ARR[safeIdx];
   const trendW = TREND_WEIGHT_ARR[safeIdx];
 
-  // -----------------------------
-  // PUNTS BASE (igual que Pine)
-  // -----------------------------
   const magPts =
     magSignal === 1 ? magExp * magW : 0;
 
@@ -383,27 +381,15 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
     trendSignal === 1 ?  trendExp * trendW :
     trendSignal === -1 ? -trendExp * trendW : 0;
 
-  // Inversió de signe segons MS/ES (igual que Pine)
   const trendPts = isMs ? trendBase : -trendBase;
 
   const satPts = satSignal === 1 ? 1 : 0;
 
-  // -----------------------------
-  // SUMA FIAT
-  // -----------------------------
   let rawScore = magPts + macdPts + trendPts + satPts;
 
-  // -----------------------------
-  // BONIFICACIONS FIAT (igual que Pine)
-  // -----------------------------
   if (macdPts > 0 && trendPts > 0) rawScore += 1;
   if (macdPts > 0 && satPts > 0)   rawScore += 1;
 
-  // -----------------------------
-  // AJUST CRÍTIC FIAT (el que faltava)
-  // Manté el signe negatiu quan el context és contrari
-  // EXACTAMENT com fa TradingView
-  // -----------------------------
   if (isMs && rawScore < 0) {
     rawScore = -Math.abs(rawScore);
   }
@@ -411,21 +397,15 @@ function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symb
     rawScore = -Math.abs(rawScore);
   }
 
-  // -----------------------------
-  // RESULTAT FINAL
-  // -----------------------------
   const score  = rawScore;
   const isGood = rawScore >= 1;
 
   return { score, isGood, magPts, macdPts, trendPts, satPts };
 }
 
-// Router FIAT per cripto (igual que Pine, preparat per SOL/LINK/BTC)
 function scoreFiatRouter(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol) {
-  const sym = symbol.replace("-", ""); // només per routing intern
+  const sym = symbol.replace("-", "");
 
-  // Ara mateix SOL/LINK/BTC usen la mateixa lògica base,
-  // però deixem el router preparat per optimitzar BTC/LINK més endavant.
   if (sym === "SOLUSDT" || sym === "LINKUSDT") {
     return scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol);
   } else if (sym === "BTCUSDT") {
@@ -445,7 +425,7 @@ function stdev(arr, period) {
 
   const variance =
     slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) /
-    (period - 1); // <-- clau: mostral, com ta.stdev
+    (period - 1);
 
   return Math.sqrt(variance);
 }
