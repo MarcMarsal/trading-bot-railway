@@ -184,25 +184,16 @@ trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
     let targetTsFreeze = targetTs;
 
     if (pastIndexBarsAgo != null) {
- // FIAT — trobar la barra més propera al targetTs
-let bestDiffFreeze = Number.MAX_SAFE_INTEGER;
-pastIndex = null;
+      // FIAT — usar EXACTAMENT el mateix índex que la tendència
+      pastIndex = realIndex - pastIndexBarsAgo;
 
-for (let k = 0; k < n; k++) {
-  const diff = Math.abs(candles[k].timestamp - targetTsFreeze);
-  if (diff < bestDiffFreeze) {
-    bestDiffFreeze = diff;
-    pastIndex = k;
-  }
-}
+      // FIAT — recalcular avgPastFreeze amb la mateixa finestra que la tendència
+      if (pastIndex >= 0 && pastIndex - bars12h + 1 >= 0) {
+        const closesPastWin = closes.slice(pastIndex - bars12h + 1, pastIndex + 1);
+        avgPastFreeze = sma(closesPastWin, bars12h);
+      }
+    }
 
-// FIAT — recalcular avgPastFreeze si hi ha prou historial
-if (pastIndex != null && pastIndex - bars12h + 1 >= 0) {
-  const closesPastWin = closes.slice(pastIndex - bars12h + 1, pastIndex + 1);
-  avgPastFreeze = sma(closesPastWin, bars12h);
-}
-
-}
 
 
     if (msNew) {
