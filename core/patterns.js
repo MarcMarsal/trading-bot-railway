@@ -73,7 +73,9 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
 // =====================================================================
 
 // Fem servir la barra de la senyal (c1)
-const nowTs = c1.timestamp;
+//const nowTs = c1.timestamp;
+const nowTs = candles[i].timestamp;   // ✔ igual que Pine
+
 const targetTs = nowTs - 12 * 60 * 60 * 1000;
 
 
