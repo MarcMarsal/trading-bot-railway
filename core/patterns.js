@@ -94,7 +94,9 @@ for (let k = 0; k <= maxLookback; k++) {
 
 const enoughBars = (i - 1) > bars12h;
 
-let closeNow = c1.close;
+//let closeNow = c1.close;
+let closeNow = candles[i].close;   // ✔ barra actual, igual que Pine
+
 let closePast;
 let avgNow;
 let avgPast;
