@@ -156,6 +156,21 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         thirdCandle: c1,
         score: scoreMs.score,
         isGood: scoreMs.isGood
+        // 🔥 FIAT — punts
+        magPts: scoreMs.magPts,
+        macdPts: scoreMs.macdPts,
+        trendPts: scoreMs.trendPts,
+        satPts: scoreMs.satPts,
+
+        // 🔥 FIAT — dades congelades
+        closeNow,
+        closePast,
+        avgNow,
+        avgPast,
+        pastIndex,
+        pastTs: candles[pastIndex].timestamp,
+        targetTs,
+        trendSignal
       });
     }
 
@@ -169,6 +184,21 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         thirdCandle: c1,
         score: scoreEs.score,
         isGood: scoreEs.isGood
+        // 🔥 FIAT — punts
+        magPts: scoreEs.magPts,
+        macdPts: scoreEs.macdPts,
+        trendPts: scoreEs.trendPts,
+        satPts: scoreEs.satPts,
+
+        // 🔥 FIAT — dades congelades
+        closeNow,
+        closePast,
+        avgNow,
+        avgPast,
+        pastIndex,
+        pastTs: candles[pastIndex].timestamp,
+        targetTs,
+        trendSignal
       });
     }
 
