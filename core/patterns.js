@@ -192,7 +192,14 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         pastIndex,
         pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
         targetTs: targetTsFreeze,
-        trendSignal
+        trendSignal,
+        // 🟩 AFEGIT FIAT‑NET
+        c1_open: c1.open,
+        c1_close: c1.close,
+        c2_open: c2.open,
+        c2_close: c2.close,
+        c3_open: c3.open,
+        c3_close: c3.close
       });
     }
 
@@ -219,7 +226,14 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         pastIndex,
         pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
         targetTs: targetTsFreeze,
-        trendSignal
+        trendSignal,
+        // 🟩 AFEGIT FIAT‑NET
+        c1_open: c1.open,
+        c1_close: c1.close,
+        c2_open: c2.open,
+        c2_close: c2.close,
+        c3_open: c3.open,
+        c3_close: c3.close
       });
     }
 
