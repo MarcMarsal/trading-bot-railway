@@ -148,23 +148,23 @@ const trendDown12h = closeNow < closePast && avgNow < avgPast;
 trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
 
 
-    const scoreMs = scoreFiatRouter(
-      true,
-      magSignal,
-      macdSignal,
-      trendSignal,
-      satSignal,
-      symbol
-    );
+   const scoreMs = applyFiat2Score(
+  magSignal === 1 ? 1 : 0,
+  macdSignal === 1 ? 1 : 0,   // MACD alcista per MS
+  trendSignal === 1 ? 1 : 0,
+  satSignal === 1 ? 1 : 0,
+  symbol
+);
 
-    const scoreEs = scoreFiatRouter(
-      false,
-      magSignal,
-      macdSignal,
-      trendSignal,
-      satSignal,
-      symbol
-    );
+const scoreEs = applyFiat2Score(
+  magSignal === 1 ? 1 : 0,
+  macdSignal === -1 ? 1 : 0,  // MACD baixista per ES
+  trendSignal === -1 ? 1 : 0,
+  satSignal === -1 ? 1 : 0,
+  symbol
+);
+
+
 
     const msNew = msRaw && !prevMsRaw;
     const esNew = esRaw && !prevEsRaw;
@@ -274,105 +274,43 @@ trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
 
   return { signals };
 }
+
 // -------------------------------------------------------------
-// FIAT SCORING 0–10 (1:1 Pine Script)
+// FIAT 2.0 — Pesos per cripto (1:1 TradingView)
 // -------------------------------------------------------------
+const FIAT2_CONFIG = {
+  "ARB-USDT": { wMag: 0, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
+  "APT-USDT": { wMag: 0, wMacd: 1, wTrend: 1, wSat: 0, thr: 1 },
+  "ADA-USDT": { wMag: 1, wMacd: 1, wTrend: 4, wSat: 1, thr: 1 },
+  "LINK-USDT": { wMag: 0, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 },
+  "BTC-USDT": { wMag: 0, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
+  "SOL-USDT": { wMag: 1, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 }
+};
 
-const CRYPTO_LIST = [
-  "BTC-USDT","SUI-USDT","SOL-USDT","XRP-USDT","AVAX-USDT",
-  "APT-USDT","INJ-USDT","SEI-USDT","ADA-USDT","LINK-USDT",
-  "BNB-USDT","ETH-USDT","NEAR-USDT","HBAR-USDT","RENDER-USDT",
-  "ASTER-USDT","BCH-USDT","VIRTUAL-USDT","ATOM-USDT",
-  "OP-USDT","ARB-USDT","DOT-USDT"
-];
-
-const MAG_EXP_ARR   = [2,1,2,1,2, 1,2,1,1,2, 1,2,2,1,2, 1,1,1,2, 1,1,1];
-const MACD_EXP_ARR  = [2,2,2,1,2, 2,2,2,1,2, 1,2,2,1,2, 1,2,1,2, 2,2,1];
-const TREND_EXP_ARR = [2,2,3,1,3, 2,3,2,1,3, 2,2,2,2,2, 2,2,2,2, 2,2,2];
-
-const MAG_WEIGHT_ARR = [
-  1,0,1,0,1,
-  1,1,0,0,1,
-  1,1,0,0,1,
-  0,1,0,1,1,
-  0,0
-];
-
-const MACD_WEIGHT_ARR = [
-  1,1,1,1,1,
-  1,1,1,1,1,
-  1,1,1,1,1,
-  1,1,1,1,1,
-  1,1
-];
-
-const TREND_WEIGHT_ARR = [
-  2,3,2,3,2,
-  2,2,3,3,2,
-  2,2,4,3,2,
-  4,2,4,2,2,
-  3,3
-];
-
-function getIdx(symbol) {
-  return CRYPTO_LIST.indexOf(symbol);
+// -------------------------------------------------------------
+// FIAT 2.0 — Obtenir configuració per cripto
+// -------------------------------------------------------------
+function getFiat2Config(symbol) {
+  return FIAT2_CONFIG[symbol] || { wMag: 0, wMacd: 1, wTrend: 1, wSat: 0, thr: 1 };
 }
 
-function scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol) {
-  const idx = getIdx(symbol);
-  const safeIdx = idx === -1 ? 0 : idx;
+// -------------------------------------------------------------
+// FIAT 2.0 — Càlcul del score (1:1 TradingView)
+// -------------------------------------------------------------
+function applyFiat2Score(magPts, macdPts, trendPts, satPts, symbol) {
+  const cfg = getFiat2Config(symbol);
 
-  const magExp   = MAG_EXP_ARR[safeIdx];
-  const macdExp  = MACD_EXP_ARR[safeIdx];
-  const trendExp = TREND_EXP_ARR[safeIdx];
+  const score =
+    cfg.wMag   * magPts +
+    cfg.wMacd  * macdPts +
+    cfg.wTrend * trendPts +
+    cfg.wSat   * satPts;
 
-  const magW   = MAG_WEIGHT_ARR[safeIdx];
-  const macdW  = MACD_WEIGHT_ARR[safeIdx];
-  const trendW = TREND_WEIGHT_ARR[safeIdx];
-
-  const magPts =
-    magSignal === 1 ? magExp * magW : 0;
-
-  const macdPts =
-    macdSignal === 1 ? macdExp * macdW : 0;
-
-  const trendBase =
-    trendSignal === 1 ?  trendExp * trendW :
-    trendSignal === -1 ? -trendExp * trendW : 0;
-
-  const trendPts = isMs ? trendBase : -trendBase;
-
-  const satPts = satSignal === 1 ? 1 : 0;
-
-  let rawScore = magPts + macdPts + trendPts + satPts;
-
-  if (macdPts > 0 && trendPts > 0) rawScore += 1;
-  if (macdPts > 0 && satPts > 0)   rawScore += 1;
-
-  //if (isMs && rawScore < 0) {
-  //  rawScore = -Math.abs(rawScore);
-  //}
-  //if (!isMs && rawScore < 0) {
-  //  rawScore = -Math.abs(rawScore);
-  //}
-
-  const score  = rawScore;
-  const isGood = rawScore >= 1;
+  const isGood = score >= cfg.thr;
 
   return { score, isGood, magPts, macdPts, trendPts, satPts };
 }
 
-function scoreFiatRouter(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol) {
-  const sym = symbol.replace("-", "");
-
-  if (sym === "SOLUSDT" || sym === "LINKUSDT") {
-    return scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol);
-  } else if (sym === "BTCUSDT") {
-    return scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol);
-  } else {
-    return scoreFiatBase(isMs, magSignal, macdSignal, trendSignal, satSignal, symbol);
-  }
-}
 
 // -------------------------------------------------------------
 // STDEV helper (equivalent a ta.stdev(histSmooth, 20))
