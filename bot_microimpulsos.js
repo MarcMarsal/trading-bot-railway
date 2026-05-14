@@ -127,45 +127,35 @@ export async function processSymbol(symbol, timeframe) {
   const candles = await getCandlesFromDB(symbol, timeframe, 80);
   if (!candles || candles.length < 40) return;
 
-  // Ordenar veles de més antiga a més nova
   candles.sort((a, b) => a.timestamp - b.timestamp);
 
-  // ATR per targets
   const atr = calcATR(candles, 14);
   if (atr == null) return;
 
-  // FIAT v1: MS/ES + scoring (1:1 TradingView)
   const { signals } = await detectMSES(candles, symbol, timeframe);
   if (!signals || signals.length === 0) return;
 
   for (const sig of signals) {
-    // Tipus RAW FIAT v1: "M" o "E"
     if (sig.type !== "M" && sig.type !== "E") {
       console.log("[FIAT] Tipus inesperat:", sig.type);
       continue;
     }
 
-    // Convertir a tipus FINAL (GOOD/DISCARD)
     const finalType =
       sig.type === "M"
         ? (sig.isGood ? "M_GOOD" : "M_DISCARD")
         : (sig.isGood ? "E_GOOD" : "E_DISCARD");
 
-    // Comprovació de duplicats amb tipus FINAL i timestamp_ms
     const exists = await alreadySent2(
       symbol,
       timeframe,
-      sig.timestamp   // ms
+      sig.timestamp
     );
 
-    if (exists) {
-      continue;
-    }
+    if (exists) continue;
 
-    // Log FIAT v1
     console.log("[FIAT]", symbol, timeframe, finalType, sig.timestamp);
 
-    // Calcular targets FIAT v1 (1:1 TradingView)
     const { entryr, tp, sl } = calcTargets(
       symbol,
       sig.type,
@@ -173,12 +163,13 @@ export async function processSymbol(symbol, timeframe) {
       atr
     );
 
-    // 🔥 FIAT — dades que venen de detectMSES (patterns.js)
+    // 🔥 FIAT — punts
     const magPts     = sig.magPts;
     const macdPts    = sig.macdPts;
     const trendPts   = sig.trendPts;
     const satPts     = sig.satPts;
 
+    // 🔥 FIAT — dades congelades
     const closeNow    = sig.closeNow;
     const closePast   = sig.closePast;
     const avgNow      = sig.avgNow;
@@ -188,7 +179,14 @@ export async function processSymbol(symbol, timeframe) {
     const targetTs    = sig.targetTs;
     const trendSignal = sig.trendSignal;
 
-    // Guardar senyal FIAT v1
+    // 🟩 FIAT — noves veles del patró
+    const c1_open  = sig.c1_open;
+    const c1_close = sig.c1_close;
+    const c2_open  = sig.c2_open;
+    const c2_close = sig.c2_close;
+    const c3_open  = sig.c3_open;
+    const c3_close = sig.c3_close;
+
     await saveSignal2({
       symbol,
       timeframe,
@@ -216,11 +214,19 @@ export async function processSymbol(symbol, timeframe) {
       pastIndex,
       pastTs,
       targetTs,
-      trendSignal
-    });
+      trendSignal,
 
+      // 🟩 FIAT — noves veles del patró
+      c1_open,
+      c1_close,
+      c2_open,
+      c2_close,
+      c3_open,
+      c3_close
+    });
   }
 }
+
 
 // -------------------------------------------------------------
 // TRACKING TP/SL
