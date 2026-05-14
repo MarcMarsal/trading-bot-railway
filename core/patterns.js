@@ -1,11 +1,11 @@
-// core/patterns.js — FIAT v1 1:1 TradingView
+// core/patterns.js — FIAT 2.0 1:1 TradingView
 
 import { ema, sma } from "./ta.js";
 import { isBull, isBear } from "./utils.js";
 import { client } from "../db/client.js";
 
 // -------------------------------------------------------------
-// DETECT MSES FIAT v1 (1:1 TradingView)
+// DETECT MSES FIAT 2.0 (1:1 TradingView)
 // -------------------------------------------------------------
 export async function detectMSES(candlesRaw, symbol, timeframe) {
   if (!candlesRaw || candlesRaw.length < 40)
@@ -33,6 +33,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     const c1 = candles[i - 1];
     const c2 = candles[i - 2];
     const c3 = candles[i - 3];
+
     const rangeFirst = c3.high - c3.low;
     const indecisionOK =
       rangeFirst === 0
@@ -65,117 +66,93 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       hSmooth >  hStdev * 2.5 ?  1 :
       hSmooth < -hStdev * 2.5 ? -1 : 0;
 
- 
-    let trendSignal = 0;
-   
-    // =====================================================================
-//     TENDÈNCIA 12H FIAT — 1:1 TRADINGVIEW
-// =====================================================================
-//
-// FIAT — Tendència 12 hores 1:1 TradingView
-//
+    // -----------------------------------------------------------
+    // TENDÈNCIA 12H FIAT — 1:1 TradingView
+    // -----------------------------------------------------------
+    const tfMinutes = timeframe === "1H" ? 60 : 1440;
+    const bars12h = Math.floor((12 * 60) / tfMinutes);
 
-// minuts per barra
-const tfMinutes = timeframe === "1H" ? 60 : 1440;
-const bars12h = Math.floor((12 * 60) / tfMinutes);
+    const realIndex = i;
 
-// índex real de la barra actual (equivalent a bar_index del Pine)
-const realIndex = i;   // 🔥 això és la clau
+    const nowTs = candles[realIndex].timestamp;
+    const targetTs = nowTs - 12 * 60 * 60 * 1000;
 
-// timestamps
-const nowTs = candles[realIndex].timestamp;
-const targetTs = nowTs - 12 * 60 * 60 * 1000;
+    let bestDiff = Number.MAX_SAFE_INTEGER;
+    let pastIndexBarsAgo = null;
 
-// cerca de la barra més propera a targetTs
-let bestDiff = Number.MAX_SAFE_INTEGER;
-let pastIndexBarsAgo = null;
+    const maxLookback = Math.min(realIndex, bars12h * 2);
 
-// límit de cerca igual que Pine
-const maxLookback = Math.min(realIndex, bars12h * 2);
+    for (let k = 0; k <= maxLookback; k++) {
+      const idx = realIndex - k;
+      if (idx < 0) break;
 
-for (let k = 0; k <= maxLookback; k++) {
-    const idx = realIndex - k;
-    if (idx < 0) break;
+      const ts = candles[idx].timestamp;
+      const diff = Math.abs(ts - targetTs);
 
-    const ts = candles[idx].timestamp;
-    const diff = Math.abs(ts - targetTs);
-
-    if (diff < bestDiff) {
+      if (diff < bestDiff) {
         bestDiff = diff;
         pastIndexBarsAgo = k;
+      }
     }
-}
 
-// si no hi ha prou dades → tendència = 0
-let closeNow = candles[realIndex].close;
-let closePast = closeNow;
-let avgNow = null;
-let avgPast = null;
+    let closeNow = candles[realIndex].close;
+    let closePast = closeNow;
+    let avgNow = null;
+    let avgPast = null;
 
-if (pastIndexBarsAgo === null || realIndex < bars12h) {
-    // no hi ha prou dades
-    avgNow = sma(closes.slice(realIndex - bars12h + 1, realIndex + 1), bars12h);
-    avgPast = avgNow;
-} else {
-    const idxPast = realIndex - pastIndexBarsAgo;
-
-    closePast = candles[idxPast].close;
-
-    // finestra per avgNow (inclou barra actual)
-    const closesNowWin = closes.slice(realIndex - bars12h + 1, realIndex + 1);
-    avgNow = sma(closesNowWin, bars12h);
-
-    // finestra per avgPast (inclou la barra idxPast)
-    //const closesPastWin = closes.slice(idxPast - bars12h + 1, idxPast + 1);
-    //avgPast = sma(closesPastWin, bars12h);
-    const startPast = idxPast - bars12h + 1;
-
-    if (startPast >= 0) {
-      const closesPastWin = closes.slice(startPast, idxPast + 1);
-      avgPast = sma(closesPastWin, bars12h);
-    } else {
-      // FIAT: si la finestra “perfecta” no es pot construir, fem servir avgNow
+    if (pastIndexBarsAgo === null || realIndex < bars12h) {
+      avgNow = sma(closes.slice(realIndex - bars12h + 1, realIndex + 1), bars12h);
       avgPast = avgNow;
+    } else {
+      const idxPast = realIndex - pastIndexBarsAgo;
+
+      closePast = candles[idxPast].close;
+
+      const closesNowWin = closes.slice(realIndex - bars12h + 1, realIndex + 1);
+      avgNow = sma(closesNowWin, bars12h);
+
+      const startPast = idxPast - bars12h + 1;
+
+      if (startPast >= 0) {
+        const closesPastWin = closes.slice(startPast, idxPast + 1);
+        avgPast = sma(closesPastWin, bars12h);
+      } else {
+        avgPast = avgNow;
+      }
     }
 
-  
-}
+    const trendUp12h = closeNow > closePast && avgNow > avgPast;
+    const trendDown12h = closeNow < closePast && avgNow < avgPast;
 
-// FIAT — condicions de tendència
-const trendUp12h = closeNow > closePast && avgNow > avgPast;
-const trendDown12h = closeNow < closePast && avgNow < avgPast;
+    let trendSignal = 0;
+    trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
 
-trendSignal = trendUp12h ? 1 : trendDown12h ? -1 : 0;
+    // -----------------------------------------------------------
+    // FIAT 2.0 — puntuació MS / ES
+    // -----------------------------------------------------------
+    const scoreMs = applyFiat2Score(
+      magSignal === 1 ? 1 : 0,
+      macdSignal === 1 ? 1 : 0,   // MACD alcista per MS
+      trendSignal === 1 ? 1 : 0,
+      satSignal === 1 ? 1 : 0,
+      symbol
+    );
 
-
-   const scoreMs = applyFiat2Score(
-  magSignal === 1 ? 1 : 0,
-  macdSignal === 1 ? 1 : 0,   // MACD alcista per MS
-  trendSignal === 1 ? 1 : 0,
-  satSignal === 1 ? 1 : 0,
-  symbol
-);
-
-const scoreEs = applyFiat2Score(
-  magSignal === 1 ? 1 : 0,
-  macdSignal === -1 ? 1 : 0,  // MACD baixista per ES
-  trendSignal === -1 ? 1 : 0,
-  satSignal === -1 ? 1 : 0,
-  symbol
-);
-
-
+    const scoreEs = applyFiat2Score(
+      magSignal === 1 ? 1 : 0,
+      macdSignal === -1 ? 1 : 0,  // MACD baixista per ES
+      trendSignal === -1 ? 1 : 0,
+      satSignal === -1 ? 1 : 0,
+      symbol
+    );
 
     const msNew = msRaw && !prevMsRaw;
     const esNew = esRaw && !prevEsRaw;
-    // -------------------------------------------------------------
-    // FIAT — CÀLCUL DE DADES CONGELADES (ha d’anar abans de signals.push())
-    // -------------------------------------------------------------
-    // FIAT — DADES CONGELADES (1:1 TradingView)
-    let pastIndex = null;
-    let closesNowFreezeArr = closes.slice(i - bars12h, i);
 
-    let closesPast = null;
+    // -----------------------------------------------------------
+    // FIAT — DADES CONGELADES (1:1 TradingView)
+    // -----------------------------------------------------------
+    let pastIndex = null;
 
     let closeNowFreeze = closeNow;
     let closePastFreeze = closePast;
@@ -184,17 +161,13 @@ const scoreEs = applyFiat2Score(
     let targetTsFreeze = targetTs;
 
     if (pastIndexBarsAgo != null) {
-      // FIAT — usar EXACTAMENT el mateix índex que la tendència
       pastIndex = realIndex - pastIndexBarsAgo;
 
-      // FIAT — recalcular avgPastFreeze amb la mateixa finestra que la tendència
       if (pastIndex >= 0 && pastIndex - bars12h + 1 >= 0) {
         const closesPastWin = closes.slice(pastIndex - bars12h + 1, pastIndex + 1);
         avgPastFreeze = sma(closesPastWin, bars12h);
       }
     }
-
-
 
     if (msNew) {
       signals.push({
@@ -207,21 +180,19 @@ const scoreEs = applyFiat2Score(
         score: scoreMs.score,
         isGood: scoreMs.isGood,
 
-        // 🔥 FIAT — punts
         magPts: scoreMs.magPts,
         macdPts: scoreMs.macdPts,
         trendPts: scoreMs.trendPts,
         satPts: scoreMs.satPts,
 
-        // 🔥 FIAT — dades congelades
-       closeNow: closeNowFreeze,
-       closePast: closePastFreeze,
-       avgNow: avgNowFreeze,
-       avgPast: avgPastFreeze,
-       pastIndex,
-       pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
-       targetTs: targetTsFreeze,
-       trendSignal
+        closeNow: closeNowFreeze,
+        closePast: closePastFreeze,
+        avgNow: avgNowFreeze,
+        avgPast: avgPastFreeze,
+        pastIndex,
+        pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
+        targetTs: targetTsFreeze,
+        trendSignal
       });
     }
 
@@ -236,36 +207,35 @@ const scoreEs = applyFiat2Score(
         score: scoreEs.score,
         isGood: scoreEs.isGood,
 
-        // 🔥 FIAT — punts
         magPts: scoreEs.magPts,
         macdPts: scoreEs.macdPts,
         trendPts: scoreEs.trendPts,
         satPts: scoreEs.satPts,
 
-         // 🔥 FIAT — dades congelades
-       closeNow: closeNowFreeze,
-       closePast: closePastFreeze,
-       avgNow: avgNowFreeze,
-       avgPast: avgPastFreeze,
-       pastIndex,
-       pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
-       targetTs: targetTsFreeze,
-       trendSignal
+        closeNow: closeNowFreeze,
+        closePast: closePastFreeze,
+        avgNow: avgNowFreeze,
+        avgPast: avgPastFreeze,
+        pastIndex,
+        pastTs: pastIndex != null ? candles[pastIndex].timestamp : null,
+        targetTs: targetTsFreeze,
+        trendSignal
       });
     }
-    // -------------------------------------------------------------
-    // INSERT FIAT — NOMÉS SI HI HA SENYAL
-    // -------------------------------------------------------------
+
     if ((msNew || esNew) && i >= bars12h + 1) {
-      const nowTs = candles[i - 1].timestamp;
- 
+      const nowTs2 = candles[i - 1].timestamp;
+
       let bullish = 0;
       let bearish = 0;
 
       if (closeNow > closePast) bullish++; else bearish++;
       if (avgNow > avgPast) bullish++; else bearish++;
 
-
+      // aquí no fem res extra: només mantenim la mateixa estructura
+      void nowTs2;
+      void bullish;
+      void bearish;
     }
 
     prevMsRaw = msRaw;
@@ -310,7 +280,6 @@ function applyFiat2Score(magPts, macdPts, trendPts, satPts, symbol) {
 
   return { score, isGood, magPts, macdPts, trendPts, satPts };
 }
-
 
 // -------------------------------------------------------------
 // STDEV helper (equivalent a ta.stdev(histSmooth, 20))
