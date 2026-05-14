@@ -249,13 +249,23 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
 // FIAT 2.0 — Pesos per cripto (1:1 TradingView)
 // -------------------------------------------------------------
 const FIAT2_CONFIG = {
-  "ARB-USDT": { wMag: 0, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
-  "APT-USDT": { wMag: 0, wMacd: 1, wTrend: 1, wSat: 0, thr: 1 },
-  "ADA-USDT": { wMag: 1, wMacd: 1, wTrend: 4, wSat: 1, thr: 1 },
-  "LINK-USDT": { wMag: 0, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 },
-  "BTC-USDT": { wMag: 0, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
-  "SOL-USDT": { wMag: 1, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 }
+  "ADA-USDT":   { wMag: 1, wMacd: 1, wTrend: 4, wSat: 1, thr: 1 },
+  "APT-USDT":   { wMag: 0, wMacd: 1, wTrend: 1, wSat: 0, thr: 1 },
+  "ARB-USDT":   { wMag: 0, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
+  "ASTER-USDT": { wMag: 1, wMacd: 1, wTrend: 4, wSat: 0, thr: 1 },
+  "ATOM-USDT":  { wMag: 0, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 },
+  "AVAX-USDT":  { wMag: 0, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 },
+  "BCH-USDT":   { wMag: 0, wMacd: 1, wTrend: 1, wSat: 0, thr: 1 },
+  "BNB-USDT":   { wMag: 1, wMacd: 1, wTrend: 4, wSat: 1, thr: 1 },
+  "BTC-USDT":   { wMag: 0, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
+  "DOT-USDT":   { wMag: 1, wMacd: 1, wTrend: 4, wSat: 0, thr: 1 },
+  "ETH-USDT":   { wMag: 1, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
+
+  // ja existien i són correctes:
+  "LINK-USDT":  { wMag: 0, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 },
+  "SOL-USDT":   { wMag: 1, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 }
 };
+
 
 // -------------------------------------------------------------
 // FIAT 2.0 — Obtenir configuració per cripto
