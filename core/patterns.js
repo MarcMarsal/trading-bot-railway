@@ -46,7 +46,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
   //const macdLine = ema12.map((v, i) => v - ema26[i]);
   //const signalLine = ema(macdLine, 9);
   //const hist = macdLine.map((v, i) => v - signalLine[i]);
-  //const histSmooth = ema(hist, 5);
+  //const histth = ema(hist, 5);
 
   const ema12 = ema_TV(closes, 12);
   const ema26 = ema_TV(closes, 26);
@@ -88,7 +88,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     const magOK = bodyThird > bodyFirst * 0.6;
     const magSignal = magOK ? 1 : -1;
 
-    const hSmooth = histSmooth[i-1];
+    const hSmooth = histSmooth[i];
     const hStdev = stdev(histSmooth.slice(0, i + 1), 20);
 
     const macdSignal =
