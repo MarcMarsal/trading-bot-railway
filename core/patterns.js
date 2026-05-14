@@ -4,6 +4,20 @@ import { ema, sma } from "./ta.js";
 import { isBull, isBear } from "./utils.js";
 import { client } from "../db/client.js";
 
+function ema_TV(values, length) {
+  const alpha = 2 / (length + 1);
+  const ema = new Array(values.length);
+
+  // Seed EXACTE com TradingView: primer valor = primer close
+  ema[0] = values[0];
+
+  for (let i = 1; i < values.length; i++) {
+    ema[i] = ema[i - 1] + alpha * (values[i] - ema[i - 1]);
+  }
+
+  return ema;
+}
+
 // -------------------------------------------------------------
 // DETECT MSES FIAT 2.0 (1:1 TradingView)
 // -------------------------------------------------------------
@@ -16,13 +30,21 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
 
   const closes = candles.map(c => c.close);
 
-  const ema12 = ema(closes, 12);
-  const ema26 = ema(closes, 26);
-  const macdLine = ema12.map((v, i) => v - ema26[i]);
-  const signalLine = ema(macdLine, 9);
-  const hist = macdLine.map((v, i) => v - signalLine[i]);
-  const histSmooth = ema(hist, 5);
+  //const ema12 = ema(closes, 12);
+  //const ema26 = ema(closes, 26);
+  //const macdLine = ema12.map((v, i) => v - ema26[i]);
+  //const signalLine = ema(macdLine, 9);
+  //const hist = macdLine.map((v, i) => v - signalLine[i]);
+  //const histSmooth = ema(hist, 5);
 
+  const ema12 = ema_TV(closes, 12);
+  const ema26 = ema_TV(closes, 26);
+  const macdLine = ema12.map((v, i) => v - ema26[i]);
+  const signalLine = ema_TV(macdLine, 9);
+  const hist = macdLine.map((v, i) => v - signalLine[i]);
+  const histSmooth = ema_TV(hist, 5);
+
+  
   const signals = [];
 
   let prevMsRaw = false;
