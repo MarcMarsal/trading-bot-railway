@@ -37,7 +37,14 @@ export async function saveSignal2({
   pastIndex = null,
   pastTs = null,
   targetTs = null,
-  trendSignal = null
+  trendSignal = null,
+  // 🟩 AFEGIT
+  c1_open = null,
+  c1_close = null,
+  c2_open = null,
+  c2_close = null,
+  c3_open = null,
+  c3_close = null
 }) {
   const tsMs = Number(timestamp);   // ms de la vela
   const createdAt = Date.now();     // ms de creació real
@@ -48,54 +55,64 @@ export async function saveSignal2({
   await client.query(
     `
     INSERT INTO signals2 (
-      symbol,
-      timeframe,
-      type,
-      entry,
-      entryr,
-      tp,
-      sl,
-      timestamp,
-      timestamp_ms,
-      timestamp_es,
-      date_es,
-      hora_es,
-      reason,
-      score,
-      is_good,
+  symbol,
+  timeframe,
+  type,
+  entry,
+  entryr,
+  tp,
+  sl,
+  timestamp,
+  timestamp_ms,
+  timestamp_es,
+  date_es,
+  hora_es,
+  reason,
+  score,
+  is_good,
 
-      -- 🔥 FIAT — punts
-      mag_pts,
-      macd_pts,
-      trend_pts,
-      sat_pts,
+  mag_pts,
+  macd_pts,
+  trend_pts,
+  sat_pts,
 
-      -- 🔥 FIAT — dades congelades
-      close_now,
-      close_past,
-      avg_now,
-      avg_past,
-      past_index,
-      past_ts,
-      target_ts,
-      trend_signal,
+  close_now,
+  close_past,
+  avg_now,
+  avg_past,
+  past_index,
+  past_ts,
+  target_ts,
+  trend_signal,
 
-      created_at,
-      closed
-    )
-    VALUES (
-      $1,$2,$3,
-      $4,$5,$6,$7,
-      $8,$9,$10,$11,$12,
-      $13,$14,$15,
+  -- 🟩 AFEGIT
+  c1_open,
+  c1_close,
+  c2_open,
+  c2_close,
+  c3_open,
+  c3_close,
 
-      $16,$17,$18,$19,
+  created_at,
+  closed
+)
+VALUES (
+  $1,$2,$3,
+  $4,$5,$6,$7,
+  $8,$9,$10,$11,$12,
+  $13,$14,$15,
 
-      $20,$21,$22,$23,$24,$25,$26,$27,
+  $16,$17,$18,$19,
 
-      $28,
-      false
-    )
+  $20,$21,$22,$23,$24,$25,$26,$27,
+
+  -- 🟩 AFEGIT
+  $28,$29,$30,$31,$32,$33,
+
+  $34,
+  false
+)
+
     ON CONFLICT DO NOTHING
     `,
     [
@@ -130,7 +147,13 @@ export async function saveSignal2({
       pastTs,
       targetTs,
       trendSignal,
-
+ // 🟩 AFEGIT
+  c1_open,
+  c1_close,
+  c2_open,
+  c2_close,
+  c3_open,
+  c3_close,
       createdAt
     ]
   );
