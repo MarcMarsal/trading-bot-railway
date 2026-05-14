@@ -77,7 +77,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     const magOK = bodyThird > bodyFirst * 0.6;
     const magSignal = magOK ? 1 : -1;
 
-    const hSmooth = histSmooth[i];
+    const hSmooth = histSmooth[i-1];
     const hStdev = stdev(histSmooth.slice(0, i + 1), 20);
 
     const macdSignal =
