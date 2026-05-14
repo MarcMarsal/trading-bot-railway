@@ -260,11 +260,21 @@ const FIAT2_CONFIG = {
   "BTC-USDT":   { wMag: 0, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
   "DOT-USDT":   { wMag: 1, wMacd: 1, wTrend: 4, wSat: 0, thr: 1 },
   "ETH-USDT":   { wMag: 1, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
+  "HBAR-USDT":  { wMag: 1, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 },
+  "INJ-USDT":   { wMag: 0, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
+  "NEAR-USDT":  { wMag: 1, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 },
+  "OP-USDT":    { wMag: 0, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 },
+  "RENDER-USDT":{ wMag: 0, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 },
+  "SEI-USDT":   { wMag: 0, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
+  "SUI-USDT":   { wMag: 2, wMacd: 1, wTrend: 2, wSat: 1, thr: 1 },
+  "VIRTUAL-USDT":{ wMag: 0, wMacd: 1, wTrend: 1, wSat: 0, thr: 1 },
+  "XRP-USDT":   { wMag: 0, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 },
 
-  // ja existien i són correctes:
+  // ja existien:
   "LINK-USDT":  { wMag: 0, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 },
   "SOL-USDT":   { wMag: 1, wMacd: 1, wTrend: 2, wSat: 0, thr: 1 }
 };
+
 
 
 // -------------------------------------------------------------
