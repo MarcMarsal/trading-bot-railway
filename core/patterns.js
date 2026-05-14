@@ -8,15 +8,26 @@ function ema_TV(values, length) {
   const alpha = 2 / (length + 1);
   const ema = new Array(values.length);
 
-  // Seed EXACTE com TradingView: primer valor = primer close
-  ema[0] = values[0];
+  // Seed TradingView: mitjana simple dels primers N valors
+  let sum = 0;
+  for (let i = 0; i < length; i++) {
+    sum += values[i];
+  }
+  ema[length - 1] = sum / length;
 
-  for (let i = 1; i < values.length; i++) {
+  // A partir d'aquí, EMA estàndard
+  for (let i = length; i < values.length; i++) {
     ema[i] = ema[i - 1] + alpha * (values[i] - ema[i - 1]);
+  }
+
+  // Omplir els primers valors amb el primer EMA
+  for (let i = 0; i < length - 1; i++) {
+    ema[i] = ema[length - 1];
   }
 
   return ema;
 }
+
 
 // -------------------------------------------------------------
 // DETECT MSES FIAT 2.0 (1:1 TradingView)
