@@ -1,17 +1,15 @@
-// panell_microimpulsos.js — FIAT v1 PUR (1:1 amb el bot + DEBUG)
+// panell_microimpulsos.js — FIAT‑PRO (net, institucional)
 
 import http from "http";
 import { initDB, client } from "./db/client.js";
 import { formatSpainTime } from "./core/utils.js";
-
-const DEBUG_PANEL = process.env.DEBUG_PANEL === "1";
 
 // Formatador numèric
 function fmt(n) {
   return n !== null && n !== undefined ? Number(n).toFixed(4) : "-";
 }
 
-// Llegir últimes 20 alertes FIAT v1
+// Llegir últimes 20 alertes FIAT‑PRO
 async function getActiveSignals() {
   const q = await client.query(
     `
@@ -26,13 +24,7 @@ async function getActiveSignals() {
       timestamp_ms,
       date_es,
       hora_es,
-      created_at,
-      score,
-      is_good,
-      mag_pts,
-      macd_pts,
-      trend_pts,
-      sat_pts
+      created_at
     FROM signals2
     ORDER BY timestamp_ms DESC
     LIMIT 20
@@ -47,18 +39,11 @@ function renderActiveSignalsTable(signals) {
   let rows = "";
 
   for (const s of signals) {
-    let rowClass = "";
-
-    if (s.type === "M_GOOD") rowClass = "m-good";
-    if (s.type === "M_DISCARD") rowClass = "m-discard";
-    if (s.type === "E_GOOD") rowClass = "e-good";
-    if (s.type === "E_DISCARD") rowClass = "e-discard";
-
     const symbolNoDash = s.symbol.replace("-", "");
     const bitunixUrl = `https://www.bitunix.com/es-es/contract-trade/${symbolNoDash}`;
 
     rows += `
-      <tr class="${rowClass}">
+      <tr>
         <td>${s.id}</td>
         <td>${s.symbol}</td>
         <td>${s.type}</td>
@@ -69,18 +54,6 @@ function renderActiveSignalsTable(signals) {
         <td>${s.date_es}</td>
         <td>${s.hora_es}</td>
         <td>${formatSpainTime(s.created_at)}</td>
-        <td>${fmt(s.score)}</td>
-        <td>${s.is_good ? "GOOD" : "DISCARD"}</td>
-        ${
-          DEBUG_PANEL
-            ? `
-        <td>${fmt(s.mag_pts)}</td>
-        <td>${fmt(s.macd_pts)}</td>
-        <td>${fmt(s.trend_pts)}</td>
-        <td>${fmt(s.sat_pts)}</td>
-        `
-            : ""
-        }
         <td>
           <button onclick="openBitunix('${bitunixUrl}', '${fmt(s.entryr)}')">
             Obrir Bitunix
@@ -91,7 +64,7 @@ function renderActiveSignalsTable(signals) {
   }
 
   return `
-    <h2>Últimes 20 alertes FIAT v1</h2>
+    <h2>Últimes 20 alertes FIAT‑PRO</h2>
     <table>
       <thead>
         <tr>
@@ -105,18 +78,6 @@ function renderActiveSignalsTable(signals) {
           <th>Data vela</th>
           <th>Hora vela</th>
           <th>Creat (ES)</th>
-          <th>Score</th>
-          <th>Classificació</th>
-          ${
-            DEBUG_PANEL
-              ? `
-          <th>MAG</th>
-          <th>MACD</th>
-          <th>TREND</th>
-          <th>SAT</th>
-          `
-              : ""
-          }
           <th>Acció</th>
         </tr>
       </thead>
@@ -172,14 +133,6 @@ async function startPanel() {
           button:hover {
             background-color: #006600;
           }
-
-          /* Colors FIAT v1 */
-          .m-good { color: #00ff00; }
-          .m-discard { color: #66ccff; }
-
-          .e-good { color: #ff4444; }
-          .e-discard { color: #66ccff; }
-
         </style>
 
         <script>
@@ -204,7 +157,7 @@ async function startPanel() {
 
       </head>
       <body>
-        <h1>Panell Microimpulsos FIAT v1</h1>
+        <h1>Panell Microimpulsos FIAT‑PRO</h1>
         <p><b>Última actualització:</b> ${lastUpdate}</p>
 
         ${signalsHTML}
@@ -219,10 +172,10 @@ async function startPanel() {
     }
 
     res.writeHead(200);
-    res.end("Panell FIAT v1 OK");
+    res.end("Panell FIAT‑PRO OK");
   }).listen(process.env.PORT || 3000);
 
-  console.log("Panell Microimpulsos FIAT v1 en marxa");
+  console.log("Panell Microimpulsos FIAT‑PRO en marxa");
 }
 
 startPanel();
