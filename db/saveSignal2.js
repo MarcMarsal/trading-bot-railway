@@ -22,7 +22,18 @@ export async function saveSignal2({
 }) {
   const tsMs = Number(timestamp);
   const createdAt = Date.now();
-
+  
+  // 🔥 Criptos ACTIVADES (les bones) amb el format real del bot
+  const ACTIVE_CRYPTOS = [
+    "BTC-USDT",
+    "APT-USDT",
+    "DOT-USDT",
+    "INJ-USDT",
+    "LINK-USDT",
+    "OP-USDT",
+    "SOL-USDT"
+  ];
+  
   // Data ES basada en la vela
   const { date_es, hora_es, timestamp_es } = splitSpainDate(tsMs);
 
@@ -70,12 +81,15 @@ export async function saveSignal2({
     ]
   );
 
-  // 🔔 Enviar alerta Telegram (FIAT‑PRO)
-  await sendTelegram({
-    symbol,
-    signalType: type,
-    entry,
-    tp,
-    sl
-  });
+  // 🔔 Enviar alerta NOMÉS si la cripto està activada
+  if (ACTIVE_CRYPTOS.includes(symbol)) {
+    await sendTelegram({
+      symbol,
+      signalType: type,
+      entry,
+      tp,
+      sl
+    });
+  }
 }
+  
