@@ -25,13 +25,13 @@ export async function saveSignal2({
   
   // 🔥 Criptos ACTIVADES (les bones) amb el format real del bot
   const ACTIVE_CRYPTOS = [
-    "BTC-USDT",
     "APT-USDT",
+    "ATOM-USDT",
+    "BNB-USDT",
     "DOT-USDT",
-    "INJ-USDT",
-    "LINK-USDT",
+    "ETH-USDT",
     "OP-USDT",
-    "SOL-USDT"
+    "RENDER-USDT"
   ];
   
   // Data ES basada en la vela
