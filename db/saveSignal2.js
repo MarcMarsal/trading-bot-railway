@@ -23,7 +23,26 @@ export async function saveSignal2({
   const tsMs = Number(timestamp);
   const createdAt = Date.now();
   
-  // 🔥 Criptos ACTIVADES (les bones) amb el format real del bot
+  // 🔥 Criptos ACTIVADES dilluns matí 00:00-14:00
+  //const ACTIVE_CRYPTOS = [
+  //  "APT-USDT",
+  //  "BNB-USDT",
+  //  "DOT-USDT",
+  //  "ETH-USDT",
+  //  "RENDER-USDT",
+  //  "XRP-USDT"
+  //];
+
+  // 🔥 Criptos ACTIVADES dilluns tarda 14:15-23:45
+  //const ACTIVE_CRYPTOS = [
+  //  "ARB-USDT",
+  //  "BNB-USDT",
+  //  "LINK-USDT",
+  //  "OP-USDT"
+  //];
+
+  
+  // 🔥 Criptos ACTIVADES diumenge
   const ACTIVE_CRYPTOS = [
     "APT-USDT",
     "ATOM-USDT",
