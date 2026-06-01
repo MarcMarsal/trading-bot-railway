@@ -19,7 +19,8 @@ const ACTIVE_CRYPTOS = [
   "OP-USDT","ARB-USDT","DOT-USDT"
 ];
 
-const TIMEFRAMES = ["1H"];
+//const TIMEFRAMES = ["1H"];
+const TIMEFRAMES = ["1H", "4H"];
 
 // -------------------------------------------------------------
 // LLEGIR VELAS DE LA DB
