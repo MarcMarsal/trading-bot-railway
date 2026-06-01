@@ -16,6 +16,7 @@ async function getActiveSignals() {
     SELECT
       id,
       symbol,
+      timeframe,
       type,
       entry,
       entryr,
@@ -34,7 +35,6 @@ async function getActiveSignals() {
   return q.rows;
 }
 
-// Generar taula
 function renderActiveSignalsTable(signals) {
   let rows = "";
 
@@ -46,6 +46,7 @@ function renderActiveSignalsTable(signals) {
       <tr>
         <td>${s.id}</td>
         <td>${s.symbol}</td>
+        <td>${s.timeframe}</td>
         <td>${s.type}</td>
         <td>${fmt(s.entry)}</td>
         <td>${fmt(s.entryr)}</td>
@@ -70,6 +71,7 @@ function renderActiveSignalsTable(signals) {
         <tr>
           <th>ID</th>
           <th>Symbol</th>
+          <th>Timeframe</th>
           <th>Tipus</th>
           <th>Entrada</th>
           <th>EntradaR</th>
