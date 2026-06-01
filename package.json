@@ -4,7 +4,7 @@
   "description": "FIAT‑PRO Bot 1H + 4H",
   "type": "module",
   "scripts": {
-    "micro": "node bot_microimpulsos_1h.js",
+    "micro": "node bot_microimpulsos.js",
     "micro4h": "node bot_microimpulsos_4h.js"
   },
   "dependencies": {
