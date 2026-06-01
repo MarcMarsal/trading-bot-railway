@@ -3,6 +3,7 @@ import axios from "axios";
 
 export async function sendTelegram({
   symbol = "",
+  timeframe = "",
   signalType = "",
   entry = "",
   tp = "",
@@ -12,7 +13,7 @@ export async function sendTelegram({
 
   let message = "";
 
-  if (symbol) message += `<b>${symbol}</b>\n`;
+  if (symbol) message += `<b>${symbol} ${timeframe}</b>\n`;
   if (signalType) message += `Tipus: <b>${signalType}</b>\n`;
   if (entry) message += `Entrada: <b>${entry}</b>\n`;
   if (tp) message += `TP: <b>${tp}</b>\n`;
