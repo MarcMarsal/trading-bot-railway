@@ -24,14 +24,14 @@ export async function saveSignal2({
   const createdAt = Date.now();
   
   // 🔥 Criptos ACTIVADES dilluns matí 00:00-14:00
-  //const ACTIVE_CRYPTOS = [
-  //  "APT-USDT",
-  //  "BNB-USDT",
-  //  "DOT-USDT",
-  //  "ETH-USDT",
-  //  "RENDER-USDT",
-  //  "XRP-USDT"
-  //];
+  const ACTIVE_CRYPTOS = [
+    "APT-USDT",
+    "BNB-USDT",
+    "DOT-USDT",
+    "ETH-USDT",
+    "RENDER-USDT",
+    "XRP-USDT"
+  ];
 
   // 🔥 Criptos ACTIVADES dilluns tarda 14:15-23:45
   //const ACTIVE_CRYPTOS = [
@@ -43,13 +43,13 @@ export async function saveSignal2({
 
   
   // 🔥 Criptos ACTIVADES diumenge
-  const ACTIVE_CRYPTOS = [
-    "APT-USDT",
-    "ATOM-USDT",
-    "BTC-USDT",
-    "RENDER-USDT",
-    "SOL-USDT"
-  ];
+  //const ACTIVE_CRYPTOS = [
+  //  "APT-USDT",
+  //  "ATOM-USDT",
+  //  "BTC-USDT",
+  //  "RENDER-USDT",
+  //  "SOL-USDT"
+  //];
   
   // Data ES basada en la vela
   const { date_es, hora_es, timestamp_es } = splitSpainDate(tsMs);
