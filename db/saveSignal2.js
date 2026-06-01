@@ -22,9 +22,23 @@ export async function saveSignal2({
 }) {
   const tsMs = Number(timestamp);
   const createdAt = Date.now();
+
+  // 🔥 Criptos ACTIVADES dilluns matí 00:00-14:00
+  const ACTIVE_CRYPTOS_4H = [
+    "APT-USDT",
+    "BNB-USDT",
+    "BTC-USDT",
+    "ETH-USDT",
+    "FET-USDT",
+    "RENDER-USDT",
+    "SOL-USDT",
+    "XRP-USDT"
+  ];
+
+
   
   // 🔥 Criptos ACTIVADES dilluns matí 00:00-14:00
-  const ACTIVE_CRYPTOS = [
+  const ACTIVE_CRYPTOS_1H = [
     "APT-USDT",
     "BNB-USDT",
     "DOT-USDT",
@@ -33,8 +47,11 @@ export async function saveSignal2({
     "XRP-USDT"
   ];
 
+  // Seleccionar llista segons timeframe
+  const activeList = timeframe === "1H" ? ACTIVE_CRYPTOS_1H : ACTIVE_CRYPTOS_4H;
+  
   // 🔥 Criptos ACTIVADES dilluns tarda 14:15-23:45
-  //const ACTIVE_CRYPTOS = [
+  //const ACTIVE_CRYPTOS_1H = [
   //  "ARB-USDT",
   //  "BNB-USDT",
   //  "LINK-USDT",
@@ -43,7 +60,7 @@ export async function saveSignal2({
 
   
   // 🔥 Criptos ACTIVADES diumenge
-  //const ACTIVE_CRYPTOS = [
+  //const ACTIVE_CRYPTOS_1H = [
   //  "APT-USDT",
   //  "ATOM-USDT",
   //  "BTC-USDT",
@@ -99,9 +116,12 @@ export async function saveSignal2({
   );
 
   // 🔔 Enviar alerta NOMÉS si la cripto està activada
-  if (ACTIVE_CRYPTOS.includes(symbol)) {
+  //if (ACTIVE_CRYPTOS.includes(symbol)) {
+  if (activeList.includes(symbol)) {
+  
     await sendTelegram({
       symbol,
+      timeframe,
       signalType: type,
       entry,
       tp,
