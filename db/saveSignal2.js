@@ -39,12 +39,10 @@ export async function saveSignal2({
   
   // 🔥 Criptos ACTIVADES dilluns matí 00:00-14:00
   const ACTIVE_CRYPTOS_1H = [
-    "APT-USDT",
+    "ARB-USDT",
     "BNB-USDT",
-    "DOT-USDT",
-    "ETH-USDT",
-    "RENDER-USDT",
-    "XRP-USDT"
+    "LINK-USDT",
+    "OP-USDT"
   ];
 
   // Seleccionar llista segons timeframe
