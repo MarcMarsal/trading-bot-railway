@@ -12,11 +12,11 @@ import { splitSpainDate } from "./core/utils.js";
 // CONFIG
 // -------------------------------------------------------------
 const ACTIVE_CRYPTOS = [
-  "BTC-USDT","SUI-USDT","SOL-USDT","XRP-USDT","AVAX-USDT",
-  "APT-USDT","INJ-USDT","SEI-USDT","ADA-USDT","LINK-USDT",
-  "BNB-USDT","ETH-USDT","NEAR-USDT","HBAR-USDT","RENDER-USDT",
-  "ASTER-USDT","BCH-USDT","VIRTUAL-USDT","ATOM-USDT",
-  "OP-USDT","ARB-USDT","DOT-USDT"
+  "ADA-USDT","APT-USDT","ARB-USDT","ATOM-USDT","ASTER-USDT",
+  "AVAX-USDT","BCH-USDT","BNB-USDT","BTC-USDT","DOT-USDT",
+  "ETH-USDT","FET-USDT","HBAR-USDT","INJ-USDT","LINK-USDT",
+  "NEAR-USDT","OP-USDT","RENDER-USDT","SEI-USDT","SOL-USDT",
+  "SUI-USDT","VIRTUAL-USDT","XRP-USDT"
 ];
 
 //const TIMEFRAMES = ["1H"];
