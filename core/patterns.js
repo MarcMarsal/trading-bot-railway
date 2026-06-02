@@ -102,7 +102,9 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     // -----------------------------------------------------------
     // TENDÈNCIA 12H FIAT — 1:1 TradingView
     // -----------------------------------------------------------
-    const tfMinutes = timeframe === "1H" ? 60 : 1440;
+    //const tfMinutes = timeframe === "1H" ? 60 : 1440;
+    const tfMinutes = timeframe === "1H" ? 60 : timeframe === "4H" ? 240 : 1440;
+
     const bars12h = Math.floor((12 * 60) / tfMinutes);
 
     const realIndex = i;
