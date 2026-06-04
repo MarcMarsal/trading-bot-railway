@@ -27,7 +27,7 @@ async function getActiveSignals() {
       hora_es,
       created_at
     FROM signals2
-    ORDER BY timestamp_ms DESC
+    ORDER BY created_at DESC
     LIMIT 20
     `
   );
