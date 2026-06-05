@@ -34,39 +34,19 @@ export async function saveSignal2({
     "SOL-USDT",
     "XRP-USDT"
   ];
-
-
-  
-  // 🔥 Criptos ACTIVADES dilluns matí 00:00-14:00
+ 
+  // 🔥 Criptos ACTIVADES 
   const ACTIVE_CRYPTOS_1H = [
     "APT-USDT",
+    "ATOM-USDT",
+    "BNB-USDT",
     "DOT-USDT",
-    "LINK-USDT",
-    "OP-USDT",
-    "SOL-USDT"
+    "FET-USDT"
   ];
 
   // Seleccionar llista segons timeframe
   const activeList = timeframe === "1H" ? ACTIVE_CRYPTOS_1H : ACTIVE_CRYPTOS_4H;
-  
-  // 🔥 Criptos ACTIVADES dilluns tarda 14:15-23:45
-  //const ACTIVE_CRYPTOS_1H = [
-  //  "ARB-USDT",
-  //  "BNB-USDT",
-  //  "LINK-USDT",
-  //  "OP-USDT"
-  //];
-
-  
-  // 🔥 Criptos ACTIVADES diumenge
-  //const ACTIVE_CRYPTOS_1H = [
-  //  "APT-USDT",
-  //  "ATOM-USDT",
-  //  "BTC-USDT",
-  //  "RENDER-USDT",
-  //  "SOL-USDT"
-  //];
-  
+    
   // Data ES basada en la vela
   const { date_es, hora_es, timestamp_es } = splitSpainDate(tsMs);
 
