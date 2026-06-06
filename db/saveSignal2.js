@@ -37,11 +37,11 @@ export async function saveSignal2({
  
   // 🔥 Criptos ACTIVADES 
   const ACTIVE_CRYPTOS_1H = [
-    "APT-USDT",
-    "ATOM-USDT",
-    "BNB-USDT",
-    "DOT-USDT",
-    "FET-USDT"
+    "ARB-USDT",
+    "FET-USDT",
+    "INJ-USDT",
+    "OP-USDT",
+    "XRP-USDT"
   ];
 
   // Seleccionar llista segons timeframe
