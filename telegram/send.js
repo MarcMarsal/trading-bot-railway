@@ -2,6 +2,7 @@
 import axios from "axios";
 
 export async function sendTelegram({
+  bot = "",
   symbol = "",
   timeframe = "",
   signalType = "",
@@ -12,7 +13,8 @@ export async function sendTelegram({
   const url = `https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`;
 
   let message = "";
-
+  
+  if (bot) message += `Bot: <b>${bot}</b>\n`;
   if (symbol) message += `<b>${symbol} ${timeframe}</b>\n`;
   if (signalType) message += `Tipus: <b>${signalType}</b>\n`;
   if (entry) message += `Entrada: <b>${entry}</b>\n`;
