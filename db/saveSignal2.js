@@ -108,6 +108,7 @@ export async function saveSignal2({
   if (activeList.includes(symbol)) {
   
     await sendTelegram({
+      "RAW",
       symbol,
       timeframe,
       signalType: type,
