@@ -106,9 +106,9 @@ export async function saveSignal2({
   // 🔔 Enviar alerta NOMÉS si la cripto està activada
   //if (ACTIVE_CRYPTOS.includes(symbol)) {
   if (activeList.includes(symbol)) {
-  
+    const bot = "RAW";
     await sendTelegram({
-      "RAW",
+      bot,
       symbol,
       timeframe,
       signalType: type,
