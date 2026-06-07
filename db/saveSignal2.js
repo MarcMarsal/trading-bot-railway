@@ -36,22 +36,22 @@ export async function saveSignal2({
   ];
  
   // 🔥 Criptos ACTIVADES 
-  const ACTIVE_CRYPTOS_1H = [
-    "ARB-USDT",
-    "FET-USDT",
-    "INJ-USDT",
-    "OP-USDT",
-    "XRP-USDT"
-  ];
-
   //const ACTIVE_CRYPTOS_1H = [
-  //  "APT-USDT",
-  //  "ATOM-USDT",
-  //  "BTC-USDT",
-  //  "ETH-USDT",
-  //  "RENDER-USDT",
-  //  "SOL-USDT"
+  //  "ARB-USDT",
+  //  "FET-USDT",
+  //  "INJ-USDT",
+  //  "OP-USDT",
+  //  "XRP-USDT"
   //];
+
+  const ACTIVE_CRYPTOS_1H = [
+    "APT-USDT",
+    "ATOM-USDT",
+    "BTC-USDT",
+    "ETH-USDT",
+    "RENDER-USDT",
+    "SOL-USDT"
+  ];
 
   // Seleccionar llista segons timeframe
   const activeList = timeframe === "1H" ? ACTIVE_CRYPTOS_1H : ACTIVE_CRYPTOS_4H;
