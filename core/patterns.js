@@ -203,18 +203,19 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         avgPastFreeze = sma(closesPastWin, bars12h);
       }
     }
-    // inici
-    // 🟩 FIAT — BLOQUEIG DE REGENERACIÓ DE SENYALS
-    //const tfMinutes = timeframe === "1H" ? 60 : 240;
-    const nowCandle = Math.floor(Date.now() / (tfMinutes * 60 * 1000));
-    const signalCandle = Math.floor(c1.timestamp / (tfMinutes * 60 * 1000));
-
-    if (signalCandle !== nowCandle) {
-      continue; // NO generar senyals antigues
-    }
-
-    // fi
+    
     if (msNew) {
+      // inici
+      // 🟩 FIAT — BLOQUEIG DE REGENERACIÓ DE SENYALS
+      //const tfMinutes = timeframe === "1H" ? 60 : 240;
+      const nowCandle = Math.floor(Date.now() / (tfMinutes * 60 * 1000));
+      const signalCandle = Math.floor(c1.timestamp / (tfMinutes * 60 * 1000));
+
+      if (signalCandle !== nowCandle) {
+        continue; // NO generar senyals antigues
+      }
+
+      // fi
       signals.push({
         symbol,
         timeframe,
@@ -247,19 +248,20 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
         c3_close: c3.close
       });
     }
-    // inici
-    // 🟩 FIAT — BLOQUEIG DE REGENERACIÓ DE SENYALS
-    //const tfMinutes = timeframe === "1H" ? 60 : 240;
-    const nowCandle = Math.floor(Date.now() / (tfMinutes * 60 * 1000));
-    const signalCandle = Math.floor(c1.timestamp / (tfMinutes * 60 * 1000));
-
-    if (signalCandle !== nowCandle) {
-      continue; // NO generar senyals antigues
-    }
-
-    // fi
+   
     
     if (esNew) {
+       // inici
+      // 🟩 FIAT — BLOQUEIG DE REGENERACIÓ DE SENYALS
+      //const tfMinutes = timeframe === "1H" ? 60 : 240;
+      const nowCandle = Math.floor(Date.now() / (tfMinutes * 60 * 1000));
+      const signalCandle = Math.floor(c1.timestamp / (tfMinutes * 60 * 1000));
+
+      if (signalCandle !== nowCandle) {
+        continue; // NO generar senyals antigues
+      }
+
+      // fi
       signals.push({
         symbol,
         timeframe,
