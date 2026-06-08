@@ -275,20 +275,7 @@ if (
       const signalTs = c1.timestamp;
 
      if (signalTs !== lastCandleTs) {
-    console.log("⛔ FILTRE BLOQUEJANT", {
-        symbol,
-        timeframe,
-        signalTs,
-        lastCandleTs,
-        diff: signalTs - lastCandleTs,
-        msNew,
-        esNew,
-        c1: {
-            open: c1.open,
-            close: c1.close,
-            timestamp: c1.timestamp
-        }
-    });
+    
     continue;
 }
 
