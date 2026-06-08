@@ -209,8 +209,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     
     if (msNew) {
       // 🟩 BLOQUEJADOR FI
-      //if (i !== n - 1) {
-      if (i !== n - 2) {
+      if (i !== n - 1) {
         continue;
       }
       signals.push({
@@ -248,9 +247,12 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
    
     
     if (esNew) {
-     
+     // 🟩 BLOQUEJADOR FI
+      if (i !== n - 1) {
+        continue;
+      }
+      
 
-      // fi
       signals.push({
         symbol,
         timeframe,
