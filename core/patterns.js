@@ -208,7 +208,10 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     }
     
     if (msNew) {
-      
+      // 🟩 BLOQUEJADOR FI
+      if (i !== n - 1) {
+        continue;
+      }
       signals.push({
         symbol,
         timeframe,
