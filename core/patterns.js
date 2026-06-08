@@ -211,20 +211,23 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       const signalTs = c1.timestamp;
 
       if (signalTs !== lastCandleTs) {
-    console.log("⛔ FILTRE BLOQUEJANT", {
-        symbol,
-        timeframe,
-        signalTs,
-        lastCandleTs,
-        diff: signalTs - lastCandleTs,
-        msNew,
-        esNew,
-        c1: {
-            open: c1.open,
-            close: c1.close,
-            timestamp: c1.timestamp
-        }
-    });
+   // DEBUG ULTRA FI: només la senyal BTC 09:00
+if (
+  symbol === "BTC-USDT" &&
+  c1.timestamp === 1780898400000
+) {
+  console.log("🔍 BTC DEBUG SENYAL 09:00", {
+    msRaw,
+    esRaw,
+    msNew,
+    esNew,
+    c1_ts: c1.timestamp,
+    lastCandleTs: candles[n - 1].timestamp,
+    i,
+    n
+  });
+}
+
     continue;
 }
 
