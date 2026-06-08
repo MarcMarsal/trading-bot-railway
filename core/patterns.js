@@ -66,6 +66,27 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     const c1 = candles[i - 1];
     const c2 = candles[i - 2];
     const c3 = candles[i - 3];
+    const c0 = candles[i];
+const c1 = candles[i - 1];
+const c2 = candles[i - 2];
+const c3 = candles[i - 3];
+
+// DEBUG ULTRA FI: només la vela BTC 09:00
+if (symbol === "BTC-USDT" && c1.timestamp === 1780898400000) {
+  const lastCandleTs = candles[n - 1].timestamp;
+
+  console.log("🔍 BTC DEBUG SENYAL 09:00", {
+    i,
+    n,
+    c1_ts: c1.timestamp,
+    lastCandleTs,
+    msRaw,
+    esRaw,
+    msNew,
+    esNew
+  });
+}
+
 
     const rangeFirst = c3.high - c3.low;
     const indecisionOK =
@@ -211,23 +232,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       const signalTs = c1.timestamp;
 
       if (signalTs !== lastCandleTs) {
-   // DEBUG ULTRA FI: només la senyal BTC 09:00
-if (
-  symbol === "BTC-USDT" &&
-  c1.timestamp === 1780898400000
-) {
-  console.log("🔍 BTC DEBUG SENYAL 09:00", {
-    msRaw,
-    esRaw,
-    msNew,
-    esNew,
-    c1_ts: c1.timestamp,
-    lastCandleTs: candles[n - 1].timestamp,
-    i,
-    n
-  });
-}
-
+  
     continue;
 }
 
