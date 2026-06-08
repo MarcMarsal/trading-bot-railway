@@ -211,26 +211,23 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       const signalTs = c1.timestamp;
 
       if (signalTs !== lastCandleTs) {
-        if (signalTs !== lastCandleTs) {
-          console.log("⛔ FILTRE BLOQUEJANT", {
-              symbol,
-              timeframe,
-              signalTs,
-              lastCandleTs,
-              diff: signalTs - lastCandleTs,
-              msNew,
-              esNew,
-              c1: {
-                   open: c1.open,
-                   close: c1.close,
-                   timestamp: c1.timestamp
-                  }
-          });
+    console.log("⛔ FILTRE BLOQUEJANT", {
+        symbol,
+        timeframe,
+        signalTs,
+        lastCandleTs,
+        diff: signalTs - lastCandleTs,
+        msNew,
+        esNew,
+        c1: {
+            open: c1.open,
+            close: c1.close,
+            timestamp: c1.timestamp
+        }
+    });
     continue;
 }
 
-        continue;
-      }
 
 
       // fi
@@ -274,25 +271,24 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       const lastCandleTs = candles[n - 1].timestamp;
       const signalTs = c1.timestamp;
 
-      if (signalTs !== lastCandleTs) {
-                if (signalTs !== lastCandleTs) {
-          console.log("⛔ FILTRE BLOQUEJANT", {
-              symbol,
-              timeframe,
-              signalTs,
-              lastCandleTs,
-              diff: signalTs - lastCandleTs,
-              msNew,
-              esNew,
-              c1: {
-                   open: c1.open,
-                   close: c1.close,
-                   timestamp: c1.timestamp
-                  }
-          });
+     if (signalTs !== lastCandleTs) {
+    console.log("⛔ FILTRE BLOQUEJANT", {
+        symbol,
+        timeframe,
+        signalTs,
+        lastCandleTs,
+        diff: signalTs - lastCandleTs,
+        msNew,
+        esNew,
+        c1: {
+            open: c1.open,
+            close: c1.close,
+            timestamp: c1.timestamp
+        }
+    });
+    continue;
+}
 
-        continue;
-      }
       // fi
       signals.push({
         symbol,
