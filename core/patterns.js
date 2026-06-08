@@ -211,6 +211,24 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       const signalTs = c1.timestamp;
 
       if (signalTs !== lastCandleTs) {
+        if (signalTs !== lastCandleTs) {
+          console.log("⛔ FILTRE BLOQUEJANT", {
+              symbol,
+              timeframe,
+              signalTs,
+              lastCandleTs,
+              diff: signalTs - lastCandleTs,
+              msNew,
+              esNew,
+              c1: {
+                   open: c1.open,
+                   close: c1.close,
+                   timestamp: c1.timestamp
+                  }
+          });
+    continue;
+}
+
         continue;
       }
 
@@ -257,6 +275,22 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
       const signalTs = c1.timestamp;
 
       if (signalTs !== lastCandleTs) {
+                if (signalTs !== lastCandleTs) {
+          console.log("⛔ FILTRE BLOQUEJANT", {
+              symbol,
+              timeframe,
+              signalTs,
+              lastCandleTs,
+              diff: signalTs - lastCandleTs,
+              msNew,
+              esNew,
+              c1: {
+                   open: c1.open,
+                   close: c1.close,
+                   timestamp: c1.timestamp
+                  }
+          });
+
         continue;
       }
       // fi
