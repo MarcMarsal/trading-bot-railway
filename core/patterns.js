@@ -66,10 +66,6 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     const c1 = candles[i - 1];
     const c2 = candles[i - 2];
     const c3 = candles[i - 3];
-    const c0 = candles[i];
-const c1 = candles[i - 1];
-const c2 = candles[i - 2];
-const c3 = candles[i - 3];
 
 // DEBUG ULTRA FI: només la vela BTC 09:00
 if (symbol === "BTC-USDT" && c1.timestamp === 1780898400000) {
