@@ -208,39 +208,7 @@ export async function detectMSES(candlesRaw, symbol, timeframe) {
     }
     
     if (msNew) {
-      // inici
-      // 🟩 FIAT — BLOQUEIG DE REGENERACIÓ DE SENYALS
-      const lastCandleTs = candles[n - 1].timestamp;
-      const signalTs = c1.timestamp;
-// DEBUG FI: només senyals d'avui de BTC 1H
-if (symbol === "BTC-USDT" && timeframe === "1h") {
-  const ts = c1.timestamp;
-
-  // Comprovar si la vela és d'avui
-  const today = new Date().setHours(0,0,0,0);
-  const candleDay = new Date(ts).setHours(0,0,0,0);
-
-  if (candleDay === today && (msRaw || esRaw)) {
-    console.log("🔍 BTC 1H SENYAL D'AVUI", {
-      type: msRaw ? "MS" : "ES",
-      timestamp: ts,
-      hora: new Date(ts).toISOString(),
-      msRaw,
-      esRaw,
-      msNew,
-      esNew
-    });
-  }
-}
-
-      if (signalTs !== lastCandleTs) {
-  
-    continue;
-}
-
-
-
-      // fi
+      
       signals.push({
         symbol,
         timeframe,
@@ -276,15 +244,7 @@ if (symbol === "BTC-USDT" && timeframe === "1h") {
    
     
     if (esNew) {
-      // inici
-      // 🟩 FIAT — BLOQUEIG DE REGENERACIÓ DE SENYALS
-      const lastCandleTs = candles[n - 1].timestamp;
-      const signalTs = c1.timestamp;
-
-     if (signalTs !== lastCandleTs) {
-    
-    continue;
-}
+     
 
       // fi
       signals.push({
