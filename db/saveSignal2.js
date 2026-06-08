@@ -44,13 +44,22 @@ export async function saveSignal2({
   //  "XRP-USDT"
   //];
 
+  //const ACTIVE_CRYPTOS_1H = [
+  //  "APT-USDT",
+  //  "ATOM-USDT",
+  //  "BTC-USDT",
+  //  "ETH-USDT",
+  //  "RENDER-USDT",
+  //  "SOL-USDT"
+  //];
+
   const ACTIVE_CRYPTOS_1H = [
     "APT-USDT",
-    "ATOM-USDT",
-    "BTC-USDT",
+    "BNB-USDT",
+    "DOT-USDT",
     "ETH-USDT",
     "RENDER-USDT",
-    "SOL-USDT"
+    "XRP-USDT"
   ];
 
   // Seleccionar llista segons timeframe
